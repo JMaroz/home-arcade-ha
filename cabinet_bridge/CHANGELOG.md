@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.54.3](https://github.com/JMaroz/home-arcade-ha/compare/v2.54.2...v2.54.3) (2026-10-10)
+
+
+### Bug Fixes
+
+* resolve add-on Docker build failures ([76e6984](https://github.com/JMaroz/home-arcade-ha/commit/76e6984448c70d93e84a25e25344de1fed172403))
+
 ## [2.54.2](https://github.com/JMaroz/home-arcade-ha/compare/v2.54.1...v2.54.2) (2026-10-10)
 
 
