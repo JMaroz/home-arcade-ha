@@ -28,6 +28,7 @@ import { PlayStats } from "@/components/PlayStats";
 import { NetplaySettings } from "./settings/NetplaySettings";
 
 import { BiosManager } from "@/components/BiosManager";
+import { openSetupWizard } from "@/components/SetupWizardDialog";
 import { Section, Step, Code } from "./settings/SettingsShared";
 
 // ── Category Configuration ───────────────────────────────────────────────────
@@ -133,6 +134,14 @@ export default function Settings() {
                  <><ShieldAlert className="size-3 text-muted-foreground/40" /> {t("settings.autoSaved")}</>
                )}
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openSetupWizard}
+              className="w-full justify-start px-2.5 text-primary hover:text-primary hover:bg-primary/10 gap-2 text-[10px] uppercase font-bold tracking-widest border-primary/20 bg-primary/5"
+            >
+              <Sparkles className="size-3" /> Setup Wizard
+            </Button>
             <Button variant="ghost" size="sm" onClick={handleReset}
               className="w-full justify-start px-0 text-destructive/60 hover:text-destructive hover:bg-destructive/5 gap-2 text-[10px] uppercase font-bold tracking-widest">
               <RotateCcw className="size-3" /> {t("settings.buttons.resetDefaults")}
@@ -147,7 +156,17 @@ export default function Settings() {
           <header className="md:hidden flex flex-col shrink-0 p-4 border-b border-white/5 bg-[#0f0f14]/80 backdrop-blur-md sticky top-0 z-20 gap-4">
             <div className="flex items-center justify-between">
                <h1 className="font-display text-xl font-black tracking-tight">Settings</h1>
-               {saveStatus === "saving" && <Loader2 className="size-4 animate-spin text-primary" />}
+               <div className="flex items-center gap-2">
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={openSetupWizard}
+                   className="h-8 gap-1.5 text-[10px] font-bold uppercase tracking-wider text-primary border-primary/30 bg-primary/5"
+                 >
+                   <Sparkles className="size-3" /> Wizard
+                 </Button>
+                 {saveStatus === "saving" && <Loader2 className="size-4 animate-spin text-primary" />}
+               </div>
             </div>
             
             <Select value={activeTab} onValueChange={setActiveTab}>

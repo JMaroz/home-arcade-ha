@@ -69,6 +69,12 @@
   - [x] Verificare consistenza manifest `config.yaml` con mapping `media:rw` e `share:rw`.
   - [x] Aggiornare `docs/HANDOFF.md`.
 
+- [x] **Milestone 5: Bug Fixes Setup Wizard & Core N64 Libretro**
+  - [x] Fix propagazione eventi dismiss `DirectoryPickerDialog`: aggiunto `stopPropagation` e guardie su `pickerOpen` per prevenire la chiusura accidentale del wizard al click sulla "X".
+  - [x] Fix rilancio Setup Wizard da Impostazioni: introdotto `openSetupWizard()` globale e aggiunto pulsanti in `Settings.tsx` e `LibrarySettings.tsx`.
+  - [x] Fix reset Step 1 al termine del download: eliminato reset indiscriminato di `step` su ogni re-fetch di `status` in `SetupWizardDialog.tsx`, isolando la transizione di apertura con `useRef`.
+  - [x] Fix download core N64 (404 su Libretro Buildbot per `aarch64`): sostituito `mupen64plus_next` con `parallel_n64` (`parallel_n64_libretro.so.zip`), con fallback bidirezionale nel runner e nel controllo stato.
+
 ---
 
 ## 4. Strategia di Verifica

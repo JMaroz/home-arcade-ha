@@ -77,6 +77,10 @@ interface SetupWizardDialogProps {
   onOpenChange?: (open: boolean) => void;
 }
 
+export function openSetupWizard() {
+  window.dispatchEvent(new CustomEvent("homearcade:open-setup-wizard"));
+}
+
 export function SetupWizardDialog({ forceOpen, onOpenChange }: SetupWizardDialogProps) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -85,6 +89,17 @@ export function SetupWizardDialog({ forceOpen, onOpenChange }: SetupWizardDialog
   const [bootstrapping, setBootstrapping] = useState(false);
   const [savingFolder, setSavingFolder] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Listen for global openSetupWizard events (e.g. from Settings)
+  useEffect(() => {
+    const handleOpenEvent = () => {
+      setDismissed(false);
+      setOpen(true);
+      setStep(1);
+    };
+    window.addEventListener("homearcade:open-setup-wizard", handleOpenEvent);
+    return () => window.removeEventListener("homearcade:open-setup-wizard", handleOpenEvent);
+  }, []);
 
   // Selected ROM path
   const [selectedRomPath, setSelectedRomPath] = useState<string>("/share/roms");
@@ -120,18 +135,31 @@ export function SetupWizardDialog({ forceOpen, onOpenChange }: SetupWizardDialog
     }
   }, [status]);
 
-  // Auto-open on initial load if setup is not complete and user hasn't dismissed it
+  // Respond only to genuine forceOpen prop transitions (never on background status changes)
+  const prevForceOpenRef = React.useRef(forceOpen);
   useEffect(() => {
-    if (forceOpen !== undefined) {
+    if (forceOpen !== undefined && forceOpen !== prevForceOpenRef.current) {
+      prevForceOpenRef.current = forceOpen;
       setOpen(forceOpen);
-      if (forceOpen) setStep(1);
-      return;
+      if (forceOpen) {
+        setDismissed(false);
+        setStep(1);
+      }
     }
+  }, [forceOpen]);
+
+  // Auto-open once on initial load if setup is not complete and user hasn't completed or dismissed it
+  const autoOpenedRef = React.useRef(false);
+  useEffect(() => {
+    if (forceOpen !== undefined) return;
+    if (autoOpenedRef.current) return;
     const hasCompleted = localStorage.getItem("ha_setup_wizard_completed");
     if (status && !status.isComplete && !dismissed && !hasCompleted) {
+      autoOpenedRef.current = true;
       setOpen(true);
+      setStep(1);
     }
-  }, [status, dismissed, forceOpen]);
+  }, [status?.isComplete, dismissed, forceOpen]);
 
   // Sync bootstrap state
   useEffect(() => {
@@ -240,12 +268,23 @@ export function SetupWizardDialog({ forceOpen, onOpenChange }: SetupWizardDialog
       <Dialog
         open={open}
         onOpenChange={(next) => {
+          // If directory picker sub-dialog is active or just closed, do NOT close wizard!
+          if (pickerOpen) return;
           if (!next && !bootstrapping) {
             handleDismiss();
           }
         }}
       >
-        <DialogContent className="max-w-xl bg-card border-border/80 shadow-2xl p-6 sm:rounded-xl">
+        <DialogContent
+          onPointerDownOutside={(e) => {
+            // Prevent outside clicks or nested dialog events from dismissing wizard
+            e.preventDefault();
+          }}
+          onInteractOutside={(e) => {
+            e.preventDefault();
+          }}
+          className="max-w-xl bg-card border-border/80 shadow-2xl p-6 sm:rounded-xl"
+        >
           <DialogHeader className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -321,7 +360,7 @@ export function SetupWizardDialog({ forceOpen, onOpenChange }: SetupWizardDialog
                 <div
                   onClick={() => setSelectedRomPath("/share/roms")}
                   className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                    selectedRomPath === "/share/roms"
+                    selectedRomPath.startsWith("/share")
                       ? "border-primary bg-primary/10 shadow-sm"
                       : "border-border/60 bg-muted/20 hover:border-border hover:bg-muted/40"
                   }`}
@@ -340,7 +379,7 @@ export function SetupWizardDialog({ forceOpen, onOpenChange }: SetupWizardDialog
                 <div
                   onClick={() => setSelectedRomPath("/media/roms")}
                   className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                    selectedRomPath === "/media/roms"
+                    selectedRomPath.startsWith("/media")
                       ? "border-primary bg-primary/10 shadow-sm"
                       : "border-border/60 bg-muted/20 hover:border-border hover:bg-muted/40"
                   }`}

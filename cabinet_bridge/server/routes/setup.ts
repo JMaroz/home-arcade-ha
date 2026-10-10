@@ -61,6 +61,23 @@ export async function checkSetupStatus() {
           size: stat.size,
         };
       } catch {
+        // Fallback check for n64 if parallel_n64 is missing but mupen64plus_next is already installed
+        if (c.system === "n64") {
+          const altPath = path.join(CORES_DIR, "mupen64plus_next_libretro.so");
+          try {
+            const stat = await fs.stat(altPath);
+            if (stat.isFile() && stat.size > 0) {
+              return {
+                id: c.id,
+                name: "mupen64plus_next_libretro.so",
+                label: c.label,
+                system: c.system,
+                installed: true,
+                size: stat.size,
+              };
+            }
+          } catch {}
+        }
         return {
           id: c.id,
           name: c.name,
@@ -248,6 +265,7 @@ export function registerSetupRoutes(app: Express) {
     });
 
     (async () => {
+      const failedItems: string[] = [];
       try {
         // Step 1: Download missing Libretro native cores
         for (const core of missingCores) {
@@ -272,6 +290,7 @@ export function registerSetupRoutes(app: Express) {
             await fs.rename(tmpPath, destPath);
           } catch (err) {
             console.error(`[Setup] Error downloading core ${core.name}:`, err);
+            failedItems.push(core.label);
           }
 
           currentProgress.completedItems++;
@@ -306,13 +325,18 @@ export function registerSetupRoutes(app: Express) {
           } catch (err) {
             console.error(`[Setup] Error downloading BIOS ${bios.filename}:`, err);
             await fs.unlink(tmpPath).catch(() => {});
+            failedItems.push(bios.label || bios.filename);
           }
 
           currentProgress.completedItems++;
         }
 
         currentProgress.stage = "complete";
-        currentProgress.currentItem = "Setup complete! Native engine ready.";
+        if (failedItems.length > 0) {
+          currentProgress.currentItem = `Setup completato con avvisi (non scaricati: ${failedItems.join(", ")})`;
+        } else {
+          currentProgress.currentItem = "Setup complete! Native engine ready.";
+        }
       } catch (err) {
         currentProgress.stage = "error";
         currentProgress.error = String(err);

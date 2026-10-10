@@ -7,15 +7,15 @@ import { checkSetupStatus } from "../routes/setup";
 describe("Native Core Metadata & Buildbot URLs", () => {
   it("should have valid essential native cores defined", () => {
     expect(ESSENTIAL_NATIVE_CORES.length).toBeGreaterThanOrEqual(8);
-    const n64 = ESSENTIAL_NATIVE_CORES.find(c => c.id === "mupen64plus_next");
+    const n64 = ESSENTIAL_NATIVE_CORES.find(c => c.id === "parallel_n64");
     expect(n64).toBeDefined();
-    expect(n64?.name).toBe("mupen64plus_next_libretro.so");
-    expect(n64?.archive).toBe("mupen64plus_next_libretro.so.zip");
+    expect(n64?.name).toBe("parallel_n64_libretro.so");
+    expect(n64?.archive).toBe("parallel_n64_libretro.so.zip");
   });
 
   it("should construct valid Libretro buildbot URLs for aarch64 and x86_64", () => {
-    const armUrl = getLibretroBuildbotUrl("aarch64", "mupen64plus_next_libretro.so.zip");
-    expect(armUrl).toBe("https://buildbot.libretro.com/nightly/linux/aarch64/latest/mupen64plus_next_libretro.so.zip");
+    const armUrl = getLibretroBuildbotUrl("aarch64", "parallel_n64_libretro.so.zip");
+    expect(armUrl).toBe("https://buildbot.libretro.com/nightly/linux/aarch64/latest/parallel_n64_libretro.so.zip");
 
     const x64Url = getLibretroBuildbotUrl("x86_64", "pcsx_rearmed_libretro.so.zip");
     expect(x64Url).toBe("https://buildbot.libretro.com/nightly/linux/x86_64/latest/pcsx_rearmed_libretro.so.zip");
@@ -97,7 +97,7 @@ describe("Setup Status Service", () => {
 describe("Native Streaming & Runner Manager", () => {
   it("should map supported gaming systems to valid Libretro cores", async () => {
     const { SYSTEM_TO_NATIVE_CORE } = await import("../../shared/core-metadata");
-    expect(SYSTEM_TO_NATIVE_CORE["n64"]).toBe("mupen64plus_next_libretro.so");
+    expect(SYSTEM_TO_NATIVE_CORE["n64"]).toBe("parallel_n64_libretro.so");
     expect(SYSTEM_TO_NATIVE_CORE["ps1"]).toBe("pcsx_rearmed_libretro.so");
     expect(SYSTEM_TO_NATIVE_CORE["snes"]).toBe("snes9x_libretro.so");
     expect(SYSTEM_TO_NATIVE_CORE["genesis"]).toBe("genesis_plus_gx_libretro.so");

@@ -46,7 +46,7 @@ import {
   Cpu,
   Zap,
 } from "lucide-react";
-import { SetupWizardDialog } from "@/components/SetupWizardDialog";
+import { SetupWizardDialog, openSetupWizard } from "@/components/SetupWizardDialog";
 import { RomUpload } from "@/components/RomUpload";
 import { DirectoryPickerDialog } from "@/components/DirectoryPickerDialog";
 import { MoveAllRomsDialog } from "@/components/MoveAllRomsDialog";
@@ -401,6 +401,34 @@ function ScannerStatusSection() {
         )}
       >
         <div className="space-y-6">
+          {/* Setup Wizard Card */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-3">
+              <div className="size-9 rounded-lg bg-primary/20 flex items-center justify-center text-primary border border-primary/30 shrink-0">
+                <Sparkles className="size-4" />
+              </div>
+              <div>
+                <div className="font-bold text-xs text-foreground flex items-center gap-2">
+                  Configurazione Guidata (Setup Wizard)
+                  <span className="text-[10px] font-mono text-primary font-normal bg-primary/10 px-1.5 py-0.5 rounded">Samba &bull; SSD &bull; Cores</span>
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  Riconfigura guidata: seleziona cartelle Samba o SSD, scarica core nativi e verifica i file BIOS.
+                </div>
+              </div>
+            </div>
+            <Button
+              type="button"
+              onClick={openSetupWizard}
+              variant="default"
+              size="sm"
+              className="gap-2 font-mono uppercase text-xs shrink-0 self-end sm:self-center"
+            >
+              <Zap className="size-3.5 fill-current" />
+              Avvia Setup Wizard
+            </Button>
+          </div>
+
           <div className="space-y-2">
             <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
               Watch Directories
@@ -822,30 +850,23 @@ function LibraryHealthSection() {
           <div className="flex flex-col gap-4 p-5 rounded-xl border border-primary/30 bg-primary/5">
             <div className="flex items-center gap-3">
               <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                <Cpu className="size-5" />
+                <Sparkles className="size-5" />
               </div>
               <div>
-                <div className="font-display font-bold text-sm">Native Cores & BIOS</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">Scarica o ripristina i core ARM64 e i file BIOS in /data.</div>
+                <div className="font-display font-bold text-sm">Setup Wizard & Manutenzione</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">Riconfigura cartelle Samba/SSD, scarica o ripristina i motori di emulazione e i file BIOS in /data.</div>
               </div>
             </div>
             <Button
-              onClick={() => setShowSetupWizard(true)}
+              onClick={openSetupWizard}
               variant="default"
               className="w-full gap-2 font-black uppercase text-[10px] tracking-widest h-10"
             >
               <Zap className="size-3.5 fill-current" />
-              Verifica Cores & BIOS
+              Rilancia Setup Wizard
             </Button>
           </div>
         </div>
-
-        {showSetupWizard && (
-          <SetupWizardDialog
-            forceOpen={showSetupWizard}
-            onOpenChange={setShowSetupWizard}
-          />
-        )}
       </Section>
 
       <Separator className="bg-border/60" />

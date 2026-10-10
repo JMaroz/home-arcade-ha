@@ -98,7 +98,11 @@ export function DirectoryPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl bg-[#0c0c0c] border-white/10 text-white">
+      <DialogContent
+        onPointerDownOutside={(e) => e.stopPropagation()}
+        onInteractOutside={(e) => e.stopPropagation()}
+        className="sm:max-w-2xl bg-[#0c0c0c] border-white/10 text-white"
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-black uppercase tracking-tight">
             <FolderOpen className="size-5 text-accent" />

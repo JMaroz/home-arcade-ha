@@ -47,21 +47,46 @@
 6. **Test Automatizzati (`cabinet_bridge/server/__tests__/setup.test.ts`)**:
    - Aggiornati i test con asserzioni su `watchPaths` e `suggestedLocations`.
 
+7. **Fix Bug Chiusura Dialog & Rilancio Wizard da Impostazioni**:
+   - Risolto il bug per cui cliccando sulla "X" di `DirectoryPickerDialog` (o sul backdrop) l'evento si propagava al DismissableLayer del `SetupWizardDialog`, chiudendo l'intero wizard:
+     - Aggiunto `stopPropagation()` sugli eventi `onPointerDownOutside` e `onInteractOutside` in `DirectoryPickerDialog`.
+     - Aggiunto `preventDefault()` sugli eventi outside di `SetupWizardDialog` e guardia `if (pickerOpen) return;` nel gestore `onOpenChange`.
+   - Aggiunta funzione globale `openSetupWizard()` con custom event per riavviare il wizard in qualsiasi momento.
+   - Inserito pulsante di rilancio del Wizard in:
+     - Sidebar desktop di `Settings.tsx`
+     - Header mobile di `Settings.tsx`
+     - Sezione 1 ("Folders & Scanning") in `LibrarySettings.tsx`
+     - Sezione 3 ("Maintenance Tools") in `LibrarySettings.tsx`
+
+8. **Fix Reset a Step 1 al Termine del Download**:
+   - Risolto il bug per cui all'aggiornamento di stato al termine del bootstrap (`liveProgress?.stage === 'complete'`), il re-fetch delle query scatenava l'effetto di apertura reimpostando `step = 1`.
+   - Isolato il tracciamento di `forceOpen` con `prevForceOpenRef` e guardia `autoOpenedRef` per impedire reset indesiderati su refresh dello stato backend.
+   - Avanzamento pulito a Step 3 con riepilogo delle risorse installate e pulsante di completamento.
+
+9. **Fix Core Nintendo 64 (HTTP 404 su Libretro Buildbot AArch64)**:
+   - Su Libretro Buildbot Linux `aarch64`, l'archivio `mupen64plus_next_libretro.so.zip` non esiste (404), causando il fallimento di 1 dei 10 core (9/10 installati).
+   - Sostituito in `shared/core-metadata.ts` con il core ufficiale compilato per AArch64/ARM: `parallel_n64` (`parallel_n64_libretro.so.zip`), verificato con HTTP 200 sia su `aarch64` che su `x86_64`.
+   - Aggiunto fallback trasparente in `server/stream/runner-manager.ts` e `checkSetupStatus` per supportare sia `parallel_n64` che `mupen64plus_next` se già presenti.
+
 ---
 
 ## 2. File Rilevanti
 
 - [cabinet_bridge/Dockerfile](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/Dockerfile): Multi-stage build (runner Go con UPX + node-builder + runtime minimale senza build tools né sorgenti).
 - [cabinet_bridge/config.yaml](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/config.yaml): Mappatura `media:rw` e `share:rw` per dischi esterni e Samba.
-- [cabinet_bridge/script/build.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/script/build.ts): Inclusione di tutte le librerie JS nel bundle esbuild `dist/index.cjs`.
-- [cabinet_bridge/server/routes/setup.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/setup.ts): Endpoint `POST /api/setup/rom-folder` e status esteso con percorsi storage suggeriti.
-- [cabinet_bridge/client/src/components/SetupWizardDialog.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/components/SetupWizardDialog.tsx): Wizard a 3 step (Cartella ROM, Download runtime core/BIOS, Riepilogo e Scansione).
-- [cabinet_bridge/server/__tests__/setup.test.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/__tests__/setup.test.ts): Test automatizzati estesi.
-- [docs/plans/2026-10-10_docker_slimming_and_runtime_setup_wizard.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-10_docker_slimming_and_runtime_setup_wizard.md): Piano di lavoro con checklist completata.
+- [cabinet_bridge/shared/core-metadata.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/shared/core-metadata.ts): Definizione core essenziali con `parallel_n64` per Nintendo 64.
+- [cabinet_bridge/server/stream/runner-manager.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/stream/runner-manager.ts): Avvio sessioni con fallback trasparente N64.
+- [cabinet_bridge/server/routes/setup.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/setup.ts): Endpoint setup, download e tracking pulito dei fallimenti.
+- [cabinet_bridge/client/src/components/SetupWizardDialog.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/components/SetupWizardDialog.tsx): Wizard a 3 step con protezione chiusure accidentali e reset step.
+- [cabinet_bridge/client/src/components/DirectoryPickerDialog.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/components/DirectoryPickerDialog.tsx): Stop propagation per dialog annidate.
+- [cabinet_bridge/client/src/pages/Settings.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/pages/Settings.tsx) & [LibrarySettings.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/pages/settings/LibrarySettings.tsx): Rilancio wizard guidato da interfaccia utente.
+- [cabinet_bridge/server/__tests__/setup.test.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/__tests__/setup.test.ts): Test automatizzati allineati.
+- [docs/plans/2026-10-10_docker_slimming_and_runtime_setup_wizard.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-10_docker_slimming_and_runtime_setup_wizard.md): Piano di lavoro con checklist aggiornata.
 
 ---
 
 ## 3. Prossimi Passi (Next Steps)
 
-1. **Commit Git Hygiene**: Salvare le modifiche con commit atomici Conventional Commits (`feat: add multi-stage minimal dockerfile and 3-step setup wizard`).
+1. **Commit Git Hygiene**: Salvare le modifiche con commit atomici Conventional Commits (`fix: resolve setup wizard step reset and switch n64 core to parallel_n64`).
 2. **Build Test su GitHub Actions**: Quando verrà rilasciata una nuova versione o pushato un tag `v*`, la workflow `.github/workflows/build.yml` produrrà le immagini multi-arch `amd64` e `aarch64` con la nuova dimensione record (<25 MB compressa).
+

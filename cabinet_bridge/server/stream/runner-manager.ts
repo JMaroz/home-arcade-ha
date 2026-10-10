@@ -69,19 +69,32 @@ export class StreamRunnerManager {
       throw new Error(`ROM with ID ${romId} not found`);
     }
 
-    const coreFilename = SYSTEM_TO_NATIVE_CORE[rom.system.toLowerCase()];
+    let coreFilename = SYSTEM_TO_NATIVE_CORE[rom.system.toLowerCase()];
     if (!coreFilename) {
       throw new Error(`No native Libretro core defined for system: ${rom.system}`);
     }
 
     const coresDir = path.resolve(dataPath("cores"));
     await ensureDir(coresDir);
-    const corePath = path.join(coresDir, coreFilename);
+    let corePath = path.join(coresDir, coreFilename);
 
     try {
       await fs.access(corePath);
     } catch {
-      throw new Error(`Native core '${coreFilename}' is not installed in ${coresDir}. Please run First-Run Setup.`);
+      // Fallback for n64: support both parallel_n64 and mupen64plus_next
+      if (rom.system.toLowerCase() === "n64") {
+        const altCore = coreFilename === "parallel_n64_libretro.so" ? "mupen64plus_next_libretro.so" : "parallel_n64_libretro.so";
+        const altPath = path.join(coresDir, altCore);
+        try {
+          await fs.access(altPath);
+          coreFilename = altCore;
+          corePath = altPath;
+        } catch {
+          throw new Error(`Native core '${coreFilename}' is not installed in ${coresDir}. Please run First-Run Setup.`);
+        }
+      } else {
+        throw new Error(`Native core '${coreFilename}' is not installed in ${coresDir}. Please run First-Run Setup.`);
+      }
     }
 
     const romPath = path.resolve(rom.filePath);

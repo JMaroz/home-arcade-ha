@@ -7,7 +7,7 @@ export interface NativeCoreEntry {
 }
 
 export const ESSENTIAL_NATIVE_CORES: NativeCoreEntry[] = [
-  { id: "mupen64plus_next", name: "mupen64plus_next_libretro.so", archive: "mupen64plus_next_libretro.so.zip", system: "n64", label: "Nintendo 64" },
+  { id: "parallel_n64", name: "parallel_n64_libretro.so", archive: "parallel_n64_libretro.so.zip", system: "n64", label: "Nintendo 64" },
   { id: "pcsx_rearmed", name: "pcsx_rearmed_libretro.so", archive: "pcsx_rearmed_libretro.so.zip", system: "ps1", label: "PlayStation 1" },
   { id: "snes9x", name: "snes9x_libretro.so", archive: "snes9x_libretro.so.zip", system: "snes", label: "Super Nintendo" },
   { id: "genesis_plus_gx", name: "genesis_plus_gx_libretro.so", archive: "genesis_plus_gx_libretro.so.zip", system: "genesis", label: "Sega Genesis / CD / MS" },
@@ -24,7 +24,7 @@ export function getLibretroBuildbotUrl(arch: "aarch64" | "x86_64", archiveName: 
 }
 
 export const SYSTEM_TO_NATIVE_CORE: Record<string, string> = {
-  n64: "mupen64plus_next_libretro.so",
+  n64: "parallel_n64_libretro.so",
   ps1: "pcsx_rearmed_libretro.so",
   snes: "snes9x_libretro.so",
   genesis: "genesis_plus_gx_libretro.so",
