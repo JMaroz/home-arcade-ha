@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.54.2](https://github.com/JMaroz/home-arcade-ha/compare/v2.54.1...v2.54.2) (2026-10-10)
+
+
+### Bug Fixes
+
+* route WebRTC streams through HA ingress ([f541196](https://github.com/JMaroz/home-arcade-ha/commit/f541196e88c8f607f5a55f233556380c71cbbbdf))
+
 ## [2.54.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.54.0...v2.54.1) (2026-10-10)
 
 
