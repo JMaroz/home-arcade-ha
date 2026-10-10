@@ -2,6 +2,14 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.54.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.53.1...v2.54.0) (2026-10-10)
+
+
+### Features
+
+* add native WebRTC emulation engine ([b8ef0b0](https://github.com/JMaroz/home-arcade-ha/commit/b8ef0b070eea73dee4b151020b9dd6aaac9a8ad8))
+* slim Docker image and add setup wizard ([0bcf420](https://github.com/JMaroz/home-arcade-ha/commit/0bcf420545aaf90b8af5f6de11e90893750a0d18))
+
 ## [2.53.1](https://github.com/JMaroz/HomeArcade-HA/compare/v2.53.0...v2.53.1) (2026-10-10)
 
 
