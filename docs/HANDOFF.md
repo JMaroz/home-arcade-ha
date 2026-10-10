@@ -76,22 +76,25 @@
       - **Default Engine WASM (ADR 001)**: In `GameDetailDialog.tsx`, il motore predefinito iniziale è stato ripristinato su `"wasm"` (WebAssembly / EmulatorJS), garantendo che tutti i giochi si avviino immediatamente al 100% senza errori, lasciando la facoltà all'utente di selezionare lo streaming `"native"` (Pi 5) tramite l'apposito selettore.
       - **Fallback UI Immediato**: Se una connessione WebRTC dovesse interrompersi o fallire, il pulsante *"Play with WebAssembly"* apre istantaneamente l'emulatore WASM con il percorso Ingress corretto.
 
+11. **Fix Fallimenti Aggiornamento Add-on HA & Docker Build (Log Analisi)**:
+    - Risolti i due problemi critici riscontrati durante gli aggiornamenti di HomeArcade in Home Assistant Supervisor:
+      - **Incompatibilità Go 1.24**: `pion/webrtc/v4 v4.2.23` richiede Go >= 1.24.0. In `cabinet_bridge/Dockerfile`, aggiornato `runner-builder` da `golang:1.22-alpine` a `golang:1.24-alpine` e aggiornato `go.mod` a `go 1.24.0`. Ottimizzato il layer caching copiando `go.mod` e `go.sum` prima del codice sorgente (`go mod download`).
+      - **Timeout Headers Node.js (node-gyp ETIMEDOUT)**: Durante il build locale su Raspberry Pi / aarch64, la compilazione C++ di `better-sqlite3` e `bufferutil` scaricava gli header di Node da `nodejs.org` fallendo con `ETIMEDOUT` al primo tentativo. Aggiunte variabili d'ambiente `npm_config_fetch_retries=5`, `npm_config_fetch_retry_mintimeout=20000`, `npm_config_fetch_retry_maxtimeout=120000`, `npm_config_fetch_timeout=120000` nello stage `node-builder`.
+      - **Bug Regex Estrazione Versione in GitHub Actions**: In `.github/workflows/build.yml`, il comando `sed 's/version: "\(.*\)"/\1/'` falliva con versioni senza apici (`version: 2.54.1`), generando tag non validi (`homearcade-aarch64:version: 2.54.1`) e bloccando il push su GHCR. Corretto con `sed 's/version: //; s/"//g'`.
+
 ---
 
 ## 2. File Rilevanti
 
-- [cabinet_bridge/server/routes/streamPlayer.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/streamPlayer.ts): Supporto Ingress base dinamico, chiamate fetch con prefisso corretto e fallback WASM.
-- [cabinet_bridge/server/routes/roms.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/roms.ts): Iniezione di `ingressBase` nella route `/api/roms/:id/stream-player`.
-- [cabinet_bridge/client/src/components/GameDetailDialog.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/components/GameDetailDialog.tsx): Ripristino default engine a `"wasm"` per stabilità totale.
-- [cabinet_bridge/Dockerfile](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/Dockerfile): Compilazione deterministica del runner nativo e permessi di esecuzione.
-- [cabinet_bridge/server/native-runner/go.mod](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/go.mod) & [go.sum](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/go.sum): Dipendenze Pion WebRTC v4 fissate per Go 1.22.
-- [cabinet_bridge/server/__tests__/setup.test.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/__tests__/setup.test.ts): Unit test per rendering Ingress dello Stream Player.
-- [docs/plans/2026-10-10_fix_webrtc_stream_player_ingress_and_engine_default.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-10_fix_webrtc_stream_player_ingress_and_engine_default.md): Piano di lavoro del fix.
+- [cabinet_bridge/Dockerfile](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/Dockerfile): Aggiornato a `golang:1.24-alpine`, layer caching Go `go mod download`, e retry/timeout per `npm_config_fetch_*`.
+- [cabinet_bridge/server/native-runner/go.mod](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/go.mod): Versione modulo Go aggiornata a 1.24.0 per compatibilità Pion WebRTC v4.
+- [.github/workflows/build.yml](file:///Users/andrea/Repository/home-arcade-ha/.github/workflows/build.yml): Corretta estrazione versione per supportare stringhe senza apici in `config.yaml`.
+- [docs/plans/2026-10-10_fix_ha_addon_update_build_failures.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-10_fix_ha_addon_update_build_failures.md): Piano di lavoro e analisi dettagliata del log di errore.
 
 ---
 
 ## 3. Prossimi Passi (Next Steps)
 
-1. **Commit Git Hygiene**: Salvare le modifiche con Conventional Commit (`fix: resolve webrtc stream player ingress routing, go runner build and set wasm as safe default engine`).
-2. **Push & Release**: Eseguire il push per far generare la nuova release da Release Please o aggiornare l'add-on in Home Assistant.
+1. **Commit Git Hygiene**: Salvare le modifiche con Conventional Commit (`fix: update go to 1.24 for pion webrtc and add npm fetch retries in docker build`).
+2. **Push & Release**: Eseguire il push su `main`. Con il Dockerfile corretto, l'aggiornamento da sorgente su Home Assistant completerà con successo senza blocchi. In parallelo, il workflow di build GitHub Actions può essere eseguito per pubblicare le immagini ufficiali su GHCR (`ghcr.io/jmaroz/homearcade-{arch}`).
 

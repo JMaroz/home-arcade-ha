@@ -47,7 +47,7 @@ jobs:
       - name: Extract version from config.yaml
         id: version
         run: |
-          VERSION=$(grep '^version:' cabinet_bridge/config.yaml | sed 's/version: "\(.*\)"/\1/')
+          VERSION=$(grep '^version:' cabinet_bridge/config.yaml | sed 's/version: //; s/"//g')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Lowercase owner name

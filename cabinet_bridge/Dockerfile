@@ -4,9 +4,11 @@ ARG BUILD_ARCH=amd64
 # ==============================================================================
 # Stage 1: Build native WebRTC runner binary with Go + UPX compression
 # ==============================================================================
-FROM --platform=linux/${BUILD_ARCH} golang:1.22-alpine AS runner-builder
+FROM --platform=linux/${BUILD_ARCH} golang:1.24-alpine AS runner-builder
 WORKDIR /build
 RUN apk add --no-cache upx || true
+COPY server/native-runner/go.mod server/native-runner/go.sum ./
+RUN go mod download
 COPY server/native-runner/ ./
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /homearcade-runner .
 RUN test -f /homearcade-runner || { echo "ERROR: /homearcade-runner not found after build"; exit 1; }
@@ -23,6 +25,12 @@ RUN apk add --no-cache \
     npm install -g pnpm@9
 
 WORKDIR /app
+
+# Configure fetch retries & timeouts for node-gyp and pnpm to survive transient network timeouts
+ENV npm_config_fetch_retries=5 \
+    npm_config_fetch_retry_mintimeout=20000 \
+    npm_config_fetch_retry_maxtimeout=120000 \
+    npm_config_fetch_timeout=120000
 
 # Install dependencies (project uses pnpm)
 # --no-frozen-lockfile allows install when package.json has drifted ahead of pnpm-lock.yaml
