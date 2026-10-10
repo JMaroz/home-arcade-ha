@@ -6,6 +6,7 @@ import { dataPath, ensureDir } from "../data-dir";
 import { ESSENTIAL_NATIVE_CORES, getLibretroBuildbotUrl } from "@shared/core-metadata";
 import { REQUIRED_BIOS } from "@shared/bios-metadata";
 import { extractZipBuffer } from "../utils/zip";
+import { storage } from "../storage";
 
 const CORES_DIR = path.resolve(dataPath("cores"));
 const BIOS_DIR = path.resolve(dataPath("bios"));
@@ -105,6 +106,33 @@ export async function checkSetupStatus() {
 
   const isComplete = missingCores.length === 0 && missingDownloadableBios.length === 0;
 
+  const settings = await storage.getIntegrationSettings();
+  const watchPaths = settings.libraryWatchPaths
+    ? settings.libraryWatchPaths.split(",").map((p) => p.trim()).filter(Boolean)
+    : [];
+
+  const internalStoragePath = path.resolve(dataPath("rom-storage"));
+  const suggestedLocations = [
+    {
+      id: "samba",
+      label: "Cartella Samba Locale",
+      path: "/share/roms",
+      description: "Accessibile in rete locale (es. \\\\homeassistant\\share\\roms)",
+    },
+    {
+      id: "media",
+      label: "SSD Esterno / Hard Disk USB",
+      path: "/media/roms",
+      description: "Unità USB o dischi esterni collegati al Raspberry Pi (/media)",
+    },
+    {
+      id: "internal",
+      label: "Storage Interno Add-on",
+      path: internalStoragePath,
+      description: "Memoria persistente interna (/data/rom-storage)",
+    },
+  ];
+
   return {
     isComplete,
     arch,
@@ -114,6 +142,8 @@ export async function checkSetupStatus() {
     installedCores: coreStatuses.length - missingCores.length,
     totalBios: downloadableBios.length,
     installedBios: downloadableBios.length - missingDownloadableBios.length,
+    watchPaths,
+    suggestedLocations,
     progress: currentProgress,
   };
 }
@@ -132,6 +162,48 @@ export function registerSetupRoutes(app: Express) {
   // GET /api/setup/progress
   app.get("/api/setup/progress", (_req, res) => {
     res.json(currentProgress);
+  });
+
+  // POST /api/setup/rom-folder
+  app.post("/api/setup/rom-folder", async (req, res) => {
+    try {
+      const folderPath = String(req.body?.path || "").trim();
+      if (!folderPath) {
+        return res.status(400).json({ message: "Path is required" });
+      }
+
+      try {
+        await fs.mkdir(folderPath, { recursive: true });
+      } catch (err) {
+        const stat = await fs.stat(folderPath).catch(() => null);
+        if (!stat || !stat.isDirectory()) {
+          return res.status(400).json({ message: `Cannot access directory: ${String(err)}` });
+        }
+      }
+
+      const settings = await storage.getIntegrationSettings();
+      const existing = settings.libraryWatchPaths
+        ? settings.libraryWatchPaths.split(",").map((p) => p.trim()).filter(Boolean)
+        : [];
+
+      if (!existing.includes(folderPath)) {
+        existing.push(folderPath);
+      }
+
+      await storage.saveIntegrationSettings({
+        ...settings,
+        libraryWatchPaths: existing.join(", "),
+      });
+
+      res.json({
+        success: true,
+        path: folderPath,
+        watchPaths: existing,
+        message: "ROM folder configured successfully",
+      });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to configure ROM folder", error: String(err) });
+    }
   });
 
   // POST /api/setup/bootstrap

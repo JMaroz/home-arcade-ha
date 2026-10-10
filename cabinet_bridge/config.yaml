@@ -17,6 +17,7 @@ ports:
   5000/tcp: 9876
 map:
   - media:rw
+  - share:rw
 backup_exclude:
   - "ejs_cache/**"
   - "cores/**"

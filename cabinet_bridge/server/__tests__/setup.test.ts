@@ -85,6 +85,12 @@ describe("Setup Status Service", () => {
     expect(Array.isArray(status.cores)).toBe(true);
     expect(Array.isArray(status.bios)).toBe(true);
     expect(status.cores.length).toBe(ESSENTIAL_NATIVE_CORES.length);
+    expect(Array.isArray(status.watchPaths)).toBe(true);
+    expect(Array.isArray(status.suggestedLocations)).toBe(true);
+    expect(status.suggestedLocations.length).toBeGreaterThanOrEqual(3);
+    const sambaLoc = status.suggestedLocations.find((l: any) => l.id === "samba");
+    expect(sambaLoc).toBeDefined();
+    expect(sambaLoc?.path).toBe("/share/roms");
   });
 });
 
