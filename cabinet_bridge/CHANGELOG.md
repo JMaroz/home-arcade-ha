@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.54.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.54.0...v2.54.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* stabilize setup wizard and N64 core ([c275795](https://github.com/JMaroz/home-arcade-ha/commit/c27579536a74fd877e2d41f9341f9e7dd31ed950))
+
 ## [2.54.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.53.1...v2.54.0) (2026-10-10)
 
 
