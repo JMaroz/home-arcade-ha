@@ -71,9 +71,9 @@ export function GameDetailDialog({
   const [selectedRomId, setSelectedRomId] = useState<number | null>(null);
   const [engine, setEngine] = useState<"native" | "wasm">(() => {
     try {
-      return (localStorage.getItem("ha_arcade_engine_preference") as "native" | "wasm") || "native";
+      return (localStorage.getItem("ha_arcade_engine_preference") as "native" | "wasm") || "wasm";
     } catch {
-      return "native";
+      return "wasm";
     }
   });
 

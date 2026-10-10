@@ -109,3 +109,38 @@ describe("Native Streaming & Runner Manager", () => {
     await expect(StreamRunnerManager.startSession(999999)).rejects.toThrow("ROM with ID 999999 not found");
   });
 });
+
+describe("Stream Player Page & Ingress Handling", () => {
+  it("should render stream player HTML with ingressBase in fallback URLs and scripts", async () => {
+    const { renderStreamPlayerPage } = await import("../routes/streamPlayer");
+    const html = renderStreamPlayerPage({
+      title: "Super Mario 64",
+      returnTo: "/games/n64",
+      romId: 42,
+      system: "n64",
+      profileId: 1,
+      ingressBase: "/api/hassio_ingress/token123",
+    });
+
+    expect(html).toContain("Super Mario 64");
+    expect(html).toContain("/api/hassio_ingress/token123/api/roms/42/player");
+    expect(html).toContain("wasm-fallback-link");
+    expect(html).toContain('serverIngressBase = "/api/hassio_ingress/token123"');
+    expect(html).toContain('ingressBase + "/api/stream/start/" + romId');
+    expect(html).toContain('ingressBase + "/api/stream/signal/" + sessionId');
+  });
+
+  it("should handle empty ingressBase gracefully for direct port access", async () => {
+    const { renderStreamPlayerPage } = await import("../routes/streamPlayer");
+    const html = renderStreamPlayerPage({
+      title: "Sonic the Hedgehog",
+      returnTo: "/",
+      romId: 10,
+      system: "genesis",
+    });
+
+    expect(html).toContain("Sonic the Hedgehog");
+    expect(html).toContain('/api/roms/10/player?return=');
+    expect(html).toContain('serverIngressBase = ""');
+  });
+});

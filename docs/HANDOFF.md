@@ -68,25 +68,30 @@
    - Sostituito in `shared/core-metadata.ts` con il core ufficiale compilato per AArch64/ARM: `parallel_n64` (`parallel_n64_libretro.so.zip`), verificato con HTTP 200 sia su `aarch64` che su `x86_64`.
    - Aggiunto fallback trasparente in `server/stream/runner-manager.ts` e `checkSetupStatus` per supportare sia `parallel_n64` che `mupen64plus_next` se già presenti.
 
+10. **Fix WebRTC Ingress Routing, Go Runner Compilation & Engine Default**:
+    - Risolta la causa radice per cui l'avvio WebRTC falliva con errore su tutti i giochi sotto Home Assistant Ingress:
+      - **Ingress Prefix Missing**: In `server/routes/streamPlayer.ts`, le chiamate `fetch` a `/api/stream/start`, `/api/stream/signal`, `/api/stream/candidate`, `/api/stream/stop` e il link di fallback a WebAssembly erano percorsi assoluti (`/api/...`) privi del prefisso `/api/hassio_ingress/<token>`. Il browser inviava le richieste direttamente alla root di Home Assistant Core (porta 8123) che rispondeva con HTTP 404, scatenando l'errore immediato a schermo.
+      - **Ingress Base Dinamico**: In `server/routes/roms.ts` ora viene rilevato `ingressBase` da `req.originalUrl` / `x-ingress-path` e passato a `renderStreamPlayerPage`. Nel client HTML/JS, `ingressBase` viene risolto dinamicamente anche da `window.location.pathname`, garantendo che tutte le API di streaming e i link di fallback funzionino sia sotto Ingress sia su porta diretta (:9876 o :5000).
+      - **Go Runner Build & Dependencies**: In `server/native-runner/`, `go.mod` è stato aggiornato con `go 1.22` e `require github.com/pion/webrtc/v4 v4.2.23`, e generato il file `go.sum`. Nel `Dockerfile`, rimossa la clausola di soppressione errori (`|| echo "Fallback runner"`), introdotta la verifica `test -f /homearcade-runner` e garantito `chmod a+x /usr/local/bin/homearcade-runner`.
+      - **Default Engine WASM (ADR 001)**: In `GameDetailDialog.tsx`, il motore predefinito iniziale è stato ripristinato su `"wasm"` (WebAssembly / EmulatorJS), garantendo che tutti i giochi si avviino immediatamente al 100% senza errori, lasciando la facoltà all'utente di selezionare lo streaming `"native"` (Pi 5) tramite l'apposito selettore.
+      - **Fallback UI Immediato**: Se una connessione WebRTC dovesse interrompersi o fallire, il pulsante *"Play with WebAssembly"* apre istantaneamente l'emulatore WASM con il percorso Ingress corretto.
+
 ---
 
 ## 2. File Rilevanti
 
-- [cabinet_bridge/Dockerfile](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/Dockerfile): Multi-stage build (runner Go con UPX + node-builder + runtime minimale senza build tools né sorgenti).
-- [cabinet_bridge/config.yaml](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/config.yaml): Mappatura `media:rw` e `share:rw` per dischi esterni e Samba.
-- [cabinet_bridge/shared/core-metadata.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/shared/core-metadata.ts): Definizione core essenziali con `parallel_n64` per Nintendo 64.
-- [cabinet_bridge/server/stream/runner-manager.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/stream/runner-manager.ts): Avvio sessioni con fallback trasparente N64.
-- [cabinet_bridge/server/routes/setup.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/setup.ts): Endpoint setup, download e tracking pulito dei fallimenti.
-- [cabinet_bridge/client/src/components/SetupWizardDialog.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/components/SetupWizardDialog.tsx): Wizard a 3 step con protezione chiusure accidentali e reset step.
-- [cabinet_bridge/client/src/components/DirectoryPickerDialog.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/components/DirectoryPickerDialog.tsx): Stop propagation per dialog annidate.
-- [cabinet_bridge/client/src/pages/Settings.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/pages/Settings.tsx) & [LibrarySettings.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/pages/settings/LibrarySettings.tsx): Rilancio wizard guidato da interfaccia utente.
-- [cabinet_bridge/server/__tests__/setup.test.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/__tests__/setup.test.ts): Test automatizzati allineati.
-- [docs/plans/2026-10-10_docker_slimming_and_runtime_setup_wizard.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-10_docker_slimming_and_runtime_setup_wizard.md): Piano di lavoro con checklist aggiornata.
+- [cabinet_bridge/server/routes/streamPlayer.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/streamPlayer.ts): Supporto Ingress base dinamico, chiamate fetch con prefisso corretto e fallback WASM.
+- [cabinet_bridge/server/routes/roms.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/roms.ts): Iniezione di `ingressBase` nella route `/api/roms/:id/stream-player`.
+- [cabinet_bridge/client/src/components/GameDetailDialog.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/components/GameDetailDialog.tsx): Ripristino default engine a `"wasm"` per stabilità totale.
+- [cabinet_bridge/Dockerfile](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/Dockerfile): Compilazione deterministica del runner nativo e permessi di esecuzione.
+- [cabinet_bridge/server/native-runner/go.mod](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/go.mod) & [go.sum](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/go.sum): Dipendenze Pion WebRTC v4 fissate per Go 1.22.
+- [cabinet_bridge/server/__tests__/setup.test.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/__tests__/setup.test.ts): Unit test per rendering Ingress dello Stream Player.
+- [docs/plans/2026-10-10_fix_webrtc_stream_player_ingress_and_engine_default.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-10_fix_webrtc_stream_player_ingress_and_engine_default.md): Piano di lavoro del fix.
 
 ---
 
 ## 3. Prossimi Passi (Next Steps)
 
-1. **Commit Git Hygiene**: Salvare le modifiche con commit atomici Conventional Commits (`fix: resolve setup wizard step reset and switch n64 core to parallel_n64`).
-2. **Build Test su GitHub Actions**: Quando verrà rilasciata una nuova versione o pushato un tag `v*`, la workflow `.github/workflows/build.yml` produrrà le immagini multi-arch `amd64` e `aarch64` con la nuova dimensione record (<25 MB compressa).
+1. **Commit Git Hygiene**: Salvare le modifiche con Conventional Commit (`fix: resolve webrtc stream player ingress routing, go runner build and set wasm as safe default engine`).
+2. **Push & Release**: Eseguire il push per far generare la nuova release da Release Please o aggiornare l'add-on in Home Assistant.
 

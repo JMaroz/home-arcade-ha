@@ -6,6 +6,7 @@ interface StreamPlayerOptions {
   romId: number;
   system: string;
   profileId?: number;
+  ingressBase?: string;
 }
 
 export function renderStreamPlayerPage({
@@ -14,11 +15,13 @@ export function renderStreamPlayerPage({
   romId,
   system,
   profileId = 1,
+  ingressBase = "",
 }: StreamPlayerOptions): string {
   const safeTitle = escapeHtml(title);
   const safeReturnTo = JSON.stringify(returnTo);
   const safeSystem = escapeHtml(system || "generic");
-  const wasmPlayerUrl = `/api/roms/${romId}/player?return=${encodeURIComponent(returnTo)}&profile=${profileId}&engine=wasm`;
+  const safeIngressBase = JSON.stringify(ingressBase);
+  const wasmPlayerUrl = `${ingressBase}/api/roms/${romId}/player?return=${encodeURIComponent(returnTo)}&profile=${profileId}&engine=wasm`;
 
   return `<!doctype html>
 <html lang="en">
@@ -107,7 +110,7 @@ export function renderStreamPlayerPage({
           Initializing Native Libretro WebRTC engine on Raspberry Pi...
         </div>
         <div id="hud-actions" style="display: none; margin-top: 16px;">
-          <a href="${wasmPlayerUrl}" class="btn btn-primary">
+          <a href="${wasmPlayerUrl}" class="btn btn-primary wasm-fallback-link">
             ▶ Play with WebAssembly
           </a>
           <button id="retry-btn" class="btn btn-secondary">
@@ -125,7 +128,7 @@ export function renderStreamPlayerPage({
         <div style="display: flex; flex-direction: column; gap: 8px;">
           <button id="btn-unmute" class="btn btn-secondary">🔊 Unmute Audio</button>
           <button id="btn-fullscreen" class="btn btn-secondary">⛶ Toggle Fullscreen</button>
-          <a href="${wasmPlayerUrl}" class="btn btn-secondary">
+          <a href="${wasmPlayerUrl}" class="btn btn-secondary wasm-fallback-link">
             🌐 Switch to WebAssembly Engine
           </a>
           <button id="btn-resume" class="btn btn-primary">Resume Game</button>
@@ -160,6 +163,17 @@ export function renderStreamPlayerPage({
         let sessionId = null;
         let pollGamepadInterval = null;
 
+        const serverIngressBase = ${safeIngressBase};
+        const path = window.location.pathname;
+        const apiIdx = path.indexOf("/api/roms");
+        const ingressBase = apiIdx !== -1 ? path.substring(0, apiIdx) : serverIngressBase;
+        const wasmUrl = ingressBase + "/api/roms/" + romId + "/player?return=" + encodeURIComponent(returnUrl) + "&profile=" + ${profileId} + "&engine=wasm";
+
+        // Ensure all fallback links point to the resolved ingress URL
+        document.querySelectorAll(".wasm-fallback-link").forEach((link) => {
+          link.setAttribute("href", wasmUrl);
+        });
+
         function showError(title, message) {
           statusHud.classList.remove("is-hidden");
           hudSpinner.style.display = "none";
@@ -179,10 +193,17 @@ export function renderStreamPlayerPage({
 
           try {
             // 1. Start streaming session
-            const startRes = await fetch("/api/stream/start/" + romId, { method: "POST" });
+            const startRes = await fetch(ingressBase + "/api/stream/start/" + romId, { method: "POST" });
             if (!startRes.ok) {
-              const err = await startRes.json().catch(() => ({}));
-              throw new Error(err.message || "Failed to start streaming session");
+              let errMsg = "Failed to start streaming session (HTTP " + startRes.status + ")";
+              try {
+                const errData = await startRes.json();
+                errMsg = errData.error || errData.message || errMsg;
+              } catch (_) {
+                const text = await startRes.text().catch(() => "");
+                if (text) errMsg += ": " + text.slice(0, 100);
+              }
+              throw new Error(errMsg);
             }
             const startData = await startRes.json();
             sessionId = startData.sessionId;
@@ -216,7 +237,7 @@ export function renderStreamPlayerPage({
 
             pc.onicecandidate = (event) => {
               if (event.candidate && sessionId) {
-                fetch("/api/stream/candidate/" + sessionId, {
+                fetch(ingressBase + "/api/stream/candidate/" + sessionId, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify(event.candidate)
@@ -230,7 +251,7 @@ export function renderStreamPlayerPage({
                 statusHud.classList.add("is-hidden");
                 statsBadge.textContent = "CONNECTED · 60 FPS";
               } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-                showError("Stream Disconnected", "The connection to the native emulation runner was lost.");
+                showError("Stream Disconnected", "The connection to the native emulation runner was lost. You can play via WebAssembly.");
               }
             };
 
@@ -238,15 +259,22 @@ export function renderStreamPlayerPage({
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
 
-            const signalRes = await fetch("/api/stream/signal/" + sessionId, {
+            const signalRes = await fetch(ingressBase + "/api/stream/signal/" + sessionId, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ sdp: offer.sdp, type: offer.type })
             });
 
             if (!signalRes.ok) {
-              const sigErr = await signalRes.json().catch(() => ({}));
-              throw new Error(sigErr.message || "Failed to exchange SDP signal with runner");
+              let sigMsg = "Failed to exchange SDP signal with runner (HTTP " + signalRes.status + ")";
+              try {
+                const sigErr = await signalRes.json();
+                sigMsg = sigErr.error || sigErr.message || sigMsg;
+              } catch (_) {
+                const text = await signalRes.text().catch(() => "");
+                if (text) sigMsg += ": " + text.slice(0, 100);
+              }
+              throw new Error(sigMsg);
             }
 
             const answer = await signalRes.json();
@@ -303,9 +331,9 @@ export function renderStreamPlayerPage({
         });
         btnExit.addEventListener("click", () => {
           if (sessionId) {
-            fetch("/api/stream/stop/" + sessionId, { method: "POST" }).catch(() => {});
+            fetch(ingressBase + "/api/stream/stop/" + sessionId, { method: "POST" }).catch(() => {});
           }
-          window.location.href = returnUrl || "/";
+          window.location.href = returnUrl || (ingressBase + "/");
         });
 
         // Start connection

@@ -1060,6 +1060,10 @@ export function registerRomRoutes(app: Express) {
     res.setHeader("Cache-Control", "private, no-cache");
     res.removeHeader("X-Frame-Options");
 
+    // Detect the Home Assistant Ingress base path
+    const ingressMatch = req.originalUrl.match(/^\/api\/(?:hassio_)?ingress\/[^\/]+/);
+    const ingressBase = ingressMatch ? ingressMatch[0] : ((req.headers["x-ingress-path"] as string) || "");
+
     const returnTo = typeof req.query.return === "string" ? req.query.return : "";
     const profileId = Number(req.query.profile) || 1;
     res.send(renderStreamPlayerPage({
@@ -1068,6 +1072,7 @@ export function registerRomRoutes(app: Express) {
       romId: id,
       system: rom.system,
       profileId,
+      ingressBase,
     }));
   });
 

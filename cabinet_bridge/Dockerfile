@@ -8,7 +8,8 @@ FROM --platform=linux/${BUILD_ARCH} golang:1.22-alpine AS runner-builder
 WORKDIR /build
 RUN apk add --no-cache upx || true
 COPY server/native-runner/ ./
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /homearcade-runner . || echo "Fallback runner"
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /homearcade-runner .
+RUN test -f /homearcade-runner || { echo "ERROR: /homearcade-runner not found after build"; exit 1; }
 RUN upx --best --lzma /homearcade-runner || true
 
 # ==============================================================================
@@ -74,7 +75,8 @@ RUN apk add --no-cache \
       libstdc++
 
 # Copy compiled native runner binary from runner-builder
-COPY --from=runner-builder /homearcade-runner* /usr/local/bin/
+COPY --from=runner-builder /homearcade-runner /usr/local/bin/homearcade-runner
+RUN chmod a+x /usr/local/bin/homearcade-runner
 
 WORKDIR /app
 
