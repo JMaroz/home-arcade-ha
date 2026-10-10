@@ -6,6 +6,7 @@ import {
   EMULATORJS_CORES, ROM_ROOT, getUserFromRequest 
 } from "./shared";
 import { renderEmulatorPage, renderEmulatorBootstrap, renderPlayerError, renderBootstrapError } from "./player";
+import { renderStreamPlayerPage } from "./streamPlayer";
 import { REQUIRED_BIOS } from "@shared/bios-metadata";
 import { dataPath } from "../data-dir";
 import path from "node:path";
@@ -1030,6 +1031,15 @@ export function registerRomRoutes(app: Express) {
     // Short cache: the HTML shell rarely changes but we don't want stale BIOS errors
     res.setHeader("Cache-Control", "private, max-age=60");
     res.removeHeader("X-Frame-Options");
+
+    // Enable Cross-Origin Isolation (COOP + COEP) if opened in standalone mode or on direct port
+    const isDirectPort = req.socket.localPort === 9876 || req.headers.host?.includes(":9876") || req.socket.localPort === 5000;
+    const isIsolatedReq = req.query.isolated === "1" || req.query.standalone === "1";
+    if (isIsolatedReq || (isDirectPort && !req.headers["x-ingress-path"])) {
+      res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+      res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+    }
+
     const returnTo = typeof req.query.return === "string" ? req.query.return : "";
     const qString = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
     res.send(renderEmulatorPage({ 
@@ -1038,6 +1048,26 @@ export function registerRomRoutes(app: Express) {
       romHash: rom.romHash ?? null, 
       queryString: qString,
       system: rom.system 
+    }));
+  });
+
+  app.get("/api/roms/:id/stream-player", async (req, res) => {
+    const id = Number(req.params.id);
+    const rom = await storage.getUploadedRom(id);
+    if (!rom) return res.status(404).send(renderPlayerError("Uploaded ROM not found."));
+    await storage.markUploadedRomPlayed(id);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "private, no-cache");
+    res.removeHeader("X-Frame-Options");
+
+    const returnTo = typeof req.query.return === "string" ? req.query.return : "";
+    const profileId = Number(req.query.profile) || 1;
+    res.send(renderStreamPlayerPage({
+      title: rom.title,
+      returnTo,
+      romId: id,
+      system: rom.system,
+      profileId,
     }));
   });
 

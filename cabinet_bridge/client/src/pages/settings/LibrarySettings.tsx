@@ -43,7 +43,10 @@ import {
   Layers,
   Network,
   ArrowRight,
+  Cpu,
+  Zap,
 } from "lucide-react";
+import { SetupWizardDialog } from "@/components/SetupWizardDialog";
 import { RomUpload } from "@/components/RomUpload";
 import { DirectoryPickerDialog } from "@/components/DirectoryPickerDialog";
 import { MoveAllRomsDialog } from "@/components/MoveAllRomsDialog";
@@ -637,6 +640,7 @@ function LibraryHealthSection() {
   const { toast } = useToast();
   const [auditing, setAuditing] = useState(false);
   const [moveAllOpen, setMoveAllOpen] = useState(false);
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
 
   const { data: health, refetch: refetchHealth } = useQuery<VaultHealth>({ queryKey: ["/api/vault/health"] });
   const { data: audit, refetch: refetchAudit } = useQuery<VaultAudit>({
@@ -814,7 +818,34 @@ function LibraryHealthSection() {
               {health?.failedScrapes ? `Rimuovi ${health.failedScrapes} Scrape Falliti` : "Nessun Errore Scrape"}
             </Button>
           </div>
+
+          <div className="flex flex-col gap-4 p-5 rounded-xl border border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                <Cpu className="size-5" />
+              </div>
+              <div>
+                <div className="font-display font-bold text-sm">Native Cores & BIOS</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">Scarica o ripristina i core ARM64 e i file BIOS in /data.</div>
+              </div>
+            </div>
+            <Button
+              onClick={() => setShowSetupWizard(true)}
+              variant="default"
+              className="w-full gap-2 font-black uppercase text-[10px] tracking-widest h-10"
+            >
+              <Zap className="size-3.5 fill-current" />
+              Verifica Cores & BIOS
+            </Button>
+          </div>
         </div>
+
+        {showSetupWizard && (
+          <SetupWizardDialog
+            forceOpen={showSetupWizard}
+            onOpenChange={setShowSetupWizard}
+          />
+        )}
       </Section>
 
       <Separator className="bg-border/60" />

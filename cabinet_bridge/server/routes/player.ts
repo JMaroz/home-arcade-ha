@@ -597,6 +597,7 @@ export function renderEmulatorPage({ title, returnTo, romHash, queryString, syst
 
         <div class="cabinet-menu-footer">
            <button type="button" class="cabinet-menu-btn-wide" id="cabinet-filter-cycle">📺 Cycle Visuals</button>
+           <button type="button" class="cabinet-menu-btn-wide" id="cabinet-popout-window" style="background:rgba(236,72,153,0.15);border-color:rgba(236,72,153,0.35);color:#fff;">🚀 Open Isolated Window (60 FPS)</button>
         </div>
       </div>
     </div>
@@ -607,6 +608,10 @@ export function renderEmulatorPage({ title, returnTo, romHash, queryString, syst
         <p style="font-weight:900; letter-spacing:0.1em; text-transform:uppercase; margin-top:8px;">${safeTitle}</p>
         <div class="cabinet-progress-track"><div class="cabinet-progress-bar" id="cabinet-progress-bar"></div></div>
         <p id="cabinet-launch-status" style="font-size:9px; opacity:0.4; text-transform:uppercase; letter-spacing:0.1em;">Initializing...</p>
+        <div id="cabinet-iframe-perf-tip" style="display:none;margin-top:14px;padding:8px 12px;border-radius:12px;background:rgba(236,72,153,0.12);border:1px solid rgba(236,72,153,0.3);font:500 10px ui-monospace,monospace;color:#fbcfe8;text-align:center;">
+          <div style="opacity:0.85;">Home Assistant iframe detected.</div>
+          <button type="button" id="cabinet-launch-isolated-btn" style="margin-top:8px;padding:6px 12px;border-radius:8px;background:#ec4899;color:#fff;border:none;font:800 10px ui-monospace,monospace;cursor:pointer;letter-spacing:0.05em;text-transform:uppercase;box-shadow:0 4px 12px rgba(236,72,153,0.4);">Open Full Speed (60 FPS) ⚡</button>
+        </div>
       </div>
     </div>
 
@@ -739,6 +744,20 @@ export function renderEmulatorPage({ title, returnTo, romHash, queryString, syst
         baseTag.href = base + "/";
         document.head.appendChild(baseTag);
         
+        if (!window.crossOriginIsolated && window.self !== window.top) {
+          var perfTip = document.getElementById("cabinet-iframe-perf-tip");
+          if (perfTip) perfTip.style.display = "block";
+        }
+        function openIsolatedWindow() {
+          var url = new URL(window.location.href);
+          url.searchParams.set("isolated", "1");
+          window.open(url.toString(), "_blank");
+        }
+        var isolatedBtn = document.getElementById("cabinet-launch-isolated-btn");
+        if (isolatedBtn) isolatedBtn.onclick = openIsolatedWindow;
+        var popoutBtn = document.getElementById("cabinet-popout-window");
+        if (popoutBtn) popoutBtn.onclick = openIsolatedWindow;
+
         // Use timeout to ensure body is ready for appendChild
         setTimeout(function() {
           var script = document.createElement("script");
@@ -1470,6 +1489,26 @@ window.EJS_gamepad = false;
 window.EJS_color = "#1a1a2e";
 window.EJS_backgroundColor = "#000000";
 window.EJS_Buttons = { play_pause: false, restart: false, mute: false, settings: false, fullscreen: true, save_state: false, load_state: false, quick_save: false, quick_load: false };
+
+// ── Multi-threading Web Workers (Unlocks 60 FPS on 3D systems when cross-origin isolated) ──
+var canUseThreads = (typeof window !== "undefined" && Boolean(window.crossOriginIsolated) && typeof SharedArrayBuffer !== "undefined");
+window.EJS_threads = canUseThreads;
+
+// ── Performance Profiles for Demanding Cores ──
+if (${JSON.stringify(core)} === "n64") {
+  window.EJS_defaultOptions = Object.assign({}, window.EJS_defaultOptions || {}, {
+    "mupen64plus-EnableHybridFilter": "False",
+    "mupen64plus-CorrectTexrectCoords": "Auto",
+    "mupen64plus-43screensize": "640x480",
+    "mupen64plus-EnableCopyColorToRDRAM": "Async",
+    "mupen64plus-rsp-plugin": "hle"
+  });
+}
+if (${JSON.stringify(core)} === "pcsx_rearmed") {
+  window.EJS_defaultOptions = Object.assign({}, window.EJS_defaultOptions || {}, {
+    "pcsx_rearmed_neon_enhancement_enable": "disabled"
+  });
+}
 
 // ── Netplay Configuration ──
 if (${JSON.stringify(netplayRole)} && ${JSON.stringify(netplayRoom)}) {

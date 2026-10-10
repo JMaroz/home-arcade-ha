@@ -44,4 +44,12 @@ export const CORE_PERFORMANCE_TIERS: Record<string, { arm64: PerformanceTier; x6
   mgba: { arm64: "excellent", x64: "excellent" },
   saturn: { arm64: "playable", x64: "excellent" },
   flycast: { arm64: "marginal", x64: "good" },
+  n64: { arm64: "good", x64: "excellent" },
+  snes: { arm64: "excellent", x64: "excellent" },
+  nes: { arm64: "excellent", x64: "excellent" },
+  segaMD: { arm64: "excellent", x64: "excellent" },
+  fbneo: { arm64: "excellent", x64: "excellent" },
+  melonds: { arm64: "playable", x64: "good" },
+  ppsspp: { arm64: "playable", x64: "good" },
 };
+

@@ -17,6 +17,10 @@ ports:
   5000/tcp: 9876
 map:
   - media:rw
+backup_exclude:
+  - "ejs_cache/**"
+  - "cores/**"
+  - "rom-storage/**"
 panel_icon: mdi:gamepad-variant
 panel_title: HomeArcade
 hassio_api: true

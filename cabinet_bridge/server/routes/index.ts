@@ -20,8 +20,12 @@ import { registerAiRoutes } from "./ai";
 import { registerVaultRoutes } from "./vault";
 import { registerFilesystemRoutes } from "./filesystem";
 import { registerSystemRoutes as registerHwSystemRoutes } from "./system";
+import { registerSetupRoutes } from "./setup";
+import { registerStreamRoutes } from "./stream";
 
 export async function registerRoutes(_httpServer: Server, app: Express) {
+  registerSetupRoutes(app);
+  registerStreamRoutes(app);
   registerHwSystemRoutes(app);
   registerRomRoutes(app);
   registerProfileRoutes(app);

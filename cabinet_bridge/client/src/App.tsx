@@ -16,6 +16,7 @@ import { AppBottomNav } from "@/components/MobileNav";
 import { AnimatePresence, motion } from "framer-motion";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WarpScanner } from "@/components/dashboard-themes/HomeArcadeTheme";
+import { SetupWizardDialog } from "@/components/SetupWizardDialog";
 
 /**
  * Ensures scroll position is reset or restore correctly on navigation.
@@ -153,6 +154,7 @@ function App() {
                   </div>
                   <NowPlayingBar />
                   <AppBottomNav />
+                  <SetupWizardDialog />
 
                   {showScanner && (
                     <WarpScanner

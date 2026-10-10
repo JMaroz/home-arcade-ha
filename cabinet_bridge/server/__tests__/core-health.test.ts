@@ -94,4 +94,35 @@ describe("Bootstrap Script Syntax Validation", () => {
     // vm.Script will compile the code and throw a SyntaxError if it's invalid.
     expect(() => new Script(code)).not.toThrow();
   });
+
+  it("should configure EJS_threads and N64 performance options in bootstrap", async () => {
+    const { renderEmulatorBootstrap } = await import("../routes/player");
+    const { Script } = await import("node:vm");
+
+    const n64Code = renderEmulatorBootstrap({
+      core: "n64",
+      title: "007 - The World Is Not Enough",
+      gameId: "n64-007-twine",
+      romId: 456,
+      discs: [],
+      romHash: "twine-hash",
+      userId: "test-user",
+      userName: "Agent 007",
+      profileId: "1",
+      biosUrl: null,
+      netplayRole: null,
+      netplayRoom: null,
+      netplaySyncMode: "rollback",
+      controlDefaults: {},
+      gamepadBindings: {},
+      controlDefaultsP2: {},
+      gamepadBindingsP2: {}
+    });
+
+    expect(() => new Script(n64Code)).not.toThrow();
+    expect(n64Code).toContain("window.EJS_threads = canUseThreads");
+    expect(n64Code).toContain('"mupen64plus-EnableHybridFilter": "False"');
+    expect(n64Code).toContain('"mupen64plus-43screensize": "640x480"');
+  });
 });
+

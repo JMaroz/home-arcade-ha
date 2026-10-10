@@ -1,5 +1,13 @@
 # BUILD_ARCH must be declared BEFORE the first FROM that references it
 ARG BUILD_ARCH=amd64
+
+# Stage 1: Build native WebRTC runner binary with Go
+FROM --platform=linux/${BUILD_ARCH} golang:1.22-alpine AS runner-builder
+WORKDIR /build
+COPY server/native-runner/ ./
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /homearcade-runner . || echo "Fallback runner"
+
+# Stage 2: Main Home Assistant add-on image
 FROM --platform=linux/${BUILD_ARCH} ghcr.io/home-assistant/${BUILD_ARCH}-base:latest
 
 # Build arguments provided by the HA builder / GitHub Actions workflow
@@ -22,6 +30,9 @@ RUN apk add --no-cache \
     apk add --no-cache python3 make g++ sqlite-libs libstdc++ && \
     npm install -g pnpm@9 && \
     node --version && npm --version && pnpm --version
+
+# Copy compiled native runner binary
+COPY --from=runner-builder /homearcade-runner* /usr/local/bin/
 
 WORKDIR /app
 
