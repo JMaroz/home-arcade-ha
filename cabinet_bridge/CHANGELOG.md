@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.57.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.56.2...v2.57.0) (2026-10-11)
+
+
+### Features
+
+* **stream:** implement native libvpx VP8 encoder replacing gstreamer ([2c66c6e](https://github.com/JMaroz/home-arcade-ha/commit/2c66c6ef5d63a6e472a58032ae9e24477dbc8e07))
+
 ## [2.56.2](https://github.com/JMaroz/home-arcade-ha/compare/v2.56.1...v2.56.2) (2026-10-11)
 
 
