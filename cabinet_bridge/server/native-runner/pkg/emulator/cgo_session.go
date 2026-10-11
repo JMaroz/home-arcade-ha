@@ -293,11 +293,18 @@ func coreVideoRefresh(data unsafe.Pointer, width, height C.uint, pitch C.size_t)
 	if w != s.geometry.Width || h != s.geometry.Height {
 		s.geometry.Width = w
 		s.geometry.Height = h
-		s.frameBuffer = make([]byte, w*h*4)
 	}
 
-	// Copy frame buffer
-	bytesCount := w * h * 4
+	bytesPerPixel := 4
+	if s.geometry.PixelFormat == encoder.PixelFormatRGB565 || s.geometry.PixelFormat == encoder.PixelFormat0RGB1555 {
+		bytesPerPixel = 2
+	}
+
+	bytesCount := int(pitch) * h
+	if bytesCount <= 0 {
+		bytesCount = w * h * bytesPerPixel
+	}
+
 	srcSlice := unsafe.Slice((*byte)(data), bytesCount)
 	if len(s.frameBuffer) < bytesCount {
 		s.frameBuffer = make([]byte, bytesCount)

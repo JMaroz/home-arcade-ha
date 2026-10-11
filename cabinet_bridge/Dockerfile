@@ -11,13 +11,12 @@ WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential \
       pkg-config \
-      libgstreamer1.0-dev \
-      libgstreamer-plugins-base1.0-dev
+      libvpx-dev
 
 COPY server/native-runner/go.mod server/native-runner/go.sum ./
 RUN go mod download
 COPY server/native-runner/ ./
-RUN CGO_ENABLED=1 go build -tags="gstreamer" -ldflags="-s -w" -o /homearcade-runner .
+RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o /homearcade-runner .
 RUN test -f /homearcade-runner || { echo "ERROR: /homearcade-runner not found after build"; exit 1; }
 
 # ==============================================================================
@@ -93,17 +92,13 @@ ENV LANG=C.UTF-8 \
     PORT=5000 \
     NODE_ENV=production
 
-# Install runtime dependencies: Node.js 20 + glibc SQLite + GStreamer plugins for WebRTC streaming
+# Install runtime dependencies: Node.js 20 + glibc SQLite + libvpx for WebRTC streaming
 RUN apt-get update && apt-get install -y --no-install-recommends \
       curl \
       ca-certificates \
       libsqlite3-0 \
       libstdc++6 \
-      gstreamer1.0-plugins-base \
-      gstreamer1.0-plugins-good \
-      gstreamer1.0-tools \
-      libgstreamer1.0-0 \
-      libgstreamer-plugins-base1.0-0 \
+      libvpx7 \
       && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
       && apt-get install -y --no-install-recommends nodejs \
       && apt-get purge -y curl \

@@ -563,7 +563,8 @@ func runMediaStreamLoop() {
 		// 3. Encode & write video sample (fan-out via WebRTC track to all peers)
 		if videoTrack != nil {
 			rawRGB, pixFmt := emuSession.GetFrame()
-			sample, err := videoEncoder.Encode(rawRGB, pixFmt)
+			geom := emuSession.GetGeometry()
+			sample, err := videoEncoder.Encode(rawRGB, pixFmt, geom.Width, geom.Height)
 			if err == nil {
 				_ = videoTrack.WriteSample(sample)
 			}

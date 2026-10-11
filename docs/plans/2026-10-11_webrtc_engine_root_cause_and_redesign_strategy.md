@@ -32,18 +32,18 @@
 - [x] Ricerca e confronto con l'architettura di riferimento (CloudRetro e Pod-Arcade)
 - [x] Creazione del documento di piano e strategia in `docs/plans/2026-10-11_webrtc_engine_root_cause_and_redesign_strategy.md`
 - [x] Analisi tecnica del download a runtime di GStreamer/glibc vs `base-debian`
-- [x] Implementazione Dockerfile multi-arch con `base-debian:bookworm` e GStreamer
-- [x] Integrazione del layer Cgo Libretro (`nanoarch.c`, `cgo_session.go`) e pipeline GStreamer (`gstreamer.go`) nel runner Go
-- [x] Esecuzione test di regressione e build (`go test` ok, `pnpm check` ok, `pnpm test` ok, `pnpm build` ok)
-- [x] Risoluzione panic cgo pointer check (`cgo argument has Go pointer to unpinned Go pointer`) in `cgo_session.go` e `nanoarch.c`
-- [x] Gestione disk-based (.chd, .iso, .cue, .m3u) e large ROM (>16MB) a zero-overhead via `need_fullpath`
-- [x] Filtro IP Docker bridge (`172.16.0.0/12`) e link-local in `runner-manager.ts`
-- [x] Abilitazione `host_network: true` in `config.yaml` e allineamento linter add-on HA
-- [x] Verifica DoD con test completati con successo (`go test` ok, `pnpm check` ok, `pnpm test` ok, `pnpm build` ok)
+- [x] Debug in tempo reale su istanza Home Assistant (`http://192.168.1.67:5000`) tramite Chromium headless:
+  - Verificata connessione WebRTC ICE riuscita (`connected`, RTT 3ms, DTLS e DataChannel P1 aperti).
+  - Rilevato `videoReadyState: 0` (`HAVE_NOTHING`): il browser riceveva pacchetti ma scartava i frame poiché privi di partizioni VP8 decodificabili.
+- [x] Implementazione encoder reale Cgo con `libvpx` (`vpx.c`, `vpx.h`, `vpx.go`):
+  - Codifica I420 nativa ultra-low-latency (`g_lag_in_frames=0`, `VPX_DL_REALTIME`, `cpu-used=8`).
+  - Sostituito GStreamer con `libvpx` diretto (eliminata la fragilità di pipeline caps e plugin).
+  - Gestione dinamica risoluzione nativa core (`w`, `h`) e correzione calcolo pitch RGB565/XRGB in `coreVideoRefresh`.
+- [x] Dockerfile aggiornato: `libvpx-dev` in stage build, `libvpx7` in runtime (rimosse dipendenze GStreamer).
+- [x] Test unitari ed empirici superati: `TestVpxVideoEncoder_RealFrameEncode` (frame reale 6,162 byte a 60 FPS), `pnpm check`, `pnpm test` (120/120 passati).
 
 ## 5. Strategia di Verifica
-1. `docker build` multi-arch con `ghcr.io/home-assistant/base-debian:bookworm`.
-2. Verifica caricamento core Libretro `parallel_n64_libretro.so` e `pcsx_rearmed_libretro.so` via `dlopen` e avvio senza panic cgo.
-3. Connessione ICE WebRTC diretta tramite `host_network: true` e IP host LAN.
-4. Verifica ricezione flusso video VP8 e audio Opus su client browser con frame rate effettivo di 60 FPS.
+1. Verifica compilazione Go e unit test libvpx (`go test -v ./...`).
+2. Typecheck e suite Vitest (`pnpm check && pnpm test`).
+3. Push su `main` e validazione live.
 
