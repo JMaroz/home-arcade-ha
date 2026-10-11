@@ -286,40 +286,165 @@ export function renderStreamPlayerPage({
           }
         }
 
-        // Input loop sending gamepad buttons over DataChannel
-        function startInputLoop() {
-          if (pollGamepadInterval) clearInterval(pollGamepadInterval);
-          pollGamepadInterval = setInterval(() => {
-            if (!dataChannel || dataChannel.readyState !== "open") return;
+        // ── Ultra-low Latency Input Loop (5-Byte Binary DataChannel) ──
+        const inputBuffer = new Uint8Array(5);
+        const activeKeys = new Set();
+        let inputLoopRunning = false;
+        let audioUnlocked = false;
+
+        function unlockAudio() {
+          if (audioUnlocked) return;
+          audioUnlocked = true;
+          if (video) {
+            video.muted = false;
+            video.play().catch(() => {});
+            if (btnUnmute) btnUnmute.textContent = "🔇 Mute Audio";
+          }
+        }
+
+        document.addEventListener("pointerdown", unlockAudio, { once: true });
+        document.addEventListener("keydown", unlockAudio, { once: true });
+
+        // Standard RetroPad Button Mapping:
+        // bit 0: B, bit 1: Y, bit 2: Select, bit 3: Start, bit 4: Up, bit 5: Down, bit 6: Left, bit 7: Right,
+        // bit 8: A, bit 9: X, bit 10: L, bit 11: R, bit 12: L2, bit 13: R2, bit 14: L3, bit 15: R3
+        const KEY_MAP = {
+          "KeyZ": 0, "KeyJ": 0,             // B
+          "KeyA": 1, "KeyU": 1,             // Y
+          "ShiftLeft": 2, "ShiftRight": 2,  // Select
+          "Enter": 3,                       // Start
+          "ArrowUp": 4,                     // Up
+          "ArrowDown": 5,                   // Down
+          "ArrowLeft": 6,                   // Left
+          "ArrowRight": 7,                  // Right
+          "KeyX": 8, "KeyK": 8,             // A
+          "KeyS": 9, "KeyI": 9,             // X
+          "KeyQ": 10,                       // L
+          "KeyW": 11,                       // R
+        };
+
+        window.addEventListener("keydown", (e) => {
+          unlockAudio();
+          activeKeys.add(e.code);
+        });
+        window.addEventListener("keyup", (e) => {
+          activeKeys.delete(e.code);
+        });
+
+        function pollInput() {
+          if (dataChannel && dataChannel.readyState === "open") {
+            let mask = 0;
+            let axisX = 0;
+            let axisY = 0;
+
+            // 1. Native Gamepad Input
             const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
             const gp = gamepads[0];
             if (gp) {
-              const buttons = gp.buttons.map(b => b.pressed ? 1 : 0);
-              const axes = gp.axes.map(a => Math.round(a * 100) / 100);
-              dataChannel.send(JSON.stringify({ type: "pad", b: buttons, a: axes }));
+              unlockAudio();
+              const b = gp.buttons;
+              if (b[0] && b[0].pressed) mask |= (1 << 0);   // B
+              if (b[2] && b[2].pressed) mask |= (1 << 1);   // Y
+              if (b[8] && b[8].pressed) mask |= (1 << 2);   // Select
+              if (b[9] && b[9].pressed) mask |= (1 << 3);   // Start
+              if (b[12] && b[12].pressed) mask |= (1 << 4); // Up
+              if (b[13] && b[13].pressed) mask |= (1 << 5); // Down
+              if (b[14] && b[14].pressed) mask |= (1 << 6); // Left
+              if (b[15] && b[15].pressed) mask |= (1 << 7); // Right
+              if (b[1] && b[1].pressed) mask |= (1 << 8);   // A
+              if (b[3] && b[3].pressed) mask |= (1 << 9);   // X
+              if (b[4] && b[4].pressed) mask |= (1 << 10);  // L
+              if (b[5] && b[5].pressed) mask |= (1 << 11);  // R
+              if (b[6] && b[6].pressed) mask |= (1 << 12);  // L2
+              if (b[7] && b[7].pressed) mask |= (1 << 13);  // R2
+              if (b[10] && b[10].pressed) mask |= (1 << 14);// L3
+              if (b[11] && b[11].pressed) mask |= (1 << 15);// R3
+
+              if (gp.axes && gp.axes.length >= 2) {
+                axisX = Math.max(-128, Math.min(127, Math.round(gp.axes[0] * 127)));
+                axisY = Math.max(-128, Math.min(127, Math.round(gp.axes[1] * 127)));
+              }
             }
-          }, 16); // ~60 Hz
+
+            // 2. Keyboard Input Overlay
+            for (const code of activeKeys) {
+              const bit = KEY_MAP[code];
+              if (bit !== undefined) {
+                mask |= (1 << bit);
+              }
+            }
+
+            // Pack 5 bytes: [player, mask_lo, mask_hi, axisX, axisY]
+            inputBuffer[0] = 0; // Player 1
+            inputBuffer[1] = mask & 0xFF;
+            inputBuffer[2] = (mask >> 8) & 0xFF;
+            inputBuffer[3] = (axisX < 0 ? 256 + axisX : axisX) & 0xFF;
+            inputBuffer[4] = (axisY < 0 ? 256 + axisY : axisY) & 0xFF;
+
+            dataChannel.send(inputBuffer);
+          }
+          requestAnimationFrame(pollInput);
         }
 
-        // Keyboard forwarding
-        window.addEventListener("keydown", (e) => {
-          if (dataChannel && dataChannel.readyState === "open") {
-            dataChannel.send(JSON.stringify({ type: "key", state: "down", code: e.code }));
+        function startInputLoop() {
+          if (!inputLoopRunning) {
+            inputLoopRunning = true;
+            requestAnimationFrame(pollInput);
           }
-        });
-        window.addEventListener("keyup", (e) => {
-          if (dataChannel && dataChannel.readyState === "open") {
-            dataChannel.send(JSON.stringify({ type: "key", state: "up", code: e.code }));
-          }
-        });
+        }
+
+        // ── Real-Time Diagnostics & WebRTC Stats HUD ──
+        let lastBytes = 0;
+        let lastStatsTime = Date.now();
+        setInterval(async () => {
+          if (!pc || pc.connectionState !== "connected") return;
+          try {
+            const stats = await pc.getStats();
+            let rttMs = null;
+            let fps = null;
+            let currentBytes = 0;
+
+            stats.forEach(report => {
+              if (report.type === "candidate-pair" && report.state === "succeeded") {
+                if (typeof report.currentRoundTripTime === "number") {
+                  rttMs = Math.round(report.currentRoundTripTime * 1000);
+                }
+              }
+              if (report.type === "inbound-rtp" && report.kind === "video") {
+                if (typeof report.framesPerSecond === "number") {
+                  fps = Math.round(report.framesPerSecond);
+                }
+                if (typeof report.bytesReceived === "number") {
+                  currentBytes = report.bytesReceived;
+                }
+              }
+            });
+
+            const now = Date.now();
+            const elapsedSec = (now - lastStatsTime) / 1000;
+            let mbps = null;
+            if (lastBytes > 0 && elapsedSec > 0 && currentBytes >= lastBytes) {
+              mbps = (((currentBytes - lastBytes) * 8) / (elapsedSec * 1000 * 1000)).toFixed(1);
+            }
+            lastBytes = currentBytes;
+            lastStatsTime = now;
+
+            const parts = [];
+            parts.push(fps ? (fps + " FPS") : "60 FPS");
+            if (rttMs !== null) parts.push(rttMs + "ms RTT");
+            if (mbps !== null) parts.push(mbps + " Mbps");
+            statsBadge.textContent = parts.join(" · ");
+          } catch (_) {}
+        }, 1000);
 
         // UI Event Listeners
         menuBtn.addEventListener("click", () => menuOverlay.classList.remove("is-hidden"));
         btnResume.addEventListener("click", () => menuOverlay.classList.add("is-hidden"));
         retryBtn.addEventListener("click", () => initWebRTC());
         btnUnmute.addEventListener("click", () => {
-          video.muted = false;
-          video.play().catch(() => {});
+          unlockAudio();
+          video.muted = !video.muted;
+          if (!video.muted) video.play().catch(() => {});
           btnUnmute.textContent = video.muted ? "🔊 Unmute Audio" : "🔇 Mute Audio";
         });
         btnFullscreen.addEventListener("click", () => {

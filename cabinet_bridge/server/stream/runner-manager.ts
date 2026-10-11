@@ -1,3 +1,4 @@
+import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
@@ -23,6 +24,23 @@ export interface StreamSession {
 }
 
 const activeSessions = new Map<string, StreamSession>();
+
+function getHostIp(): string | null {
+  if (process.env.CABINET_HOST_IP) {
+    return process.env.CABINET_HOST_IP;
+  }
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    const list = nets[name];
+    if (!list) continue;
+    for (const iface of list) {
+      if (iface.family === "IPv4" && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return null;
+}
 
 // Finds an available ephemeral port on loopback
 async function getAvailablePort(): Promise<number> {
@@ -137,15 +155,21 @@ export class StreamRunnerManager {
     activeSessions.set(sessionId, session);
 
     if (runnerBin) {
+      const spawnArgs = [
+        "--session", sessionId,
+        "--port", String(port),
+        "--rom", romPath,
+        "--core", corePath,
+        "--system", rom.system,
+      ];
+      const hostIp = getHostIp();
+      if (hostIp) {
+        spawnArgs.push("--host-ip", hostIp);
+      }
+
       const child = spawn(
         runnerBin,
-        [
-          "--session", sessionId,
-          "--port", String(port),
-          "--rom", romPath,
-          "--core", corePath,
-          "--system", rom.system,
-        ],
+        spawnArgs,
         {
           stdio: ["ignore", "pipe", "pipe"],
           detached: false,

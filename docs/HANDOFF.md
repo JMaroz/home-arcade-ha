@@ -95,23 +95,41 @@
         - **Iniezione BIOS PS1**: `renderEmulatorBootstrap` ora inietta correttamente `window.EJS_biosUrl` con il percorso al BIOS verificato (`scph5501.bin`).
         - **Supporto Playlist M3U**: I file M3U a disco singolo (es. Ape Escape) ora vengono risolti direttamente al CHD sottostante. I file M3U multi-disco popolano `window.EJS_externalFiles` mappando i nomi dei dischi ai rispettivi file URL nel VFS.
 
+13. **WebRTC Network Hardening (Pion NAT 1:1, TCP Mux) & Input Engine Binario a 5-Byte (Fasi 1 & 2 Completate)**:
+    - **Pion WebRTC SettingEngine**: In `server/native-runner/main.go`, configurato `webrtc.SettingEngine` con:
+      - Mappatura ICE NAT 1:1 (`SetNAT1To1IPs`) via flag `--host-ip` per superare i blocchi di routing interno Docker (`172.30.32.x`).
+      - Abilitazione TCP Muxer (`ice.NewTCPMuxDefault` / `SetICETCPMux`) e abilitazione esplicita tipi di rete UDP4 e TCP4 per incapsulare WebRTC su TCP attraverso proxy restrittivi.
+      - Range controllato per porte UDP effimere (`--udp-min`, `--udp-max`).
+    - **Rilevamento Host IP Dinamico**: In `server/stream/runner-manager.ts`, implementata la funzione `getHostIp()` che esamina le interfacce di rete (o `process.env.CABINET_HOST_IP`) e passa `--host-ip` negli argomenti di spawn del runner.
+    - **Input Engine Binario a 5-Byte**:
+      - In `server/native-runner/main.go`, introdotto `InputManager` thread-safe. Nel gestore `dc.OnMessage`, i pacchetti binari a 5 byte (`[player, mask_lo, mask_hi, axis_x, axis_y]`) vengono processati a zero allocazioni.
+      - Aggiunto fallback retrocompatibile per payload JSON.
+    - **Client Stream Player Avanzato**:
+      - In `server/routes/streamPlayer.ts`, integrato il loop di invio DataChannel via `requestAnimationFrame` con bitmask RetroPad a 16-bit per gamepad e tastiera.
+      - Gestione sblocco audio (`unlockAudio`) al primo tocco o pressione di tasto (compatibilità WebKit/Smart TV).
+      - Mini-HUD diagnostico in tempo reale che interroga `pc.getStats()` per RTT/Ping in ms, FPS video effettivi e Bitrate Mbps.
+    - **Test Automatizzati**: Unit test Go in `server/native-runner/main_test.go` (100% passati) e unit test TypeScript in `server/__tests__/core-health.test.ts`.
+
 ---
 
 ## 2. File Rilevanti
 
-- [cabinet_bridge/server/routes/player.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/player.ts): Generazione `window.EJS_gameUrl` con estensione, `EJS_biosUrl`, `EJS_externalFiles` e core `psx`.
-- [cabinet_bridge/server/routes/roms.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/roms.ts): Route `/api/roms/:id/file/:filename?` e risoluzione diretta CHD per M3U singolo.
-- [cabinet_bridge/server/routes/shared.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/shared.ts): Core `ps1: "psx"`.
-- [cabinet_bridge/server/stream/runner-manager.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/stream/runner-manager.ts): `waitForPortReady` e retry loop su `relaySignal`.
-- [cabinet_bridge/shared/bios-metadata.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/shared/bios-metadata.ts): Alias `"psx"` in `REQUIRED_BIOS` e `CORE_PERFORMANCE_TIERS`.
-- [cabinet_bridge/server/__tests__/core-health.test.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/__tests__/core-health.test.ts): Unit test per bootstrap PS1, biosUrl ed externalFiles.
-- [docs/plans/2026-10-11_webrtc_signaling_and_ps1_retroarch_boot_fix.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-11_webrtc_signaling_and_ps1_retroarch_boot_fix.md): Piano di lavoro e checklist.
+- [cabinet_bridge/server/native-runner/main.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/main.go): SettingEngine NAT 1:1, TCP Muxer, e InputManager binario.
+- [cabinet_bridge/server/native-runner/main_test.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/main_test.go): Unit test per InputManager ed endpoint `/health`.
+- [cabinet_bridge/server/stream/runner-manager.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/stream/runner-manager.ts): `getHostIp()` e passaggio `--host-ip`.
+- [cabinet_bridge/server/routes/streamPlayer.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/streamPlayer.ts): DataChannel binario a 5-byte, unlockAudio e monitoraggio stats RTT/FPS.
+- [cabinet_bridge/server/__tests__/core-health.test.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/__tests__/core-health.test.ts): Unit test per bootstrap PS1 e native stream player.
+- [docs/plans/2026-10-11_cloud_gaming_architecture_and_native_webrtc_roadmap.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-11_cloud_gaming_architecture_and_native_webrtc_roadmap.md): Piano di lavoro strutturato per l'evoluzione del runner nativo WebRTC.
 
 ---
 
 ## 3. Prossimi Passi (Next Steps)
 
-1. **Commit Git Hygiene**: Salvare le modifiche con Conventional Commit (`fix: resolve webrtc signaling race condition and ps1 emulatorjs boot`).
-2. **Push su `main`**: Allineare il repository remoto.
-3. **Evoluzione Cgo Libretro Runner (Fase futura)**: Procedere con l'implementazione del runner Cgo reale basato sull'architettura CloudRetro per il rendering video e l'encoding x264/VP8.
+1. **Esecuzione Fase 3 del Piano Cloud Gaming (Core Libretro Cgo & Video Encoding)**:
+   - Creare il modulo Cgo in `server/native-runner/pkg/emulator/libretro` per caricare dinamicamente i core `.so` già scaricati in `/data/cores/`.
+   - Implementare la conversione pixel RGB -> YUV420p rapida ed encoder software zerolatency (`libx264` / `libvpx`).
+2. **Esecuzione Fase 4 (Resampling Audio & Opus Streaming)**:
+   - Resampler sincrono da 32kHz/44.1kHz a 48kHz stereo a 20ms per frame.
+3. **Esecuzione Fase 5 (Multiplayer Couch Co-Op con QR Code)**:
+   - Supporto sessioni multi-peer Fan-in / Fan-out per giocare in 2 sulla stessa ROM.
 

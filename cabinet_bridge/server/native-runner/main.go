@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/pion/ice/v4"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
 )
@@ -22,27 +24,73 @@ type SignalMessage struct {
 }
 
 type RunnerConfig struct {
-	SessionID string
-	Port      int
-	RomPath   string
-	CorePath  string
-	System    string
-	FPS       int
-	Width     int
-	Height    int
+	SessionID  string
+	Port       int
+	HostIP     string
+	UDPMinPort int
+	UDPMaxPort int
+	TCPPort    int
+	RomPath    string
+	CorePath   string
+	System     string
+	FPS        int
+	Width      int
+	Height     int
+}
+
+// PlayerInputState tracks real-time pad buttons and analog axes
+type PlayerInputState struct {
+	Buttons uint16
+	AxisX   int8
+	AxisY   int8
+	Updated time.Time
+}
+
+type InputManager struct {
+	mu      sync.RWMutex
+	players [4]PlayerInputState
+}
+
+func (im *InputManager) Update(player int, buttons uint16, axisX, axisY int8) {
+	if player < 0 || player >= 4 {
+		return
+	}
+	im.mu.Lock()
+	im.players[player] = PlayerInputState{
+		Buttons: buttons,
+		AxisX:   axisX,
+		AxisY:   axisY,
+		Updated: time.Now(),
+	}
+	im.mu.Unlock()
+}
+
+func (im *InputManager) GetState(player int) PlayerInputState {
+	if player < 0 || player >= 4 {
+		return PlayerInputState{}
+	}
+	im.mu.RLock()
+	defer im.mu.RUnlock()
+	return im.players[player]
 }
 
 var (
 	config     RunnerConfig
+	api        *webrtc.API
 	peerConn   *webrtc.PeerConnection
 	videoTrack *webrtc.TrackLocalStaticSample
 	audioTrack *webrtc.TrackLocalStaticSample
+	inputMgr   = &InputManager{}
 	mu         sync.Mutex
 )
 
 func main() {
 	flag.StringVar(&config.SessionID, "session", "dev-session", "Streaming session ID")
 	flag.IntVar(&config.Port, "port", 10050, "Local signaling HTTP port")
+	flag.StringVar(&config.HostIP, "host-ip", "", "Host IP address for ICE NAT 1:1 mapping")
+	flag.IntVar(&config.UDPMinPort, "udp-min", 0, "Minimum ephemeral UDP port")
+	flag.IntVar(&config.UDPMaxPort, "udp-max", 0, "Maximum ephemeral UDP port")
+	flag.IntVar(&config.TCPPort, "tcp-port", 0, "Optional TCP mux port for WebRTC over TCP")
 	flag.StringVar(&config.RomPath, "rom", "", "Path to ROM file")
 	flag.StringVar(&config.CorePath, "core", "", "Path to Libretro core .so")
 	flag.StringVar(&config.System, "system", "generic", "Target gaming system")
@@ -53,6 +101,43 @@ func main() {
 
 	log.Printf("[runner] Starting HomeArcade Native Runner (Session: %s, System: %s, Port: %d)\n",
 		config.SessionID, config.System, config.Port)
+
+	// Configure WebRTC SettingEngine for NAT traversal and port control
+	settingEngine := webrtc.SettingEngine{}
+
+	if config.HostIP != "" {
+		settingEngine.SetNAT1To1IPs([]string{config.HostIP}, webrtc.ICECandidateTypeHost)
+		log.Printf("[runner] ICE NAT 1:1 candidate mapping enabled for host IP: %s\n", config.HostIP)
+	}
+
+	if config.UDPMinPort > 0 && config.UDPMaxPort >= config.UDPMinPort {
+		if err := settingEngine.SetEphemeralUDPPortRange(uint16(config.UDPMinPort), uint16(config.UDPMaxPort)); err != nil {
+			log.Printf("[runner] Warning: failed to configure ephemeral UDP range: %v\n", err)
+		} else {
+			log.Printf("[runner] Ephemeral UDP range configured: %d-%d\n", config.UDPMinPort, config.UDPMaxPort)
+		}
+	}
+
+	// Enable UDP4 and TCP4 network types
+	settingEngine.SetNetworkTypes([]webrtc.NetworkType{
+		webrtc.NetworkTypeUDP4,
+		webrtc.NetworkTypeTCP4,
+	})
+
+	if config.TCPPort > 0 {
+		tcpListener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IP{0, 0, 0, 0}, Port: config.TCPPort})
+		if err != nil {
+			log.Printf("[runner] Warning: failed to listen on TCP port %d for WebRTC mux: %v\n", config.TCPPort, err)
+		} else {
+			tcpMux := ice.NewTCPMuxDefault(ice.TCPMuxParams{
+				Listener: tcpListener,
+			})
+			settingEngine.SetICETCPMux(tcpMux)
+			log.Printf("[runner] WebRTC TCP Muxer enabled on port %d\n", config.TCPPort)
+		}
+	}
+
+	api = webrtc.NewAPI(webrtc.WithSettingEngine(settingEngine))
 
 	// Setup WebRTC media tracks
 	var err error
@@ -110,11 +195,16 @@ func main() {
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	p1State := inputMgr.GetState(0)
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "ok",
-		"session": config.SessionID,
-		"system":  config.System,
-		"fps":     config.FPS,
+		"status":     "ok",
+		"session":    config.SessionID,
+		"system":     config.System,
+		"fps":        config.FPS,
+		"host_ip":    config.HostIP,
+		"udp_range":  fmt.Sprintf("%d-%d", config.UDPMinPort, config.UDPMaxPort),
+		"tcp_port":   config.TCPPort,
+		"p1_buttons": p1State.Buttons,
 	})
 }
 
@@ -140,7 +230,11 @@ func handleOffer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var err error
-	peerConn, err = webrtc.NewPeerConnection(webrtcConfig)
+	if api != nil {
+		peerConn, err = api.NewPeerConnection(webrtcConfig)
+	} else {
+		peerConn, err = webrtc.NewPeerConnection(webrtcConfig)
+	}
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create PeerConnection: %v", err), http.StatusInternalServerError)
 		return
@@ -161,8 +255,44 @@ func handleOffer(w http.ResponseWriter, r *http.Request) {
 		if dc.Label() == "input" {
 			log.Printf("[runner] Input DataChannel opened from browser client")
 			dc.OnMessage(func(msg webrtc.DataChannelMessage) {
-				// Process input message (gamepad state or keystroke)
-				// Sub-millisecond direct dispatch to Libretro input callback
+				// 1. Ultra-fast binary packet (5 bytes: player, btn_lo, btn_hi, axis_x, axis_y)
+				if !msg.IsString && len(msg.Data) >= 5 {
+					player := int(msg.Data[0])
+					buttons := uint16(msg.Data[1]) | (uint16(msg.Data[2]) << 8)
+					axisX := int8(msg.Data[3])
+					axisY := int8(msg.Data[4])
+					inputMgr.Update(player, buttons, axisX, axisY)
+					return
+				}
+
+				// 2. Backward compatibility fallback for legacy JSON payloads
+				if msg.IsString {
+					var legacy map[string]interface{}
+					if err := json.Unmarshal(msg.Data, &legacy); err == nil {
+						if t, ok := legacy["type"].(string); ok && t == "pad" {
+							if bList, ok := legacy["b"].([]interface{}); ok {
+								var mask uint16
+								for i, v := range bList {
+									if i < 16 {
+										if val, ok := v.(float64); ok && val > 0.5 {
+											mask |= (1 << i)
+										}
+									}
+								}
+								var ax, ay int8
+								if aList, ok := legacy["a"].([]interface{}); ok && len(aList) >= 2 {
+									if f, ok := aList[0].(float64); ok {
+										ax = int8(f * 127)
+									}
+									if f, ok := aList[1].(float64); ok {
+										ay = int8(f * 127)
+									}
+								}
+								inputMgr.Update(0, mask, ax, ay)
+							}
+						}
+					}
+				}
 			})
 		}
 	})

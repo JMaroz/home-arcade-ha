@@ -164,5 +164,25 @@ describe("Bootstrap Script Syntax Validation", () => {
     // External files injected
     expect(ps1Code).toContain('window.EJS_externalFiles = {"disc1.chd":"/api/roms/789/file/disc1.chd","disc2.chd":"/api/roms/790/file/disc2.chd"};');
   });
+
+  it("should render Native Stream Player with binary 5-byte DataChannel and stats HUD", async () => {
+    const { renderStreamPlayerPage } = await import("../routes/streamPlayer");
+
+    const html = renderStreamPlayerPage({
+      title: "Gran Turismo 2",
+      returnTo: "/library",
+      romId: 456,
+      system: "ps1",
+      profileId: 1,
+      ingressBase: "/api/hassio_ingress/token123",
+    });
+
+    expect(html).toContain("Gran Turismo 2 · Native Stream · HomeArcade");
+    expect(html).toContain("new Uint8Array(5)");
+    expect(html).toContain("unlockAudio");
+    expect(html).toContain("currentRoundTripTime");
+    expect(html).toContain("dataChannel.send(inputBuffer)");
+    expect(html).toContain("/api/hassio_ingress/token123/api/roms/456/player?return=%2Flibrary&profile=1&engine=wasm");
+  });
 });
 
