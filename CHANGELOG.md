@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.56.2](https://github.com/JMaroz/home-arcade-ha/compare/v2.56.1...v2.56.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* **stream:** resolve cgo pointer panic and enable host network for webrtc ([cea4b63](https://github.com/JMaroz/home-arcade-ha/commit/cea4b6369bfd91e6f6fed2c791ea2a982104a710))
+
 ## [2.56.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.56.0...v2.56.1) (2026-10-11)
 
 
