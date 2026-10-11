@@ -2,6 +2,20 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.55.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.54.3...v2.55.0) (2026-10-11)
+
+
+### Features
+
+* improve native WebRTC streaming ([9ac3db5](https://github.com/JMaroz/home-arcade-ha/commit/9ac3db5ceb9e61a81f334c54891a6def0f1dca1c))
+* **runner:** implement Libretro emulation, VP8 encoder and 48kHz audio resampler pipeline ([984ef1a](https://github.com/JMaroz/home-arcade-ha/commit/984ef1a04b0aae2877ea98e063a143567f46e515))
+* **stream:** implement Couch Co-Op multi-peer, telemetry HUD, and stream routes ([04906fd](https://github.com/JMaroz/home-arcade-ha/commit/04906fd20fc11ef5be475318774ed591024d24a9))
+
+
+### Bug Fixes
+
+* stabilize PS1 boot and WebRTC signaling ([d862f97](https://github.com/JMaroz/home-arcade-ha/commit/d862f972e3db6bf77a71ed7905746d626f470bec))
+
 ## [2.54.3](https://github.com/JMaroz/home-arcade-ha/compare/v2.54.2...v2.54.3) (2026-10-10)
 
 
