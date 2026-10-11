@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.55.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.55.0...v2.55.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* prevent stream black screens and navigation lag ([7e75a98](https://github.com/JMaroz/home-arcade-ha/commit/7e75a9811bd613d759122d41e73f1bccc4d0c57c))
+
 ## [2.55.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.54.3...v2.55.0) (2026-10-11)
 
 
