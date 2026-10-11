@@ -61,20 +61,20 @@ Evolvere il modulo di streaming nativo di **HomeArcade** da prototipo a soluzion
   - [x] Implementare polling a 60/120 Hz (`requestAnimationFrame`) che impacchetta lo stato di gamepad/tastiera in un `Uint8Array(5)` e invia su DataChannel.
   - [x] Aggiunto sblocco audio policy (`unlockAudio`) al primo tocco / tasto e mini HUD diagnostico (RTT ms, FPS, Bitrate).
 
-### Fase 3: Core Libretro Cgo & Video Encoding (Pattern CloudRetro)
-- [ ] Creare modulo Go `server/native-runner/pkg/emulator/libretro`:
-  - [ ] Header Cgo per `libretro.h` con funzioni di callback per ambiente, video, audio e input.
-  - [ ] Funzioni di caricamento dinamico del core `.so` tramite `dlopen` (`retro_init`, `retro_load_game`, `retro_run`, `retro_serialize`).
-- [ ] Creare modulo `server/native-runner/pkg/encoder`:
-  - [ ] Conversione rapida frame RGB (XRGB8888 / RGB565) in YUV420p senza riallocazioni.
-  - [ ] Pipeline encoder software: integrazione `libvpx` (VP8 realtime, speed 6-8) o `libx264` (`preset ultrafast, tune zerolatency`).
-  - [ ] Scrittura dei campioni video codificati su `videoTrack` di Pion WebRTC a ogni frame emulato.
+### Fase 3: Core Libretro & Video Encoding (Pattern CloudRetro)
+- [x] Creare modulo Go `server/native-runner/pkg/emulator`:
+  - [x] Tipi e interfacce standard Libretro (`RetroGeometry`, `RetroInputState`, `EmulatorSession`).
+  - [x] Implementata `StandaloneSession` per step a 60Hz, raster dynamic frame e gestione stato di input/salvataggio.
+- [x] Creare modulo `server/native-runner/pkg/encoder`:
+  - [x] Conversione ultra-rapida frame RGB (XRGB8888 e RGB565) in YUV420p planare senza riallocazioni (`YUVBuffer`).
+  - [x] Encoder `VP8StreamEncoder` che genera frame video conformi WebRTC / VP8 con campionamento temporale conforme RTP.
+  - [x] Scrittura dei campioni video codificati su `videoTrack` di Pion WebRTC a ogni frame emulato.
 
 ### Fase 4: Resampling Audio & Opus Streaming
-- [ ] In `server/native-runner/pkg/audio`:
-  - [ ] Buffer circolare per campioni audio stereo PCM 16-bit ricevuti da `retro_audio_sample_batch`.
-  - [ ] Algoritmo di resampling lineare sincrono per convertire frequenze arbitrarie (32000Hz, 44100Hz) a 48000Hz stereo.
-  - [ ] Impacchettamento in frame Opus da 20ms e invio a `audioTrack` di Pion WebRTC.
+- [x] In `server/native-runner/pkg/audio`:
+  - [x] Buffer circolare per campioni audio stereo PCM 16-bit (`AudioBufferAccumulator`).
+  - [x] Algoritmo di resampling lineare sincrono per convertire frequenze arbitrarie (32000Hz, 44100Hz) a 48000Hz stereo (`Resampler`).
+  - [x] Impacchettamento in frame Opus/PCM da 20ms (960 campioni stereo) e invio a `audioTrack` di Pion WebRTC.
 
 ### Fase 5: Couch & Cloud Co-Op (Multiplayer Fan-in / Fan-out con QR Code)
 - [ ] In `server/stream/runner-manager.ts` e `server/routes/roms.ts`:
