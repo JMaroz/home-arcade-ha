@@ -180,6 +180,72 @@ func extractZippedRom(zipPath string, validExtensions string) (string, string, e
 	return romPath, tempDir, nil
 }
 
+// resolveM3uFile inspects an .m3u playlist: strips carriage returns (\r), resolves
+// single-disc M3U playlists directly to the underlying disc image, and sanitizes multi-disc
+// playlists to standard LF line endings so libretro cores can parse them without ENOENT.
+func resolveM3uFile(m3uPath string) (string, func(), error) {
+	rawBytes, err := os.ReadFile(m3uPath)
+	if err != nil {
+		return m3uPath, nil, fmt.Errorf("failed to read m3u file '%s': %w", m3uPath, err)
+	}
+
+	lines := strings.Split(string(rawBytes), "\n")
+	var cleanEntries []string
+	hasCR := false
+	for _, l := range lines {
+		if strings.Contains(l, "\r") {
+			hasCR = true
+		}
+		trimmed := strings.TrimSpace(strings.TrimRight(l, "\r\n"))
+		if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
+			cleanEntries = append(cleanEntries, trimmed)
+		}
+	}
+
+	if len(cleanEntries) == 0 {
+		return m3uPath, nil, nil
+	}
+
+	// Single-disc M3U: resolve directly to disc image if the target exists
+	if len(cleanEntries) == 1 {
+		entry := cleanEntries[0]
+		target := entry
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(m3uPath), entry)
+		}
+		if _, err := os.Stat(target); err == nil {
+			log.Printf("[runner] Single-disc M3U '%s' resolved directly to '%s'\n", m3uPath, target)
+			return target, nil, nil
+		}
+	}
+
+	// Multi-disc or unresolved single disc: sanitize CRLF if present
+	if hasCR {
+		cleanContent := strings.Join(cleanEntries, "\n") + "\n"
+		// Try writing sanitized version back in place
+		if err := os.WriteFile(m3uPath, []byte(cleanContent), 0644); err == nil {
+			log.Printf("[runner] Sanitized CRLF line endings in M3U file: %s\n", m3uPath)
+			return m3uPath, nil, nil
+		}
+
+		// Fallback: create temporary sanitized M3U with absolute paths
+		tempM3U := filepath.Join(os.TempDir(), fmt.Sprintf("homearcade_clean_%d_%s", time.Now().UnixNano(), filepath.Base(m3uPath)))
+		var absEntries []string
+		for _, e := range cleanEntries {
+			if filepath.IsAbs(e) {
+				absEntries = append(absEntries, e)
+			} else {
+				absEntries = append(absEntries, filepath.Join(filepath.Dir(m3uPath), e))
+			}
+		}
+		if err := os.WriteFile(tempM3U, []byte(strings.Join(absEntries, "\n")+"\n"), 0644); err == nil {
+			return tempM3U, func() { _ = os.Remove(tempM3U) }, nil
+		}
+	}
+
+	return m3uPath, nil, nil
+}
+
 func (s *CgoLibretroSession) Load(romPath, corePath string) error {
 	dlib, err := openDynamicLib(corePath)
 	if err != nil {
@@ -266,6 +332,24 @@ func (s *CgoLibretroSession) Load(romPath, corePath string) error {
 		actualRomPath = extractedPath
 		s.cleanup = func() {
 			_ = os.RemoveAll(tempDir)
+		}
+	}
+
+	if strings.ToLower(filepath.Ext(actualRomPath)) == ".m3u" {
+		resolvedPath, m3uCleanup, err := resolveM3uFile(actualRomPath)
+		if err == nil {
+			actualRomPath = resolvedPath
+			if m3uCleanup != nil {
+				prevCleanup := s.cleanup
+				s.cleanup = func() {
+					m3uCleanup()
+					if prevCleanup != nil {
+						prevCleanup()
+					}
+				}
+			}
+		} else {
+			log.Printf("[runner] Warning: failed to resolve M3U '%s': %v\n", actualRomPath, err)
 		}
 	}
 

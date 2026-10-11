@@ -35,10 +35,11 @@ export function getRunnerLogs(): string[] {
   return [...runnerLogs];
 }
 
-function getHostIp(): string | null {
+function getHostIps(): string[] {
   if (process.env.CABINET_HOST_IP) {
-    return process.env.CABINET_HOST_IP;
+    return process.env.CABINET_HOST_IP.split(",").map((s) => s.trim()).filter(Boolean);
   }
+  const ips: string[] = [];
   const nets = os.networkInterfaces();
   for (const name of Object.keys(nets)) {
     const list = nets[name];
@@ -54,11 +55,13 @@ function getHostIp(): string | null {
         if (parts[0] === 169 && parts[1] === 254) {
           continue;
         }
-        return iface.address;
+        if (!ips.includes(iface.address)) {
+          ips.push(iface.address);
+        }
       }
     }
   }
-  return null;
+  return ips;
 }
 
 // Finds an available ephemeral port on loopback
@@ -148,11 +151,42 @@ export class StreamRunnerManager {
       }
     }
 
-    const romPath = path.resolve(rom.filePath);
+    let bootRom = rom;
+    if (rom.isPlaylist) {
+      const children = await storage.listChildrenByM3uId(rom.id);
+      if (children.length === 1) {
+        bootRom = children[0];
+      } else if (children.length === 0 && rom.m3uContent) {
+        const refs = rom.m3uContent
+          .split("\n")
+          .map((l) => l.trim())
+          .filter((l) => l.length > 0 && !l.startsWith("#"));
+        if (refs.length === 1) {
+          const found = await storage.findRomByOriginalName(refs[0]);
+          if (found) {
+            bootRom = found;
+          }
+        }
+      }
+    }
+
+    const romPath = path.resolve(bootRom.filePath);
     try {
       await fs.access(romPath);
     } catch {
       throw new Error(`ROM file not found at path: ${romPath}`);
+    }
+
+    // If still an M3U playlist (e.g. multi-disc), sanitize CRLF to LF so cores parse filenames cleanly
+    if (bootRom.isPlaylist || romPath.toLowerCase().endsWith(".m3u")) {
+      try {
+        const raw = await fs.readFile(romPath, "utf8");
+        if (raw.includes("\r")) {
+          await fs.writeFile(romPath, raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n"), "utf8");
+        }
+      } catch (err) {
+        console.warn(`[native-runner] Could not sanitize M3U line endings in ${romPath}:`, err);
+      }
     }
 
     const sessionId = crypto.randomUUID();
@@ -181,9 +215,9 @@ export class StreamRunnerManager {
         "--core", corePath,
         "--system", rom.system,
       ];
-      const hostIp = getHostIp();
-      if (hostIp) {
-        spawnArgs.push("--host-ip", hostIp);
+      const hostIps = getHostIps();
+      if (hostIps.length > 0) {
+        spawnArgs.push("--host-ip", hostIps.join(","));
       }
 
       const child = spawn(
@@ -356,7 +390,7 @@ export class StreamRunnerManager {
   static getDebugInfo() {
     return {
       runnerBin: getRunnerBinaryPath(),
-      hostIp: getHostIp(),
+      hostIps: getHostIps(),
       activeSessions: Array.from(activeSessions.values()).map((s) => ({
         sessionId: s.sessionId,
         romId: s.romId,

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -121,8 +122,17 @@ func main() {
 	settingEngine := webrtc.SettingEngine{}
 
 	if config.HostIP != "" {
-		settingEngine.SetNAT1To1IPs([]string{config.HostIP}, webrtc.ICECandidateTypeHost)
-		log.Printf("[runner] ICE NAT 1:1 candidate mapping enabled for host IP: %s\n", config.HostIP)
+		var hostIPs []string
+		for _, ip := range strings.Split(config.HostIP, ",") {
+			trimmed := strings.TrimSpace(ip)
+			if trimmed != "" {
+				hostIPs = append(hostIPs, trimmed)
+			}
+		}
+		if len(hostIPs) > 0 {
+			settingEngine.SetNAT1To1IPs(hostIPs, webrtc.ICECandidateTypeHost)
+			log.Printf("[runner] ICE NAT 1:1 candidate mapping enabled for host IPs: %v\n", hostIPs)
+		}
 	}
 
 	if config.UDPMinPort > 0 && config.UDPMaxPort >= config.UDPMinPort {

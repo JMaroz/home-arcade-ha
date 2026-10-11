@@ -92,18 +92,23 @@ func (s *StandaloneSession) Step() {
 
 	s.frameCounter++
 
-	// Render dynamic frame (simulating core rendering with animated pattern for keepalive)
+	// If a real game or core was requested but failed to load, keep video black and audio silent
+	if s.romPath != "" || s.corePath != "" {
+		clear(s.frameBuffer)
+		clear(s.audioBuffer)
+		return
+	}
+
+	// Render dynamic frame for mock/standalone test mode
 	w := s.geometry.Width
 	h := s.geometry.Height
 	t := float64(s.frameCounter) * 0.05
 
-	// Fast raster update
-	for y := 0; y < h; y += 4 {
+	for y := 0; y < h; y++ {
 		row := y * w * 4
-		for x := 0; x < w; x += 4 {
+		for x := 0; x < w; x++ {
 			idx := row + (x * 4)
 			if idx+3 < len(s.frameBuffer) {
-				// Animated gradient pattern
 				r := byte((math.Sin(t+float64(x)*0.01) + 1.0) * 127)
 				g := byte((math.Cos(t+float64(y)*0.01) + 1.0) * 127)
 				b := byte(180)

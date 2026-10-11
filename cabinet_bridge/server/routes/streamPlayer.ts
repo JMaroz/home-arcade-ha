@@ -7,6 +7,7 @@ interface StreamPlayerOptions {
   system: string;
   profileId?: number;
   ingressBase?: string;
+  configuredAspectRatio?: string;
 }
 
 export function renderStreamPlayerPage({
@@ -16,6 +17,7 @@ export function renderStreamPlayerPage({
   system,
   profileId = 1,
   ingressBase = "",
+  configuredAspectRatio = "auto",
 }: StreamPlayerOptions): string {
   const safeTitle = escapeHtml(title);
   const safeReturnTo = JSON.stringify(returnTo);
@@ -37,10 +39,44 @@ export function renderStreamPlayerPage({
       }
       #video-container {
         position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-        background: #000;
+        background: #000; overflow: hidden;
+      }
+      #video-wrapper {
+        position: relative; display: flex; align-items: center; justify-content: center;
+        max-width: 100vw; max-height: 100vh;
+        transition: width 150ms ease, height 150ms ease;
+      }
+      #video-wrapper.aspect-4-3 {
+        aspect-ratio: 4 / 3;
+        width: min(100vw, calc(100vh * (4 / 3)));
+        height: min(100vh, calc(100vw * (3 / 4)));
+      }
+      #video-wrapper.aspect-16-9 {
+        aspect-ratio: 16 / 9;
+        width: min(100vw, calc(100vh * (16 / 9)));
+        height: min(100vh, calc(100vw * (9 / 16)));
+      }
+      #video-wrapper.aspect-3-2 {
+        aspect-ratio: 3 / 2;
+        width: min(100vw, calc(100vh * (3 / 2)));
+        height: min(100vh, calc(100vw * (2 / 3)));
+      }
+      #video-wrapper.aspect-10-9 {
+        aspect-ratio: 10 / 9;
+        width: min(100vw, calc(100vh * (10 / 9)));
+        height: min(100vh, calc(100vw * (9 / 10)));
+      }
+      #video-wrapper.aspect-1-1 {
+        aspect-ratio: 1 / 1;
+        width: min(100vw, 100vh);
+        height: min(100vh, 100vw);
+      }
+      #video-wrapper.aspect-fill {
+        width: 100vw;
+        height: 100vh;
       }
       video {
-        width: 100%; height: 100%; object-fit: contain; max-width: 100vw; max-height: 100vh;
+        width: 100%; height: 100%; object-fit: fill;
         image-rendering: pixelated; image-rendering: crisp-edges;
       }
       .hud-overlay {
@@ -193,7 +229,9 @@ export function renderStreamPlayerPage({
   </head>
   <body>
     <div id="video-container">
-      <video id="remote-video" autoplay playsinline muted></video>
+      <div id="video-wrapper" class="aspect-4-3">
+        <video id="remote-video" autoplay playsinline muted></video>
+      </div>
     </div>
 
     <!-- On-Screen Virtual Gamepad Overlay (Touch & Click) -->
@@ -334,6 +372,9 @@ export function renderStreamPlayerPage({
         <div style="display: flex; flex-direction: column; gap: 8px;">
           <button id="btn-unmute" class="btn btn-secondary">🔊 Unmute Audio</button>
           <button id="btn-fullscreen" class="btn btn-secondary">⛶ Toggle Fullscreen</button>
+          <button id="btn-aspect" class="btn btn-secondary" style="border-color: rgba(234, 179, 8, 0.4);">
+            📐 Aspect Ratio: 4:3
+          </button>
           <button id="btn-toggle-pad" class="btn btn-secondary" style="border-color: rgba(236, 72, 153, 0.4);">
             🎮 Mostra/Nascondi Controller su Schermo
           </button>
@@ -385,7 +426,9 @@ export function renderStreamPlayerPage({
         const btnResume = document.getElementById("btn-resume");
         const btnExit = document.getElementById("btn-exit");
         const btnFullscreen = document.getElementById("btn-fullscreen");
-        const btnUnmute = document.getElementById("btn-unmute");
+        const btnUnmute = document.getElementById("btnUnmute") || document.getElementById("btn-unmute");
+        const btnAspect = document.getElementById("btn-aspect");
+        const videoWrapper = document.getElementById("video-wrapper");
         const btnCopyCoop = document.getElementById("btn-copy-coop");
         const btnCloseCoop = document.getElementById("btn-close-coop");
         const btnCloseTelemetry = document.getElementById("btn-close-telemetry");
@@ -393,6 +436,58 @@ export function renderStreamPlayerPage({
         const coopLinkInput = document.getElementById("coop-link-input");
         const coopQrImg = document.getElementById("coop-qr-img");
         const statsBadge = document.getElementById("stats");
+
+        // Aspect ratio handling & persistence
+        const systemName = ${JSON.stringify(system.toLowerCase())};
+        function getSystemDefaultAspect(sys) {
+          if (sys === "gba") return "3:2";
+          if (sys === "gb" || sys === "gbc" || sys === "gamegear" || sys === "ngp") return "10:9";
+          if (sys === "psp") return "16:9";
+          return "4:3";
+        }
+
+        const aspectOptions = ["4:3", "16:9", "fill"];
+        const defaultAspect = getSystemDefaultAspect(systemName);
+        if (defaultAspect === "3:2") {
+          aspectOptions.splice(1, 0, "3:2");
+        } else if (defaultAspect === "10:9") {
+          aspectOptions.splice(1, 0, "10:9");
+        }
+
+        let savedAspect = null;
+        try {
+          savedAspect = localStorage.getItem("cabinet_stream_aspect_" + systemName) ||
+                        localStorage.getItem("cabinet_stream_aspect_global");
+        } catch (_) {}
+
+        const initialConfigured = ${JSON.stringify(configuredAspectRatio)};
+        let activeAspect = savedAspect || (initialConfigured && initialConfigured !== "auto" ? initialConfigured : defaultAspect);
+
+        function applyAspectRatio(aspect) {
+          activeAspect = aspect;
+          if (videoWrapper) {
+            videoWrapper.classList.remove("aspect-4-3", "aspect-16-9", "aspect-3-2", "aspect-10-9", "aspect-1-1", "aspect-fill");
+            const cls = "aspect-" + (aspect === "fill" ? "fill" : aspect.replace(":", "-"));
+            videoWrapper.classList.add(cls);
+          }
+          if (btnAspect) {
+            const label = aspect === "fill" ? "Stretch (Fill)" : aspect;
+            btnAspect.textContent = "📐 Aspect Ratio: " + label;
+          }
+          try {
+            localStorage.setItem("cabinet_stream_aspect_" + systemName, aspect);
+          } catch (_) {}
+        }
+
+        applyAspectRatio(activeAspect);
+
+        if (btnAspect) {
+          btnAspect.addEventListener("click", () => {
+            const curIdx = aspectOptions.indexOf(activeAspect);
+            const nextIdx = (curIdx + 1) % aspectOptions.length;
+            applyAspectRatio(aspectOptions[nextIdx]);
+          });
+        }
 
         // Telemetry DOM elements
         const telRtt = document.getElementById("tel-rtt");
