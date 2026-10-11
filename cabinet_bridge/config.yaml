@@ -5,7 +5,6 @@ description: >-
   The premium retro gaming frontend for Home Assistant. Manage ROMs, browse
   systems, and launch games from your sidebar or TV.
 url: https://github.com/JMaroz/HomeArcade-HA
-boot: auto
 arch:
   - aarch64
   - amd64
@@ -25,10 +24,6 @@ backup_exclude:
 panel_icon: mdi:gamepad-variant
 panel_title: HomeArcade
 hassio_api: true
-homeassistant_api: false
-build_from:
-  aarch64: ghcr.io/home-assistant/aarch64-base:latest
-  amd64: ghcr.io/home-assistant/amd64-base:latest
 options:
   data_dir: /data
   rom_watch_dir: ''

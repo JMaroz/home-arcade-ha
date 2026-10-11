@@ -1,10 +1,10 @@
-# Handoff Sessione: Docker Slimming al Minimo, Mappatura Storage (Samba/SSD) & Setup Wizard a 3 Fasi
+# Handoff Sessione: Fix Fallimento GitHub Actions (Home Assistant Add-on Lint)
 
-**Data**: 2026-10-10  
-**Stato**: Completate tutte le milestone per il ridimensionamento al minimo dell'immagine Docker, l'integrazione delle cartelle di gioco Samba/SSD esterno e l'evoluzione del Setup Wizard in un onboarding guidato a 3 fasi.  
+**Data**: 2026-10-11  
+**Stato**: Identificata e risolta la root cause del fallimento sistematico dei workflow di GitHub Actions (`Lint & Validation` -> `Home Assistant Add-on Lint`). Pulito `cabinet_bridge/config.yaml` dai campi non conformi (`build_from`, `homeassistant_api: false`, `boot: auto`).  
 **Piani di Riferimento**: 
-- `docs/plans/2026-10-10_docker_slimming_and_runtime_setup_wizard.md` (Completato)
-- `docs/plans/2026-10-10_dual_engine_webrtc_integration_plan.md` (Completato)  
+- `docs/plans/2026-10-11_fix_actions_failures.md` (Completato)  
+- `docs/plans/2026-10-11_cloud_gaming_phase2_touch_saves_and_ha_sensors.md` (Pianificato)  
 **Ricerche Correlate**: 
 - `docs/research/2026-10-10_dual_engine_webrtc_feasibility.md`  
 **ADR Correlato**: `docs/adr/001-rpi5-emulation-dual-engine-architecture.md`  
@@ -12,6 +12,17 @@
 ---
 
 ## 1. Stato Corrente & Modifiche Realizzate
+
+1. **Risoluzione Errori Linter Add-on Home Assistant (`cabinet_bridge/config.yaml`)**:
+   - Dai log dei workflow GitHub Actions (`frenck/action-addon-linter@v2`), l'azione falliva sistematicamente per 3 violazioni del contratto di configurazione:
+     - `Additional properties are not allowed ('build_from' was unexpected)`: `build_from` non è una proprietà valida per `config.yaml` (le immagini base sono gestite direttamente nel Dockerfile con BuildKit `ARG BUILD_ARCH`). Rimosso l'intero blocco `build_from`.
+     - `'homeassistant_api' should be removed, it uses a default value`: il valore predefinito è `false`; la specifica dell'addon linter vieta di specificare esplicitamente valori coincidenti con i default. Rimosso.
+     - `'boot' should be removed, it uses a default value`: il valore predefinito è `auto`. Rimosso.
+   - Il file `cabinet_bridge/config.yaml` è ora rigorosamente conforme allo schema ufficiale Home Assistant Add-on.
+
+2. **Verifica & Validazione**:
+   - `pnpm check` (TypeScript): 0 errori.
+   - Script di verifica directory di servizio s6 (`rootfs/etc/s6-overlay/s6-rc.d/`): 0 errori.
 
 1. **Docker Ultra-Slim Multi-Stage Build (`cabinet_bridge/Dockerfile`)**:
    - Riorganizzato il Dockerfile in 3 stadi isolati:
@@ -156,6 +167,8 @@
 
 ## 2. File Rilevanti
 
+- [cabinet_bridge/config.yaml](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/config.yaml): Rimossi `build_from`, `homeassistant_api: false`, e `boot: auto` per conformità allo schema HA Add-on.
+- [docs/plans/2026-10-11_fix_actions_failures.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-11_fix_actions_failures.md): Piano di lavoro strutturato e checklist completata per la risoluzione dei fallimenti CI.
 - [cabinet_bridge/client/src/components/dashboard-themes/HomeArcadeTheme.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/components/dashboard-themes/HomeArcadeTheme.tsx): Batch rendering (48 giochi), lazy loading immagini, fanart debounced e transizioni CSS.
 - [cabinet_bridge/client/src/components/GameDetailDialog.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/components/GameDetailDialog.tsx): WebAssembly come motore prioritario consigliato, etichetta Native Beta Preview.
 - [cabinet_bridge/server/routes/streamPlayer.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/streamPlayer.ts): Track accumulation in `pc.ontrack`, banner di fallback a WebAssembly su zero-frame e reset preferenze.
