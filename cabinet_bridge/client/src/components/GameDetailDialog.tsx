@@ -784,19 +784,6 @@ export function GameDetailDialog({
                 <div className="inline-flex rounded-lg border border-border/60 bg-muted/30 p-0.5 text-xs">
                   <button
                     type="button"
-                    onClick={() => handleSetEngine("native")}
-                    className={`px-2.5 py-1 rounded-md font-mono text-[11px] transition-colors flex items-center gap-1.5 ${
-                      engine === "native"
-                        ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    data-testid="button-engine-native"
-                    title="Runs natively at 60 FPS on Raspberry Pi 5 with WebRTC low-latency streaming"
-                  >
-                    <Zap className="size-3 fill-current" /> Native (Pi 5)
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => handleSetEngine("wasm")}
                     className={`px-2.5 py-1 rounded-md font-mono text-[11px] transition-colors flex items-center gap-1.5 ${
                       engine === "wasm"
@@ -804,9 +791,22 @@ export function GameDetailDialog({
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                     data-testid="button-engine-wasm"
-                    title="Runs inside your client web browser via WebAssembly (EmulatorJS)"
+                    title="Runs inside your client web browser via WebAssembly (EmulatorJS) — Recommended & fully stable"
                   >
-                    <Globe className="size-3" /> WebAssembly
+                    <Globe className="size-3" /> WebAssembly (Consigliato)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetEngine("native")}
+                    className={`px-2.5 py-1 rounded-md font-mono text-[11px] transition-colors flex items-center gap-1.5 ${
+                      engine === "native"
+                        ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    data-testid="button-engine-native"
+                    title="Experimental native WebRTC runner on Raspberry Pi (Beta preview)"
+                  >
+                    <Zap className="size-3 fill-current" /> Native (Beta Preview)
                   </button>
                 </div>
               </div>
@@ -825,7 +825,7 @@ export function GameDetailDialog({
                   ? "Launching…"
                   : game.romId
                   ? engine === "native"
-                    ? "Play (Native Stream)"
+                    ? "Play (Native Beta)"
                     : "Play (WASM)"
                   : "Launch"}
               </Button>

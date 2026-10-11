@@ -245,6 +245,41 @@ export default function HomeArcadeTheme() {
 
   const activeGame = filteredGames[activeGameIdx];
 
+  // Windowed rendering for large libraries to prevent DOM/image overload
+  const BATCH_SIZE = 48;
+  const [displayLimit, setDisplayLimit] = useState(BATCH_SIZE);
+
+  useEffect(() => {
+    setDisplayLimit(BATCH_SIZE);
+  }, [activeSystemId, searchQuery, sortBy, filterStatus, view]);
+
+  // Expand batch if keyboard navigation reaches near current limit
+  useEffect(() => {
+    if (activeGameIdx >= displayLimit - 12 && displayLimit < filteredGames.length) {
+      setDisplayLimit((prev) => Math.min(filteredGames.length, prev + BATCH_SIZE));
+    }
+  }, [activeGameIdx, displayLimit, filteredGames.length]);
+
+  const displayedGames = useMemo(() => {
+    return filteredGames.slice(0, displayLimit);
+  }, [filteredGames, displayLimit]);
+
+  // Debounced active game for background fanart to avoid heavy blur thrashing on rapid focus change
+  const [bgGame, setBgGame] = useState<Game | null>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setBgGame(activeGame ?? null);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [activeGame]);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - (scrollTop + clientHeight) < 500) {
+      setDisplayLimit((prev) => (prev < filteredGames.length ? Math.min(filteredGames.length, prev + BATCH_SIZE) : prev));
+    }
+  }, [filteredGames.length]);
+
   // Grid Navigation
   const gridRef = useRef<HTMLDivElement>(null);
   const { focusedIndex, setFocusedIndex } = useGridNav({
@@ -307,19 +342,22 @@ export default function HomeArcadeTheme() {
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#0c0c0c] text-white select-none overflow-hidden font-sans relative">
       
-      {/* Background Fanart */}
-      <AnimatePresence mode="wait">
-        {(view === "system" || searchQuery) && activeGame && (
-          <motion.div key={activeGame.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }} className="absolute inset-0 z-0 pointer-events-none">
-            {activeGame.artUrl ? (
-              <img src={apiUrl(activeGame.romId ? `/api/roms/${activeGame.romId}/art` : `/api/art?url=${encodeURIComponent(activeGame.artUrl)}`)} className="w-full h-full object-cover opacity-20 blur-[20px] scale-110" alt="" />
-            ) : (
-              <div className="w-full h-full opacity-10" style={{ background: `radial-gradient(circle at center, hsl(${activeGame.art[0]}), #000 80%)` }} />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c0c] via-transparent to-[#0c0c0c]/90" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Background Fanart (Debounced & Lightweight) */}
+      {(view === "system" || searchQuery) && bgGame && (
+        <div key={bgGame.id} className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-300">
+          {bgGame.artUrl ? (
+            <img
+              src={apiUrl(bgGame.romId ? `/api/roms/${bgGame.romId}/art` : `/api/art?url=${encodeURIComponent(bgGame.artUrl)}`)}
+              className="w-full h-full object-cover opacity-15 blur-md scale-105 will-change-transform"
+              alt=""
+              decoding="async"
+            />
+          ) : (
+            <div className="w-full h-full opacity-10" style={{ background: `radial-gradient(circle at center, hsl(${bgGame.art[0]}), #000 80%)` }} />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c0c] via-transparent to-[#0c0c0c]/90" />
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col min-h-0 relative z-10">
         
@@ -366,7 +404,7 @@ export default function HomeArcadeTheme() {
           )}
         </header>
 
-        <main ref={gridRef} className="flex-1 overflow-y-auto px-6 pb-24 scrollbar-none overscroll-contain">
+        <main ref={gridRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-6 pb-24 scrollbar-none overscroll-contain">
           <AnimatePresence mode="wait">
             
             {/* 1. PORTALS VIEW (Default Landing) */}
@@ -382,7 +420,7 @@ export default function HomeArcadeTheme() {
                       style={{ background: `linear-gradient(135deg, hsl(${system.art[0]}) 0%, hsl(${system.art[1]}) 100%)` }}
                     >
                       {system.image && (
-                        <img src={system.image.url} alt="" className="absolute -right-4 -bottom-4 h-4/5 object-contain opacity-40 group-hover:scale-110 group-hover:opacity-70 transition-all duration-700 pointer-events-none" />
+                        <img src={system.image.url} alt="" loading="lazy" decoding="async" className="absolute -right-4 -bottom-4 h-4/5 object-contain opacity-40 group-hover:scale-110 group-hover:opacity-70 transition-all duration-700 pointer-events-none" />
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       <div className="absolute inset-0 p-5 flex flex-col justify-between">
@@ -413,36 +451,61 @@ export default function HomeArcadeTheme() {
                     <Button variant="ghost" onClick={() => setSearchQuery("")} className="mt-4 text-xs">Clear Search</Button>
                   </div>
                 ) : (
-                  filteredGames.map((game, i) => {
+                  displayedGames.map((game, i) => {
                     const isActive = i === activeGameIdx;
                     return (
-                      <motion.div key={game.id} data-testid={`card-game-${game.id}`} animate={{ scale: isActive ? 1.06 : 1 }} whileHover={{ scale: 1.06, y: -4 }} onClick={() => openGame(game)}
-                        className={`relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer group transition-all duration-300 ${isActive ? "ring-2 ring-primary shadow-[0_0_30px_rgba(var(--primary),0.25)] z-10" : "ring-1 ring-white/10 hover:ring-white/25"}`}
+                      <div
+                        key={game.id}
+                        data-testid={`card-game-${game.id}`}
+                        onClick={() => openGame(game)}
+                        className={`relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer group transition-transform duration-150 will-change-transform hover:scale-105 ${
+                          isActive
+                            ? "scale-105 ring-2 ring-primary shadow-[0_0_30px_rgba(var(--primary),0.25)] z-10"
+                            : "ring-1 ring-white/10 hover:ring-white/25"
+                        }`}
                       >
                         <div className="absolute inset-0 bg-neutral-900/50 flex items-center justify-center">
                           {game.artUrl ? (
-                            <img src={apiUrl(game.romId ? `/api/roms/${game.romId}/art` : `/api/art?url=${encodeURIComponent(game.artUrl)}`)} className="w-full h-full object-cover" alt="" />
+                            <img
+                              src={apiUrl(game.romId ? `/api/roms/${game.romId}/art` : `/api/art?url=${encodeURIComponent(game.artUrl)}`)}
+                              className="w-full h-full object-cover"
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                            />
                           ) : (
-                            <span className="text-[10px] font-black uppercase text-white/20 px-2 text-center leading-tight">{game.title}</span>
+                            <span className="text-[10px] font-black uppercase text-white/20 px-2 text-center leading-tight">
+                              {game.title}
+                            </span>
                           )}
                         </div>
                         {isActive && (
-                          <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ repeat: Infinity, duration: 2 }} className="absolute inset-0 ring-2 ring-primary rounded-xl pointer-events-none" />
+                          <div className="absolute inset-0 ring-2 ring-primary rounded-xl pointer-events-none animate-pulse" />
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </motion.div>
+                      </div>
                     );
                   })
                 )}
               </motion.div>
             )}
 
-            {/* Library Counter */}
+            {/* Library Counter / Load More */}
             {(view === "system" || searchQuery) && (
-              <div className="flex flex-col items-center pt-6 pb-4">
+              <div className="flex flex-col items-center pt-6 pb-4 gap-2">
                 <span className="text-[10px] font-mono text-white/20 uppercase tracking-widest">
-                  Showing {filteredGames.length} of {allGames.length} games
+                  Showing {displayedGames.length} of {filteredGames.length} games
                 </span>
+                {displayedGames.length < filteredGames.length && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDisplayLimit((prev) => Math.min(filteredGames.length, prev + BATCH_SIZE))}
+                    className="text-xs text-white/40 hover:text-white hover:bg-white/5 rounded-full px-4"
+                  >
+                    Load More ({filteredGames.length - displayedGames.length} remaining)
+                  </Button>
+                )}
               </div>
             )}
           </AnimatePresence>

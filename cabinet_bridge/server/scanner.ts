@@ -124,7 +124,7 @@ export async function computeFileHash(filePath: string): Promise<string> {
 // State
 // ─────────────────────────────────────────────────────────────────────────────
 
-const POLL_INTERVAL_MS = 60_000;
+const POLL_INTERVAL_MS = 300_000; // 5 minutes to prevent I/O thrashing on USB/NAS storage
 const MAX_DEPTH = 10; 
 
 let _addRomsBulk: AddRomsBulkFn | null = null;

@@ -137,6 +137,17 @@ export function renderStreamPlayerPage({
     <button id="hud-trigger" class="menu-btn">📊 Stats</button>
     <div id="stats" class="stats-badge" title="Click or press 'H' / Select+Start to toggle HUD">STREAM · 60 FPS</div>
 
+    <!-- Video Stream Warning / Fallback Banner -->
+    <div id="stream-warning-banner" style="display: none; position: fixed; top: max(56px, calc(env(safe-area-inset-top) + 48px)); left: 50%; transform: translateX(-50%); z-index: 998; background: rgba(30, 20, 10, 0.95); border: 1px solid #f59e0b; color: #fef3c7; padding: 12px 20px; border-radius: 12px; font-size: 11px; max-width: 90vw; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.6); backdrop-filter: blur(8px);">
+      <div style="font-weight: 700; margin-bottom: 4px; color: #fbbf24;">⚠️ Schermo nero? Native runner in anteprima</div>
+      <div style="font-size: 10px; color: rgba(254, 243, 199, 0.85); margin-bottom: 8px; line-height: 1.4;">
+        Nessun fotogramma video decodificato dal flusso nativo. Passa al motore WebAssembly per giocare subito.
+      </div>
+      <a href="${wasmPlayerUrl}" class="btn btn-primary wasm-fallback-link" style="padding: 8px 16px; font-size: 11px; margin: 0; background: #f59e0b; color: #000; font-weight: 800;">
+        ▶ Gioca con WebAssembly (EmulatorJS)
+      </a>
+    </div>
+
     <!-- Loading / Status HUD -->
     <div id="status-hud" class="hud-overlay">
       <div class="hud-card">
@@ -303,6 +314,11 @@ export function renderStreamPlayerPage({
 
         document.querySelectorAll(".wasm-fallback-link").forEach((link) => {
           link.setAttribute("href", wasmUrl);
+          link.addEventListener("click", () => {
+            try {
+              localStorage.setItem("ha_arcade_engine_preference", "wasm");
+            } catch (_) {}
+          });
         });
 
         function showError(title, message) {
@@ -382,9 +398,16 @@ export function renderStreamPlayerPage({
               if (event.streams && event.streams[0]) {
                 video.srcObject = event.streams[0];
               } else {
-                const stream = new MediaStream([event.track]);
-                video.srcObject = stream;
+                let stream = video.srcObject;
+                if (!(stream instanceof MediaStream)) {
+                  stream = new MediaStream();
+                  video.srcObject = stream;
+                }
+                if (!stream.getTracks().some((t) => t.id === event.track.id)) {
+                  stream.addTrack(event.track);
+                }
               }
+              video.play().catch(() => {});
               statusHud.classList.add("is-hidden");
             };
 
@@ -565,9 +588,19 @@ export function renderStreamPlayerPage({
         // ── Real-Time Diagnostics & WebRTC Stats HUD ──
         let lastBytes = 0;
         let lastStatsTime = Date.now();
+        let connectedSeconds = 0;
         setInterval(async () => {
           if (!pc || pc.connectionState !== "connected") return;
           try {
+            connectedSeconds++;
+            const isRendering = (video.videoWidth > 0 && video.videoHeight > 0);
+            const warningBanner = document.getElementById("stream-warning-banner");
+            if (!isRendering && connectedSeconds >= 4 && warningBanner) {
+              warningBanner.style.display = "block";
+            } else if (isRendering && warningBanner) {
+              warningBanner.style.display = "none";
+            }
+
             const stats = await pc.getStats();
             let rttMs = null;
             let fps = null;

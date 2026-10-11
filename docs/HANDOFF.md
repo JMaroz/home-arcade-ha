@@ -140,9 +140,27 @@
     - `pnpm test`: 19 suite su 19 passate al 100% (120 test su 120 verdi, inclusa la nuova suite `stream.test.ts`).
     - Go test: tutti i package del runner Go (`runner`, `audio`, `emulator`, `encoder`) passati al 100% con `go test -v ./...` e `go vet ./...` privo di warning.
 
+17. **Fix WebRTC Schermo Nero & Ottimizzazione Prestazioni Navigazione (2026-10-11)**:
+    - **Risoluzione Schermo Nero all'Avvio Giochi**:
+      - **Track Accumulation Bug**: In `streamPlayer.ts`, `pc.ontrack` sovrascriveva `video.srcObject` con l'ultima traccia arrivata (spesso audio-only), scartando il video. Ora accumula sia video sia audio nello stesso `MediaStream` ed esegue `video.play()`.
+      - **Default Sicuro a WebAssembly (ADR 001)**: In `GameDetailDialog.tsx`, il motore predefinito iniziale è `"wasm"` (WebAssembly / EmulatorJS) con etichetta chiara `WebAssembly (Consigliato)` e `Native (Beta Preview)`. Eliminato il blocco permanente su Native nel dialog.
+      - **Banner di Fallback Intelligente & 1-Click Switch**: In `streamPlayer.ts`, se il flusso video non decodifica fotogrammi (`videoWidth === 0`) dopo 4 secondi di connessione attiva (runner nativo in preview), compare un banner esplicito con pulsante a 1 click `[▶ Gioca con WebAssembly (EmulatorJS)]`, che reimposta automaticamente la preferenza del motore a `wasm`.
+    - **Risoluzione Rallentamenti / Lag di Navigazione**:
+      - **Image Request Storm Eliminato**: In `HomeArcadeTheme.tsx`, centinaia di card venivano montate simultaneamente senza `loading="lazy"` o `decoding="async"`, saturando la coda di connessioni HTTP attraverso Home Assistant Ingress. Aggiunto `loading="lazy"` e `decoding="async"` sia alle copertine sia alle immagini dei portali.
+      - **Windowed / Batch Rendering**: Introdotto rendering a lotti di 48 giochi (`BATCH_SIZE = 48`) che si espande dinamicamente con lo scroll e con la navigazione da tastiera/gamepad (`displayedGames`), riducendo drasticamente il DOM tree iniziale da centinaia di nodi a 48.
+      - **Sostituzione Framer Motion con Transizioni CSS**: Rimosso il wrapping per-card con `motion.div` pesante e sostituito con transizioni CSS native su GPU (`will-change-transform`), rendendo l'hover e lo scorrimento fluidi a 60-120 FPS.
+      - **Debounce Fanart di Sfondo**: Inserito debounce a 150ms sull'aggiornamento dell'immagine di sfondo e ridotto il filtro da `blur-[20px] scale-110` a un leggero `blur-md opacity-15`, prevenendo il thrashing della GPU durante lo scorrimento rapido della libreria.
+      - **Relax Polling Scanner Background**: In `scanner.ts`, intervallo aumentato da 60s a 300s (5 minuti) per azzerare l'I/O thrashing continuo sui dischi USB/NAS durante la navigazione dell'utente.
+
 ---
 
 ## 2. File Rilevanti
+
+- [cabinet_bridge/client/src/components/dashboard-themes/HomeArcadeTheme.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/components/dashboard-themes/HomeArcadeTheme.tsx): Batch rendering (48 giochi), lazy loading immagini, fanart debounced e transizioni CSS.
+- [cabinet_bridge/client/src/components/GameDetailDialog.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/components/GameDetailDialog.tsx): WebAssembly come motore prioritario consigliato, etichetta Native Beta Preview.
+- [cabinet_bridge/server/routes/streamPlayer.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/streamPlayer.ts): Track accumulation in `pc.ontrack`, banner di fallback a WebAssembly su zero-frame e reset preferenze.
+- [cabinet_bridge/server/scanner.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/scanner.ts): Polling di background rilassato a 300s (5 minuti).
+- [docs/plans/2026-10-11_fix_webrtc_black_screen_and_navigation_lag.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-11_fix_webrtc_black_screen_and_navigation_lag.md): Piano di lavoro completato e verificato empiricamente.
 
 - [cabinet_bridge/server/native-runner/main.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/main.go): Multi-peer fan-out/fan-in WebRTC, input manager e streaming loop.
 - [cabinet_bridge/server/native-runner/pkg/emulator/session.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/emulator/session.go): Modulo di emulazione Libretro.
