@@ -2,6 +2,18 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.56.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.55.1...v2.56.0) (2026-10-11)
+
+
+### Features
+
+* add native WebRTC streaming pipeline ([a31021f](https://github.com/JMaroz/home-arcade-ha/commit/a31021f9a95c950aac71d8619616418c48e6994b))
+
+
+### Bug Fixes
+
+* resolve Home Assistant add-on linter configuration errors ([73e2dc2](https://github.com/JMaroz/home-arcade-ha/commit/73e2dc283e0cdca8cef1f9333ded55544287b070))
+
 ## [2.55.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.55.0...v2.55.1) (2026-10-11)
 
 

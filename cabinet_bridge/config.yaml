@@ -1,6 +1,5 @@
----
 name: HomeArcade
-version: 2.55.1
+version: 2.56.0
 slug: cabinet_bridge
 description: >-
   The premium retro gaming frontend for Home Assistant. Manage ROMs, browse
