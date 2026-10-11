@@ -115,5 +115,10 @@ export function registerStreamRoutes(app: Express) {
     StreamRunnerManager.stopSession(req.params.sessionId);
     res.json({ success: true });
   });
+
+  // GET /api/stream/debug
+  app.get("/api/stream/debug", (_req, res) => {
+    res.json(StreamRunnerManager.getDebugInfo());
+  });
 }
 

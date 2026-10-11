@@ -110,8 +110,14 @@ app.get("/api/debug", (_req: Request, res: Response) => {
     const allMatches = Array.from(content.matchAll(/src="([^"]+)"/g));
     assetList = allMatches.map((m) => m[1]);
   }
+  let pkgVersion = process.env.npm_package_version ?? "unknown";
+  try {
+    const pkg = JSON.parse(readFileSync(path.resolve(process.cwd(), "package.json"), "utf-8"));
+    if (pkg.version) pkgVersion = pkg.version;
+  } catch {}
+
   res.json({
-    version: process.env.npm_package_version ?? "unknown",
+    version: pkgVersion,
     nodeEnv: process.env.NODE_ENV,
     appReady,
     cwd: process.cwd(),

@@ -31,10 +31,10 @@ async function run() {
     };
   });
 
-  const ingressUrl = "http://192.168.1.67:8123/api/hassio_ingress/_WmZNdMkVWC-nTaDAEHsnrwL5QAusz-LsFA0d1dEwXA/api/roms/251/stream-player?return=http%3A%2F%2F192.168.1.67%3A8123%2Fapi%2Fhassio_ingress%2F_WmZNdMkVWC-nTaDAEHsnrwL5QAusz-LsFA0d1dEwXA%2F&profile=1";
-  console.log("Navigating to Ingress stream-player:", ingressUrl);
+  const playerUrl = "http://192.168.1.67:5000/api/roms/251/stream-player?profile=1";
+  console.log("Navigating to stream-player:", playerUrl);
   try {
-    await page.goto(ingressUrl, { timeout: 15000 });
+    await page.goto(playerUrl, { timeout: 15000 });
     console.log("Page loaded. Waiting 8 seconds for WebRTC negotiation...");
     await page.waitForTimeout(8000);
 

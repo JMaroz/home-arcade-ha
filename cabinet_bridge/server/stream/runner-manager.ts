@@ -24,6 +24,16 @@ export interface StreamSession {
 }
 
 const activeSessions = new Map<string, StreamSession>();
+const runnerLogs: string[] = [];
+
+export function appendRunnerLog(msg: string) {
+  runnerLogs.push(`[${new Date().toISOString()}] ${msg}`);
+  if (runnerLogs.length > 200) runnerLogs.shift();
+}
+
+export function getRunnerLogs(): string[] {
+  return [...runnerLogs];
+}
 
 function getHostIp(): string | null {
   if (process.env.CABINET_HOST_IP) {
@@ -186,15 +196,21 @@ export class StreamRunnerManager {
       );
 
       child.stdout?.on("data", (d) => {
-        console.log(`[native-runner:${sessionId.slice(0, 8)}] ${d.toString().trim()}`);
+        const text = d.toString().trim();
+        console.log(`[native-runner:${sessionId.slice(0, 8)}] ${text}`);
+        appendRunnerLog(`[${sessionId.slice(0, 8)}] ${text}`);
       });
 
       child.stderr?.on("data", (d) => {
-        console.error(`[native-runner:${sessionId.slice(0, 8)}] ${d.toString().trim()}`);
+        const text = d.toString().trim();
+        console.error(`[native-runner:${sessionId.slice(0, 8)}] ${text}`);
+        appendRunnerLog(`[${sessionId.slice(0, 8)}] ERR: ${text}`);
       });
 
       child.on("exit", (code) => {
-        console.log(`[native-runner:${sessionId.slice(0, 8)}] exited with code ${code}`);
+        const text = `exited with code ${code}`;
+        console.log(`[native-runner:${sessionId.slice(0, 8)}] ${text}`);
+        appendRunnerLog(`[${sessionId.slice(0, 8)}] ${text}`);
         session.status = "stopped";
         activeSessions.delete(sessionId);
       });
@@ -335,6 +351,25 @@ export class StreamRunnerManager {
     }
 
     activeSessions.delete(sessionId);
+  }
+
+  static getDebugInfo() {
+    return {
+      runnerBin: getRunnerBinaryPath(),
+      hostIp: getHostIp(),
+      activeSessions: Array.from(activeSessions.values()).map((s) => ({
+        sessionId: s.sessionId,
+        romId: s.romId,
+        system: s.system,
+        port: s.port,
+        status: s.status,
+        hasProcess: !!s.process,
+        pid: s.process?.pid ?? null,
+        exitCode: s.process?.exitCode ?? null,
+        uptimeMs: Date.now() - s.createdAt,
+      })),
+      logs: getRunnerLogs(),
+    };
   }
 
   static stopAll(): void {

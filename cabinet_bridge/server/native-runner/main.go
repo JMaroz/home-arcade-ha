@@ -510,6 +510,9 @@ func ensureMediaStreamLoop() {
 // Emulation and media streaming loop with fan-out to all connected peers
 func runMediaStreamLoop() {
 	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[runner:fatal] Media stream loop panicked: %v\n", r)
+		}
 		loopMu.Lock()
 		loopRunning = false
 		loopMu.Unlock()
@@ -535,6 +538,9 @@ func runMediaStreamLoop() {
 
 	idleTicks := 0
 	maxIdleTicks := fps * 30
+	frameCounter := 0
+	videoSentBytes := 0
+	audioSentBytes := 0
 
 	for range ticker.C {
 		if !hasConnectedPeers() {
@@ -546,6 +552,7 @@ func runMediaStreamLoop() {
 			continue
 		}
 		idleTicks = 0
+		frameCounter++
 
 		// 1. Sync input states from DataChannel to emulator session (P1 to P4)
 		for p := 0; p < 4; p++ {
@@ -565,8 +572,17 @@ func runMediaStreamLoop() {
 			rawRGB, pixFmt := emuSession.GetFrame()
 			geom := emuSession.GetGeometry()
 			sample, err := videoEncoder.Encode(rawRGB, pixFmt, geom.Width, geom.Height)
-			if err == nil {
-				_ = videoTrack.WriteSample(sample)
+			if err != nil {
+				if frameCounter%180 == 0 {
+					log.Printf("[runner:video] Encode error at frame %d: %v\n", frameCounter, err)
+				}
+			} else {
+				videoSentBytes += len(sample.Data)
+				if wsErr := videoTrack.WriteSample(sample); wsErr != nil {
+					if frameCounter%180 == 0 {
+						log.Printf("[runner:video] WriteSample error at frame %d: %v\n", frameCounter, wsErr)
+					}
+				}
 			}
 		}
 
@@ -575,8 +591,15 @@ func runMediaStreamLoop() {
 			pcmAudio := emuSession.GetAudio()
 			audioSamples := audioAccumulator.Push(pcmAudio)
 			for _, aSample := range audioSamples {
+				audioSentBytes += len(aSample.Data)
 				_ = audioTrack.WriteSample(aSample)
 			}
+		}
+
+		if frameCounter%300 == 0 { // every 5 seconds
+			geom := emuSession.GetGeometry()
+			log.Printf("[runner:stream] Stats @ %d frames: %dx%d, video: %d KB, audio: %d KB\n",
+				frameCounter, geom.Width, geom.Height, videoSentBytes/1024, audioSentBytes/1024)
 		}
 	}
 }
