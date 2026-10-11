@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.57.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.57.0...v2.57.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **stream:** extract zipped roms for libretro cores and bump add-on to 2.57.1 ([a895d11](https://github.com/JMaroz/home-arcade-ha/commit/a895d113e8c3797bf5ac7df01d0f7309ee771385))
+
 ## [2.57.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.56.2...v2.57.0) (2026-10-11)
 
 
