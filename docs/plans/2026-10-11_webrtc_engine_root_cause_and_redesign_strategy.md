@@ -20,8 +20,8 @@
 ## 3. Fattibilità Download a Runtime (GStreamer & glibc su `/data` al primo avvio)
 - **glibc non può essere scaricata a runtime in `/data`**: In ambiente Linux ELF, il percorso del dynamic linker è hardcoded nei binari compilati (`/lib/ld-linux-aarch64.so.1` o `/lib64/ld-linux-x86-64.so.2`). Se questo file manca nella root `/` del container (come su Alpine `musl`), il kernel Linux fallisce l'avvio con `No such file or directory` prima ancora di eseguire la prima riga di codice.
 - **GStreamer è un ecosistema di 60+ librerie dinamiche**: Scaricare un tarball di GStreamer a runtime in `/data` creerebbe fragilità di linking dinamico, dipendenze mancanti e rischi di corruzione sui riavvii.
-- **Soluzione Nativamente Ottimale (Home Assistant `debian-base`)**:
-  - Utilizzare l'immagine ufficiale `ghcr.io/home-assistant/debian-base:latest`.
+- **Soluzione Nativamente Ottimale (Home Assistant `base-debian:bookworm`)**:
+  - Utilizzare l'immagine ufficiale `ghcr.io/home-assistant/base-debian:bookworm`.
   - Include nativamente `glibc` certificata e aggiornata.
   - Installa i pacchetti GStreamer ufficiali Debian (`gstreamer1.0-plugins-base`, `gstreamer1.0-plugins-good`, `libvpx`, `libopus`) in modo atomico nel Dockerfile.
   - **Peso della Docker Image**: L'immagine compressa finale su GHCR peserà appena **~85 MB** (molto contenuta per un add-on di streaming retro-gaming).
@@ -31,14 +31,14 @@
 - [x] Analisi approfondita dei log e del codice di `cabinet_bridge/server/native-runner/`
 - [x] Ricerca e confronto con l'architettura di riferimento (CloudRetro e Pod-Arcade)
 - [x] Creazione del documento di piano e strategia in `docs/plans/2026-10-11_webrtc_engine_root_cause_and_redesign_strategy.md`
-- [x] Analisi tecnica del download a runtime di GStreamer/glibc vs `debian-base`
-- [x] Implementazione Dockerfile multi-arch con `debian-base` e GStreamer
+- [x] Analisi tecnica del download a runtime di GStreamer/glibc vs `base-debian`
+- [x] Implementazione Dockerfile multi-arch con `base-debian:bookworm` e GStreamer
 - [x] Integrazione del layer Cgo Libretro (`nanoarch.c`, `cgo_session.go`) e pipeline GStreamer (`gstreamer.go`) nel runner Go
 - [x] Esecuzione test di regressione e build (`go test` ok, `pnpm check` ok, `pnpm test` ok, `pnpm build` ok)
 - [x] Aggiornamento di `docs/HANDOFF.md` and ADR `002-native-webrtc-debian-gstreamer-cgo-pipeline.md`
 
 ## 5. Strategia di Verifica
-1. `docker build` multi-arch con `ghcr.io/home-assistant/debian-base:latest`.
+1. `docker build` multi-arch con `ghcr.io/home-assistant/base-debian:bookworm`.
 2. Verifica caricamento core Libretro `parallel_n64_libretro.so` e `pcsx_rearmed_libretro.so` via `dlopen`.
 3. Verifica ricezione flusso video VP8 e audio Opus su client browser con frame rate effettivo di 60 FPS.
 

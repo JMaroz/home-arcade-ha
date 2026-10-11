@@ -218,15 +218,15 @@
 - **Causa Radice Black Screen Identificata & Risolta**:
   1. `encoder.go`: il vecchio mock restituiva uno stub fisso di 10 byte senza dati video compressi. Ora sostituito da `gstreamer.go` (`GStreamerVP8Encoder`), che usa la pipeline GStreamer Cgo (`appsrc ! videoconvert ! vp8enc deadline=1 cpu-used=8 ! appsink`) per produrre flussi bitstream VP8 conformi a 60 FPS a bassissima latenza.
   2. `session.go`: il vecchio mock simulava un'onda sinusoidale in memoria senza caricare i core Libretro `.so`. Ora implementato `cgo_session.go` (`CgoLibretroSession`) accoppiato a `nanoarch.c`/`nanoarch.h` e `dl_unix.go` per caricare dinamicamente con `dlopen`/`dlsym` i core ufficiali compilati Libretro, interfacciando i callback audio/video/input.
-  3. `Dockerfile`: migrato da Alpine (`musl`) a `ghcr.io/home-assistant/debian-base:latest` (`glibc`). Compilazione di `homearcade-runner` eseguita in Stage 1 con `golang:1.24-bookworm` e `CGO_ENABLED=1`, installando le librerie `gstreamer1.0-plugins-base`, `gstreamer1.0-plugins-good` e `libsqlite3`.
+  3. `Dockerfile`: migrato da Alpine (`musl`) a `ghcr.io/home-assistant/base-debian:bookworm` (`glibc`). Compilazione di `homearcade-runner` eseguita in Stage 1 con `golang:1.24-bookworm` e `CGO_ENABLED=1`, installando le librerie `gstreamer1.0-plugins-base`, `gstreamer1.0-plugins-good` e `libsqlite3`.
   4. **Linkage & Multi-Platform Compatibility**: Implementati fallback stubs deboli e conditional build tags (`//go:build cgo && (linux || darwin)` / `//go:build !cgo || (!linux && !darwin)`), garantendo compilazione e test puliti sia su Linux (Debian) che su macOS.
 
 ---
 
 ## 4. File Rilevanti della Modifica
 
-- [cabinet_bridge/Dockerfile](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/Dockerfile): Migrazione a `ghcr.io/home-assistant/debian-base:latest`, dipendenze GStreamer runtime e Cgo builder Go 1.24.
-- [.github/workflows/build.yml](file:///Users/andrea/Repository/home-arcade-ha/.github/workflows/build.yml): Base image allineata a `ghcr.io/home-assistant/debian-base:latest`.
+- [cabinet_bridge/Dockerfile](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/Dockerfile): Migrazione a `ghcr.io/home-assistant/base-debian:bookworm`, dipendenze GStreamer runtime e Cgo builder Go 1.24.
+- [.github/workflows/build.yml](file:///Users/andrea/Repository/home-arcade-ha/.github/workflows/build.yml): Base image allineata a `ghcr.io/home-assistant/base-debian:bookworm`.
 - [cabinet_bridge/server/native-runner/pkg/emulator/nanoarch.h](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/emulator/nanoarch.h): Header C per il bridge Libretro (adottato dal pattern CloudRetro).
 - [cabinet_bridge/server/native-runner/pkg/emulator/nanoarch.c](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/emulator/nanoarch.c): Bridge C per callback Libretro (video refresh, audio batch, input cache).
 - [cabinet_bridge/server/native-runner/pkg/emulator/cgo_session.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/emulator/cgo_session.go): Sessione di emulazione Libretro Cgo reale.

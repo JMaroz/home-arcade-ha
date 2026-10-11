@@ -1,31 +1,29 @@
 # BUILD_ARCH and BUILD_FROM must be declared BEFORE the first FROM that references them
 ARG BUILD_ARCH=amd64
-ARG BUILD_FROM=ghcr.io/home-assistant/debian-base:latest
+ARG BUILD_FROM=ghcr.io/home-assistant/base-debian:bookworm
 
 # ==============================================================================
 # Stage 1: Build native WebRTC runner binary with Go + Cgo + GStreamer
 # ==============================================================================
-FROM --platform=linux/${BUILD_ARCH} golang:1.24-bookworm AS runner-builder
+FROM golang:1.24-bookworm AS runner-builder
 WORKDIR /build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential \
       pkg-config \
       libgstreamer1.0-dev \
-      libgstreamer-plugins-base1.0-dev \
-      upx-ucl || true
+      libgstreamer-plugins-base1.0-dev
 
 COPY server/native-runner/go.mod server/native-runner/go.sum ./
 RUN go mod download
 COPY server/native-runner/ ./
 RUN CGO_ENABLED=1 go build -tags="gstreamer" -ldflags="-s -w" -o /homearcade-runner .
 RUN test -f /homearcade-runner || { echo "ERROR: /homearcade-runner not found after build"; exit 1; }
-RUN upx -9 /homearcade-runner || true
 
 # ==============================================================================
 # Stage 2: Node.js builder (compiles better-sqlite3 native addon, client & server)
 # ==============================================================================
-FROM --platform=linux/${BUILD_ARCH} ${BUILD_FROM} AS node-builder
+FROM ${BUILD_FROM} AS node-builder
 
 # Install Node.js, native build deps for better-sqlite3, and pnpm
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -75,7 +73,7 @@ RUN pnpm prune --prod
 # ==============================================================================
 # Stage 3: Ultra-lean production runtime image (Debian Base with GStreamer & glibc)
 # ==============================================================================
-FROM --platform=linux/${BUILD_ARCH} ${BUILD_FROM} AS runtime
+FROM ${BUILD_FROM} AS runtime
 
 # Build arguments provided by the HA builder / GitHub Actions workflow
 ARG BUILD_ARCH=amd64

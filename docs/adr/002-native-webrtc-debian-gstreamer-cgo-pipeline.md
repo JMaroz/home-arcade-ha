@@ -24,7 +24,7 @@ L'utente richiede una soluzione definitiva per usare WebRTC, rimettendo in discu
 Adottiamo la seguente architettura per il motore WebRTC di HomeArcade:
 
 1. **Migrazione Immagine Base ad Home Assistant Debian**:
-   - Sostituzione di `ghcr.io/home-assistant/base` (Alpine) con l'immagine ufficiale `ghcr.io/home-assistant/debian-base:latest`.
+   - Sostituzione di `ghcr.io/home-assistant/base` (Alpine) con l'immagine ufficiale `ghcr.io/home-assistant/base-debian:bookworm`.
    - Fornisce supporto nativo completo a `glibc`, garantendo la perfetta compatibilità binaria con tutti i core Libretro `.so` scaricati a runtime in `/data/cores/`.
 
 2. **Pipeline di Codifica Video & Audio con GStreamer**:
@@ -55,7 +55,7 @@ Adottiamo la seguente architettura per il motore WebRTC di HomeArcade:
 ### Vantaggi
 - **Eliminazione dello Schermo Nero**: I frame VP8 e audio Opus generati da GStreamer sono standard e decodificati fluidamente da qualsiasi browser.
 - **Piena compatibilità Libretro**: Esecuzione reale dei core `.so` a 60 FPS con JIT e audio sincronizzato.
-- **Standard Home Assistant**: L'add-on impiega `debian-base`, un'immagine ufficialmente supportata e regolarmente aggiornata dal team di Home Assistant.
+- **Standard Home Assistant**: L'add-on impiega `base-debian:bookworm`, un'immagine ufficialmente supportata e regolarmente aggiornata dal team di Home Assistant.
 
 ### Limiti Noti & Debito Tecnico
 - **Dimensione Immagine**: L'immagine non compressa passa da ~65 MB a ~250 MB (download compresso ~85 MB), ampiamente entro i limiti tipici degli add-on multimediali.
