@@ -1,42 +1,39 @@
 # Handoff Sessione: Controller Overlay Virtuale & Mappatura Input N64
 
 **Data**: 2026-10-11  
-**Stato**: Flusso WebRTC nativo funzionante su Home Assistant (Raspberry Pi). Aggiunto controller virtuale touch su schermo in `streamPlayer.ts`, emulazione Controller Pak (`memory`) per N64 e fallback automatico D-Pad -> Levetta Analogica per giochi 3D (N64/PS1).
+**Stato**: Flusso WebRTC nativo funzionante su Home Assistant (Raspberry Pi). Gamepad virtuale universale (tutti i sistemi Libretro) con auto-hide intelligente al rilevamento di controller fisici/remoti (Bluetooth/USB) e auto-restore alla disconnessione.
 
 ---
 
 ## 1. Stato Corrente
-- **Streaming WebRTC**: Flusso funzionante a 58-60 FPS con ~17ms RTT su Raspberry Pi.
-- **Controller Virtuale Touch**:
-  - Aggiunto overlay multi-touch traslucido su schermo (D-Pad, A, B, X, Y, L, R, Z, Start, Select) con gestione Pointer Events nativa (`pointerdown`, `pointerup`, `setPointerCapture`).
-  - Toggle `🎮 Pad` nella barra superiore e nel menu di pausa con persistenza `localStorage` e auto-abilitazione su dispositivi touch.
-- **Input N64 & 3D Games**:
-  - In `nanoarch.c`: D-Pad digitale mappato automaticamente sullo stick analogico quando non vi è asse analogico fisico.
-  - In `cgo_session.go`: risposto a `RETRO_ENVIRONMENT_GET_VARIABLE` per `parallel-n64-pak1` e `mupen64plus-pak1` con valore `"memory"` (simula Controller Pak inserito).
-- **Legenda Controlli**:
-  - Aggiunto promemoria comandi (Enter=Start, Frecce=D-Pad/Stick, X/K=A, Z/J=B, S/I=X, A/U=Y, Q/W=L/R) nel menu di gioco.
-- **Pulizia**: Fermato dev server locale, eliminati binari e directory core temporanee, aggiornato `.gitignore`.
+- **Supporto Multi-Sistema (Tutti i Core)**:
+  - Mappatura standard universale **Libretro RetroPad** a 16 bit: NES, SNES, GBA, Genesis/Mega Drive, PS1, N64, Arcade/MAME, Neo Geo, ecc.
+  - Fallback D-Pad -> Levetta Analogica per giochi 3D (N64/PS1) e auto-rilevamento Memory Pak (`pak1 = memory`).
+- **Auto-Hide & Auto-Restore Gamepad Fisici**:
+  - `gamepadconnected` / primo input fisico: nasconde automaticamente il virtual pad e mostra toast non invasivo (`🎮 [Nome] connesso`).
+  - `gamepaddisconnected`: se non rimangono controller e ci si trova su un dispositivo touch, il virtual pad viene ripristinato automaticamente.
+  - Possibilità di forzare la visualizzazione manuale in qualsiasi momento tramite il toggle `🎮 Pad`.
+- **Pulizia Repository**:
+  - Dev server locale su `localhost:5001` fermato, binari e cartelle di test rimosse.
 
 ---
 
 ## 2. File Rilevanti
-- `cabinet_bridge/server/routes/streamPlayer.ts`: Overlay touch HTML/CSS/JS, toggle virtual pad, estensione pollInput con `virtualButtonsMask` e legenda tastiera/gamepad.
-- `cabinet_bridge/server/native-runner/pkg/emulator/nanoarch.c`: Fallback da D-Pad digitale a levetta analogica per `RETRO_DEVICE_INDEX_ANALOG_LEFT`.
-- `cabinet_bridge/server/native-runner/pkg/emulator/cgo_session.go`: Risposta variabile per Memory Pak N64.
-- `.gitignore`: Esclusione binari compilati e cartella `cores/` runtime.
+- `cabinet_bridge/server/routes/streamPlayer.ts`: Toast gamepad, auto-hide/restore su eventi gamepad e primo input, overlay touch HTML/CSS/JS e legenda comandi.
+- `cabinet_bridge/server/native-runner/pkg/emulator/nanoarch.c`: Fallback D-Pad digitale -> stick analogico per 3D games.
+- `cabinet_bridge/server/native-runner/pkg/emulator/cgo_session.go`: Emulazione Controller Pak (`memory`) per N64.
 - `docs/plans/2026-10-11_touch_controller_overlay_and_n64_controls.md`: Piano operativo completato.
 
 ---
 
 ## 3. Prossimi Passi (Next Steps)
 1. **Commit & Push su `main`**:
-   - Creare commit convenzionale (`feat(stream): add touch virtual gamepad and n64 controller pak emulation`).
-   - Pushare su `origin main` per generare la nuova release e scatenare la build Docker multi-arch su GitHub Actions.
+   - Creare commit convenzionale (`feat(stream): auto-hide touch overlay on gamepad connection and multi-system support`).
+   - Pushare su `origin main` per avviare il workflow di build Docker.
 2. **Aggiornamento Add-on su Home Assistant**:
    - In Home Assistant -> Componenti aggiuntivi -> Raccolta -> Controlla aggiornamenti -> **Aggiorna/Ricostruisci** HomeArcade.
 3. **Verifica Operativa**:
-   - Aprire lo stream player su tablet/smartphone o browser desktop.
-   - Verificare che il prompt N64 non richieda più il Controller Pak e che sia possibile premere Start per proseguire direttamente con il gioco.
+   - Connettere un controller Bluetooth/USB su PC o smartphone: verificare scomparsa del virtual pad e comparsa del toast verde.
 
 ---
 

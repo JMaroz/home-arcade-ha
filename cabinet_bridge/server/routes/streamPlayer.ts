@@ -233,6 +233,7 @@ export function renderStreamPlayerPage({
     <button id="coop-trigger" class="menu-btn">👥 Co-Op</button>
     <button id="hud-trigger" class="menu-btn">📊 Stats</button>
     <div id="stats" class="stats-badge" title="Click or press 'H' / Select+Start to toggle HUD">STREAM · 60 FPS</div>
+    <div id="gamepad-toast" style="display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 2000; background: rgba(16, 185, 129, 0.92); color: #fff; font-weight: 700; font-size: 12px; padding: 8px 18px; border-radius: 9999px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); pointer-events: none; backdrop-filter: blur(8px); transition: opacity 0.3s ease;"></div>
 
     <!-- Video Stream Warning / Fallback Banner -->
     <div id="stream-warning-banner" style="display: none; position: fixed; top: max(56px, calc(env(safe-area-inset-top) + 48px)); left: 50%; transform: translateX(-50%); z-index: 998; background: rgba(30, 20, 10, 0.95); border: 1px solid #f59e0b; color: #fef3c7; padding: 12px 20px; border-radius: 12px; font-size: 11px; max-width: 90vw; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.6); backdrop-filter: blur(8px);">
@@ -626,6 +627,22 @@ export function renderStreamPlayerPage({
         let prevSelectStart = false;
         let virtualButtonsMask = 0;
 
+        let toastTimeout = null;
+        function showGamepadToast(msg) {
+          const toast = document.getElementById("gamepad-toast");
+          if (!toast) return;
+          toast.textContent = msg;
+          toast.style.display = "block";
+          toast.style.opacity = "1";
+          if (toastTimeout) clearTimeout(toastTimeout);
+          toastTimeout = setTimeout(() => {
+            toast.style.opacity = "0";
+            setTimeout(() => { toast.style.display = "none"; }, 300);
+          }, 2400);
+        }
+
+        let physicalGamepadDetected = false;
+
         function setVirtualPadVisible(visible) {
           if (!virtualController) return;
           if (visible) {
@@ -643,8 +660,37 @@ export function renderStreamPlayerPage({
         function toggleVirtualPad() {
           if (!virtualController) return;
           const isHidden = virtualController.classList.contains("is-hidden");
+          if (isHidden) {
+            localStorage.setItem("ha_arcade_touch_controller_forced", "1");
+          } else {
+            localStorage.removeItem("ha_arcade_touch_controller_forced");
+          }
           setVirtualPadVisible(isHidden);
         }
+
+        // Automatic Gamepad Connection / Disconnection listeners
+        window.addEventListener("gamepadconnected", (e) => {
+          unlockAudio();
+          physicalGamepadDetected = true;
+          const padName = e.gamepad && e.gamepad.id ? e.gamepad.id.split("(")[0].trim() : "Controller";
+          showGamepadToast("🎮 " + padName + " connesso");
+          const userForced = localStorage.getItem("ha_arcade_touch_controller_forced");
+          if (!userForced) {
+            setVirtualPadVisible(false);
+          }
+        });
+
+        window.addEventListener("gamepaddisconnected", () => {
+          const gamepads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
+          if (gamepads.length === 0) {
+            physicalGamepadDetected = false;
+            showGamepadToast("🎮 Controller disconnesso");
+            const isTouchDevice = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+            if (isTouchDevice) {
+              setVirtualPadVisible(true);
+            }
+          }
+        });
 
         // Virtual Touch Button handlers with Pointer Events
         document.querySelectorAll(".v-btn").forEach((btn) => {
@@ -673,11 +719,20 @@ export function renderStreamPlayerPage({
           btn.addEventListener("pointerleave", release);
         });
 
-        // Initialize virtual pad from localStorage or auto-enable on touch devices
+        // Initialize virtual pad from localStorage or auto-enable on touch devices if no gamepad is active
         try {
+          const gamepads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
           const storedPad = localStorage.getItem("ha_arcade_touch_controller");
+          const userForced = localStorage.getItem("ha_arcade_touch_controller_forced");
           const isTouchDevice = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
-          if (storedPad === "1" || (storedPad === null && isTouchDevice)) {
+
+          if (userForced === "1" || storedPad === "1") {
+            setVirtualPadVisible(true);
+          } else if (storedPad === "0") {
+            setVirtualPadVisible(false);
+          } else if (gamepads.length > 0) {
+            setVirtualPadVisible(false);
+          } else if (isTouchDevice) {
             setVirtualPadVisible(true);
           }
         } catch (_) {}
@@ -694,6 +749,20 @@ export function renderStreamPlayerPage({
             if (gp) {
               unlockAudio();
               const b = gp.buttons;
+
+              // Auto-hide virtual overlay on first physical button press or analog movement
+              if (!physicalGamepadDetected) {
+                const hasActivity = b.some((btn) => btn && btn.pressed) ||
+                  (gp.axes && gp.axes.some((a) => Math.abs(a) > 0.3));
+                if (hasActivity) {
+                  physicalGamepadDetected = true;
+                  const userForced = localStorage.getItem("ha_arcade_touch_controller_forced");
+                  if (!userForced && virtualController && !virtualController.classList.contains("is-hidden")) {
+                    setVirtualPadVisible(false);
+                    showGamepadToast("🎮 Gamepad attivo — Touch Pad nascosto");
+                  }
+                }
+              }
               if (b[0] && b[0].pressed) mask |= (1 << 0);   // B
               if (b[2] && b[2].pressed) mask |= (1 << 1);   // Y
               if (b[8] && b[8].pressed) mask |= (1 << 2);   // Select
