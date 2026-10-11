@@ -1,5 +1,6 @@
-# BUILD_ARCH must be declared BEFORE the first FROM that references it
+# BUILD_ARCH and BUILD_FROM must be declared BEFORE the first FROM that references them
 ARG BUILD_ARCH=amd64
+ARG BUILD_FROM=ghcr.io/home-assistant/base:latest
 
 # ==============================================================================
 # Stage 1: Build native WebRTC runner binary with Go + UPX compression
@@ -17,7 +18,7 @@ RUN upx --best --lzma /homearcade-runner || true
 # ==============================================================================
 # Stage 2: Node.js builder (compiles better-sqlite3 native addon, client & server)
 # ==============================================================================
-FROM --platform=linux/${BUILD_ARCH} ghcr.io/home-assistant/${BUILD_ARCH}-base:latest AS node-builder
+FROM --platform=linux/${BUILD_ARCH} ${BUILD_FROM} AS node-builder
 
 # Install Node.js, native build deps for better-sqlite3, and pnpm
 RUN apk add --no-cache \
@@ -60,7 +61,7 @@ RUN pnpm prune --prod
 # ==============================================================================
 # Stage 3: Ultra-lean production runtime image (no gcc, no g++, no python, no npm)
 # ==============================================================================
-FROM --platform=linux/${BUILD_ARCH} ghcr.io/home-assistant/${BUILD_ARCH}-base:latest AS runtime
+FROM --platform=linux/${BUILD_ARCH} ${BUILD_FROM} AS runtime
 
 # Build arguments provided by the HA builder / GitHub Actions workflow
 ARG BUILD_ARCH=amd64
@@ -70,7 +71,11 @@ ARG BUILD_VERSION="dev"
 LABEL \
     io.hass.version="${BUILD_VERSION}" \
     io.hass.type="addon" \
-    io.hass.arch="${BUILD_ARCH}"
+    io.hass.arch="${BUILD_ARCH}" \
+    org.opencontainers.image.title="HomeArcade" \
+    org.opencontainers.image.description="The premium retro gaming frontend for Home Assistant." \
+    org.opencontainers.image.source="https://github.com/JMaroz/HomeArcade-HA" \
+    org.opencontainers.image.licenses="MIT"
 
 ENV LANG=C.UTF-8 \
     PORT=5000 \

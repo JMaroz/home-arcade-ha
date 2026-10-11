@@ -1,3 +1,4 @@
+---
 name: HomeArcade
 version: 2.55.1
 slug: cabinet_bridge
@@ -14,6 +15,8 @@ ingress_port: 5000
 ingress_stream: true
 ports:
   5000/tcp: 9876
+ports_description:
+  5000/tcp: Direct Web UI and streaming port (optional; Ingress is used by default)
 map:
   - media:rw
   - share:rw
