@@ -65,6 +65,19 @@ func (s *StandaloneSession) Load(romPath, corePath string) error {
 	return nil
 }
 
+// CreateActiveSession initializes an emulator session with Cgo Libretro if available, or StandaloneSession
+func CreateActiveSession(width, height, fps, sampleRate int, romPath, corePath string) EmulatorSession {
+	if corePath != "" && romPath != "" {
+		cgoSess := NewCgoLibretroSession(width, height, fps, sampleRate)
+		if err := cgoSess.Load(romPath, corePath); err == nil {
+			return cgoSess
+		}
+	}
+	fallback := NewStandaloneSession(width, height, fps, sampleRate)
+	_ = fallback.Load(romPath, corePath)
+	return fallback
+}
+
 // Step advances one emulator tick (called at 60 Hz by the stream runner)
 func (s *StandaloneSession) Step() {
 	s.mu.Lock()

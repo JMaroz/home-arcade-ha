@@ -522,11 +522,10 @@ func runMediaStreamLoop() {
 	ticker := time.NewTicker(time.Duration(1000/fps) * time.Millisecond)
 	defer ticker.Stop()
 
-	emuSession := emulator.NewStandaloneSession(config.Width, config.Height, fps, 44100)
-	_ = emuSession.Load(config.RomPath, config.CorePath)
+	emuSession := emulator.CreateActiveSession(config.Width, config.Height, fps, 44100, config.RomPath, config.CorePath)
 	defer emuSession.Close()
 
-	videoEncoder := encoder.NewVP8StreamEncoder(config.Width, config.Height, fps)
+	videoEncoder := encoder.NewActiveVideoEncoder(config.Width, config.Height, fps)
 	defer videoEncoder.Close()
 
 	audioAccumulator := audio.NewAudioBufferAccumulator(44100)

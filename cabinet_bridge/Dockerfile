@@ -1,19 +1,26 @@
 # BUILD_ARCH and BUILD_FROM must be declared BEFORE the first FROM that references them
 ARG BUILD_ARCH=amd64
-ARG BUILD_FROM=ghcr.io/home-assistant/base:latest
+ARG BUILD_FROM=ghcr.io/home-assistant/debian-base:latest
 
 # ==============================================================================
-# Stage 1: Build native WebRTC runner binary with Go + UPX compression
+# Stage 1: Build native WebRTC runner binary with Go + Cgo + GStreamer
 # ==============================================================================
-FROM --platform=linux/${BUILD_ARCH} golang:1.24-alpine AS runner-builder
+FROM --platform=linux/${BUILD_ARCH} golang:1.24-bookworm AS runner-builder
 WORKDIR /build
-RUN apk add --no-cache upx || true
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential \
+      pkg-config \
+      libgstreamer1.0-dev \
+      libgstreamer-plugins-base1.0-dev \
+      upx-ucl || true
+
 COPY server/native-runner/go.mod server/native-runner/go.sum ./
 RUN go mod download
 COPY server/native-runner/ ./
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /homearcade-runner .
+RUN CGO_ENABLED=1 go build -tags="gstreamer" -ldflags="-s -w" -o /homearcade-runner .
 RUN test -f /homearcade-runner || { echo "ERROR: /homearcade-runner not found after build"; exit 1; }
-RUN upx --best --lzma /homearcade-runner || true
+RUN upx -9 /homearcade-runner || true
 
 # ==============================================================================
 # Stage 2: Node.js builder (compiles better-sqlite3 native addon, client & server)
@@ -21,9 +28,17 @@ RUN upx --best --lzma /homearcade-runner || true
 FROM --platform=linux/${BUILD_ARCH} ${BUILD_FROM} AS node-builder
 
 # Install Node.js, native build deps for better-sqlite3, and pnpm
-RUN apk add --no-cache \
-      nodejs npm python3 make g++ sqlite-libs libstdc++ && \
-    npm install -g pnpm@9
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      curl \
+      ca-certificates \
+      python3 \
+      make \
+      g++ \
+      libsqlite3-dev \
+      && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+      && apt-get install -y --no-install-recommends nodejs \
+      && npm install -g pnpm@9 \
+      && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -34,12 +49,11 @@ ENV npm_config_fetch_retries=5 \
     npm_config_fetch_timeout=120000
 
 # Install dependencies (project uses pnpm)
-# --no-frozen-lockfile allows install when package.json has drifted ahead of pnpm-lock.yaml
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN NODE_ENV=development pnpm install --no-frozen-lockfile
 
 # Cache-bust arg — increment this to force a full source re-copy and rebuild.
-ARG CACHE_BUST=7
+ARG CACHE_BUST=8
 
 # Copy source needed for build
 COPY tsconfig.json vite.config.ts components.json drizzle.config.ts ./
@@ -59,7 +73,7 @@ RUN test -f dist/index.cjs || { echo "ERROR: dist/index.cjs not found after buil
 RUN pnpm prune --prod
 
 # ==============================================================================
-# Stage 3: Ultra-lean production runtime image (no gcc, no g++, no python, no npm)
+# Stage 3: Ultra-lean production runtime image (Debian Base with GStreamer & glibc)
 # ==============================================================================
 FROM --platform=linux/${BUILD_ARCH} ${BUILD_FROM} AS runtime
 
@@ -81,11 +95,22 @@ ENV LANG=C.UTF-8 \
     PORT=5000 \
     NODE_ENV=production
 
-# Install ONLY runtime dependencies: nodejs runtime + sqlite-libs + libstdc++
-RUN apk add --no-cache \
-      nodejs \
-      sqlite-libs \
-      libstdc++
+# Install runtime dependencies: Node.js 20 + glibc SQLite + GStreamer plugins for WebRTC streaming
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      curl \
+      ca-certificates \
+      libsqlite3-0 \
+      libstdc++6 \
+      gstreamer1.0-plugins-base \
+      gstreamer1.0-plugins-good \
+      gstreamer1.0-tools \
+      libgstreamer1.0-0 \
+      libgstreamer-plugins-base1.0-0 \
+      && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+      && apt-get install -y --no-install-recommends nodejs \
+      && apt-get purge -y curl \
+      && apt-get autoremove -y \
+      && rm -rf /var/lib/apt/lists/*
 
 # Copy compiled native runner binary from runner-builder
 COPY --from=runner-builder /homearcade-runner /usr/local/bin/homearcade-runner

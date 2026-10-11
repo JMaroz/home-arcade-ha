@@ -63,7 +63,7 @@ jobs:
           else
             echo "platform=linux/amd64" >> $GITHUB_OUTPUT
           fi
-          echo "base=ghcr.io/home-assistant/base:latest" >> $GITHUB_OUTPUT
+          echo "base=ghcr.io/home-assistant/debian-base:latest" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/build-push-action@v5

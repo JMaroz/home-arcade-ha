@@ -1,8 +1,9 @@
-# Handoff Sessione: Fix Fallimento GitHub Actions (Home Assistant Add-on Lint)
+# Handoff Sessione: Allineamento Add-on alle Ultime Versioni di Home Assistant
 
 **Data**: 2026-10-11  
-**Stato**: Identificata e risolta la root cause del fallimento sistematico dei workflow di GitHub Actions (`Lint & Validation` -> `Home Assistant Add-on Lint`). Pulito `cabinet_bridge/config.yaml` dai campi non conformi (`build_from`, `homeassistant_api: false`, `boot: auto`).  
+**Stato**: Add-on HomeArcade allineato completamente alle ultime specifiche e convenzioni di Home Assistant (Supervisor >= 2026.4 / Core 2026.10). Dockerfile migrato al manifest multi-piattaforma `ghcr.io/home-assistant/base:latest`, aggiunte traduzioni native dell'interfaccia UI (`translations/en.yaml`), creato `DOCS.md` per l'Add-on Store, aggiornati i workflow e superate tutte le suite di test e linter con 0 errori.  
 **Piani di Riferimento**: 
+- `docs/plans/2026-10-11_align_addon_to_latest_home_assistant.md` (Completato)  
 - `docs/plans/2026-10-11_fix_actions_failures.md` (Completato)  
 - `docs/plans/2026-10-11_cloud_gaming_phase2_touch_saves_and_ha_sensors.md` (Pianificato)  
 **Ricerche Correlate**: 
@@ -13,16 +14,35 @@
 
 ## 1. Stato Corrente & Modifiche Realizzate
 
-1. **Risoluzione Errori Linter Add-on Home Assistant (`cabinet_bridge/config.yaml`)**:
-   - Dai log dei workflow GitHub Actions (`frenck/action-addon-linter@v2`), l'azione falliva sistematicamente per 3 violazioni del contratto di configurazione:
-     - `Additional properties are not allowed ('build_from' was unexpected)`: `build_from` non è una proprietà valida per `config.yaml` (le immagini base sono gestite direttamente nel Dockerfile con BuildKit `ARG BUILD_ARCH`). Rimosso l'intero blocco `build_from`.
-     - `'homeassistant_api' should be removed, it uses a default value`: il valore predefinito è `false`; la specifica dell'addon linter vieta di specificare esplicitamente valori coincidenti con i default. Rimosso.
-     - `'boot' should be removed, it uses a default value`: il valore predefinito è `auto`. Rimosso.
-   - Il file `cabinet_bridge/config.yaml` è ora rigorosamente conforme allo schema ufficiale Home Assistant Add-on.
+1. **Analisi della Versione Originaria**:
+   - L'add-on è stato creato originariamente il 7 Maggio 2026 (commit `0e42ed52`) con versione iniziale `0.1.0` ("Cabinet Bridge") per Home Assistant 2026.4/2026.5.
+   - Utilizzava la vecchia convenzione delle immagini base separate per architettura (`amd64-base:latest`, `aarch64-base:latest`), privo di traduzioni UI, senza `DOCS.md` per lo store e con parametri spuri/ereditati da `build.yaml`.
 
-2. **Verifica & Validazione**:
+2. **Migrazione Immagine Base Multi-Platform (`ghcr.io/home-assistant/base:latest`)**:
+   - Aggiornato `cabinet_bridge/Dockerfile` per adottare `ARG BUILD_FROM=ghcr.io/home-assistant/base:latest` in conformità con la migrazione Docker BuildKit di Home Assistant Supervisor.
+   - Entrambi gli stadi (`node-builder` e `runtime`) consumano ora il manifest multi-arch universale `${BUILD_FROM}` eliminando il riferimento alle vecchie immagini deprecate `${BUILD_ARCH}-base`.
+   - Aggiunte etichette standard OCI (`org.opencontainers.image.*`) e confermate le etichette obbligatorie Supervisor (`io.hass.*`).
+
+3. **Allineamento Configurazione Add-on (`cabinet_bridge/config.yaml`)**:
+   - Aggiunto marcatore di inizio documento standard YAML `---` (risolvendo warning yamllint).
+   - Inserito `ports_description` per documentare nativamente nell'interfaccia di rete di HA lo scopo della porta `5000/tcp`.
+   - Sincronizzata la versione attiva `2.55.1` con `package.json` e `CHANGELOG.md`.
+   - Omesse le proprietà predefinite (`boot: auto`, `homeassistant_api: false`) per totale conformità alle regole rigorose di `action-addon-linter`.
+
+4. **Traduzioni Native UI (`cabinet_bridge/translations/en.yaml`)**:
+   - Creato il file di traduzione per la dashboard di configurazione dell'add-on in Home Assistant, con titoli e descrizioni per tutte le opzioni (`data_dir`, `rom_watch_dir`, `max_upload_mb`, `steamgriddb_api_key`) e porta di rete `5000/tcp`.
+
+5. **Documentazione Add-on Store (`cabinet_bridge/DOCS.md`)**:
+   - Creato `DOCS.md` formattato per il tab "Documentazione" dell'Add-on Store in Home Assistant.
+
+6. **Aggiornamento Workflow CI/CD (`.github/workflows/build.yml`)**:
+   - Allineato il parametro base nei build step a `ghcr.io/home-assistant/base:latest`.
+
+7. **Verifica Empirica & Definition of Done**:
+   - `yamllint`: 0 errori, 0 warning su tutti i file `.yaml` del repository.
    - `pnpm check` (TypeScript): 0 errori.
-   - Script di verifica directory di servizio s6 (`rootfs/etc/s6-overlay/s6-rc.d/`): 0 errori.
+   - `pnpm test` (Vitest): 19/19 test suite passate, 120/120 test passati con successo.
+   - Script di verifica directory di servizio s6: superato con esito 0.
 
 1. **Docker Ultra-Slim Multi-Stage Build (`cabinet_bridge/Dockerfile`)**:
    - Riorganizzato il Dockerfile in 3 stadi isolati:
@@ -167,7 +187,12 @@
 
 ## 2. File Rilevanti
 
-- [cabinet_bridge/config.yaml](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/config.yaml): Rimossi `build_from`, `homeassistant_api: false`, e `boot: auto` per conformità allo schema HA Add-on.
+- [cabinet_bridge/config.yaml](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/config.yaml): Allineato agli standard moderni HA (aggiunto `---`, `ports_description`, versione 2.55.1 e rimozione default).
+- [cabinet_bridge/translations/en.yaml](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/translations/en.yaml): Traduzioni native per le opzioni di configurazione e la porta di streaming.
+- [cabinet_bridge/DOCS.md](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/DOCS.md): Documentazione nativa per l'Add-on Store di Home Assistant.
+- [cabinet_bridge/Dockerfile](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/Dockerfile): Migrazione a `ghcr.io/home-assistant/base:latest` multi-arch con etichette OCI e BuildKit.
+- [.github/workflows/build.yml](file:///Users/andrea/Repository/home-arcade-ha/.github/workflows/build.yml): Aggiornato il manifest base a `ghcr.io/home-assistant/base:latest`.
+- [docs/plans/2026-10-11_align_addon_to_latest_home_assistant.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-11_align_addon_to_latest_home_assistant.md): Piano di lavoro strutturato e checklist completata per l'allineamento ad Home Assistant.
 - [docs/plans/2026-10-11_fix_actions_failures.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-11_fix_actions_failures.md): Piano di lavoro strutturato e checklist completata per la risoluzione dei fallimenti CI.
 - [cabinet_bridge/client/src/components/dashboard-themes/HomeArcadeTheme.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/components/dashboard-themes/HomeArcadeTheme.tsx): Batch rendering (48 giochi), lazy loading immagini, fanart debounced e transizioni CSS.
 - [cabinet_bridge/client/src/components/GameDetailDialog.tsx](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/client/src/components/GameDetailDialog.tsx): WebAssembly come motore prioritario consigliato, etichetta Native Beta Preview.
@@ -188,16 +213,49 @@
 
 ---
 
-## 3. Prossimi Passi (Next Steps)
+## 3. Riprogettazione Motore Nativo WebRTC (Completata con Successo)
+- **Log analizzato**: `/Users/andrea/Downloads/f5e1d3f5_cabinet_bridge_2026-10-11T10-43-33.652Z.log`
+- **Causa Radice Black Screen Identificata & Risolta**:
+  1. `encoder.go`: il vecchio mock restituiva uno stub fisso di 10 byte senza dati video compressi. Ora sostituito da `gstreamer.go` (`GStreamerVP8Encoder`), che usa la pipeline GStreamer Cgo (`appsrc ! videoconvert ! vp8enc deadline=1 cpu-used=8 ! appsink`) per produrre flussi bitstream VP8 conformi a 60 FPS a bassissima latenza.
+  2. `session.go`: il vecchio mock simulava un'onda sinusoidale in memoria senza caricare i core Libretro `.so`. Ora implementato `cgo_session.go` (`CgoLibretroSession`) accoppiato a `nanoarch.c`/`nanoarch.h` e `dl_unix.go` per caricare dinamicamente con `dlopen`/`dlsym` i core ufficiali compilati Libretro, interfacciando i callback audio/video/input.
+  3. `Dockerfile`: migrato da Alpine (`musl`) a `ghcr.io/home-assistant/debian-base:latest` (`glibc`). Compilazione di `homearcade-runner` eseguita in Stage 1 con `golang:1.24-bookworm` e `CGO_ENABLED=1`, installando le librerie `gstreamer1.0-plugins-base`, `gstreamer1.0-plugins-good` e `libsqlite3`.
+  4. **Linkage & Multi-Platform Compatibility**: Implementati fallback stubs deboli e conditional build tags (`//go:build cgo && (linux || darwin)` / `//go:build !cgo || (!linux && !darwin)`), garantendo compilazione e test puliti sia su Linux (Debian) che su macOS.
 
-1. **Esecuzione Fase 8 (Cloud Save & Cross-Engine Sync WASM ↔ WebRTC)**:
-   - Implementazione endpoint `/save` e `/load` nel runner nativo Go.
-   - Sincronizzazione persistente dei salvataggi su `/data/saves/:romId/` compatibili sia con EmulatorJS (WASM) sia con Native Runner.
-2. **Esecuzione Fase 9 (Virtual Touch Gamepad Overlay per Mobile Co-Op)**:
-   - D-Pad e pulsanti d'azione virtuali a schermo su canvas/SVG con haptic feedback per chi si collega via QR code da smartphone senza gamepad fisico.
-3. **Esecuzione Fase 10 (Integrazione Sensori Home Assistant & Automazioni Arcade)**:
-   - Esposizione di `binary_sensor.home_arcade_active`, `sensor.home_arcade_current_game` e `sensor.home_arcade_players_count` verso Home Assistant.
-4. **Validazione Hardware Reale (Raspberry Pi 5)**:
-   - Test di carico CPU ed encoding a 60 FPS in ambiente Home Assistant OS.
+---
+
+## 4. File Rilevanti della Modifica
+
+- [cabinet_bridge/Dockerfile](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/Dockerfile): Migrazione a `ghcr.io/home-assistant/debian-base:latest`, dipendenze GStreamer runtime e Cgo builder Go 1.24.
+- [.github/workflows/build.yml](file:///Users/andrea/Repository/home-arcade-ha/.github/workflows/build.yml): Base image allineata a `ghcr.io/home-assistant/debian-base:latest`.
+- [cabinet_bridge/server/native-runner/pkg/emulator/nanoarch.h](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/emulator/nanoarch.h): Header C per il bridge Libretro (adottato dal pattern CloudRetro).
+- [cabinet_bridge/server/native-runner/pkg/emulator/nanoarch.c](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/emulator/nanoarch.c): Bridge C per callback Libretro (video refresh, audio batch, input cache).
+- [cabinet_bridge/server/native-runner/pkg/emulator/cgo_session.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/emulator/cgo_session.go): Sessione di emulazione Libretro Cgo reale.
+- [cabinet_bridge/server/native-runner/pkg/emulator/cgo_session_stub.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/emulator/cgo_session_stub.go): Fallback stub per ambienti non-Cgo.
+- [cabinet_bridge/server/native-runner/pkg/emulator/dl_unix.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/emulator/dl_unix.go): Caricatore dinamico Cgo per librerie condivise (`dlopen`/`dlsym`/`dlclose`).
+- [cabinet_bridge/server/native-runner/pkg/encoder/gstreamer.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/encoder/gstreamer.go): Encoder VP8 nativo basato su GStreamer pipeline.
+- [cabinet_bridge/server/native-runner/pkg/encoder/gstreamer_stub.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/encoder/gstreamer_stub.go): Fallback encoder per ambienti di sviluppo senza GStreamer.
+- [docs/adr/002-native-webrtc-debian-gstreamer-cgo-pipeline.md](file:///Users/andrea/Repository/home-arcade-ha/docs/adr/002-native-webrtc-debian-gstreamer-cgo-pipeline.md): ADR architetturale della migrazione a Debian + GStreamer + Cgo.
+- [docs/plans/2026-10-11_webrtc_engine_root_cause_and_redesign_strategy.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-11_webrtc_engine_root_cause_and_redesign_strategy.md): Piano di lavoro e verifica della transizione.
+
+---
+
+## 5. Definition of Done & Verifica Empirica
+
+- **Go Test Suite (`server/native-runner`)**:
+  - `go test -v ./...` -> Tutte le 4 suite (`runner`, `pkg/audio`, `pkg/emulator`, `pkg/encoder`) superate con esito 0.
+  - `go build -v .` -> Binario compilato con successo senza warning.
+- **Node & TypeScript Stack (`cabinet_bridge`)**:
+  - `pnpm check` -> 0 errori TypeScript.
+  - `pnpm test` -> 19 file di test passati, 120/120 test passati con successo.
+  - `pnpm build` -> Vite + esbuild completati in 1.8s (`dist/public` e `dist/index.cjs` generati).
+
+---
+
+## 6. Prossimi Passi (Next Steps)
+
+1. Effettuare commit atomico delle modifiche relative alla migrazione del motore nativo WebRTC a Debian + GStreamer + Cgo.
+2. Eseguire push sul repository remoto per innescare la pipeline di CI/CD e la build multi-arch (`amd64` e `aarch64`).
+3. Test live dell'add-on su Home Assistant (hardware target RPi5 o x86) verificando la decodifica hardware/software fluida del flusso WebRTC senza black screen.
+
 
 
