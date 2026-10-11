@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.59.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.59.0...v2.59.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **stream:** resolve M3U boot and aspect ratio ([2e2de3c](https://github.com/JMaroz/home-arcade-ha/commit/2e2de3cadfb2fe6a0db8de57f4585b1daacba203))
+
 ## [2.59.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.58.1...v2.59.0) (2026-10-11)
 
 
