@@ -153,16 +153,20 @@
 - [cabinet_bridge/server/routes/streamPlayer.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/streamPlayer.ts): Interfaccia streaming HTML/WebRTC, dialog Co-Op con QR code e HUD di telemetria.
 - [cabinet_bridge/server/__tests__/stream.test.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/__tests__/stream.test.ts): Unit test automatizzati per gli endpoint di streaming e co-op.
 - [docs/plans/2026-10-11_cloud_gaming_architecture_and_native_webrtc_roadmap.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-11_cloud_gaming_architecture_and_native_webrtc_roadmap.md): Roadmap completata per tutte le 7 fasi.
+- [docs/plans/2026-10-11_cloud_gaming_phase2_touch_saves_and_ha_sensors.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-11_cloud_gaming_phase2_touch_saves_and_ha_sensors.md): Roadmap di evoluzione per le Fasi 8-12 (Persistenza Salva-Stati, Touch Mobile, Sensori Home Assistant & QoS).
 
 ---
 
 ## 3. Prossimi Passi (Next Steps)
 
-1. **Commit Git Hygiene & Conventional Commits**:
-   - Committare le modifiche delle Fasi 5, 6 e 7 (`feat(stream): implement Couch Co-Op multi-peer, telemetry HUD, and stream routes`).
-2. **Validazione End-to-End su Hardware Reale (Raspberry Pi 5)**:
-   - Testare la latenza effettiva e il carico CPU durante una sessione Co-Op locale con 2 gamepad connessi su rete Wi-Fi/Ethernet di Home Assistant.
-3. **Miglioramenti Futuri Opzionali**:
-   - Supporto touch overlay su mobile per il Giocatore 2 quando si unisce tramite QR Code da smartphone.
+1. **Esecuzione Fase 8 (Cloud Save & Cross-Engine Sync WASM ↔ WebRTC)**:
+   - Implementazione endpoint `/save` e `/load` nel runner nativo Go.
+   - Sincronizzazione persistente dei salvataggi su `/data/saves/:romId/` compatibili sia con EmulatorJS (WASM) sia con Native Runner.
+2. **Esecuzione Fase 9 (Virtual Touch Gamepad Overlay per Mobile Co-Op)**:
+   - D-Pad e pulsanti d'azione virtuali a schermo su canvas/SVG con haptic feedback per chi si collega via QR code da smartphone senza gamepad fisico.
+3. **Esecuzione Fase 10 (Integrazione Sensori Home Assistant & Automazioni Arcade)**:
+   - Esposizione di `binary_sensor.home_arcade_active`, `sensor.home_arcade_current_game` e `sensor.home_arcade_players_count` verso Home Assistant.
+4. **Validazione Hardware Reale (Raspberry Pi 5)**:
+   - Test di carico CPU ed encoding a 60 FPS in ambiente Home Assistant OS.
 
 
