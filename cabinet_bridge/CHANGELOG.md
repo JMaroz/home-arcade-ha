@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.58.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.57.1...v2.58.0) (2026-10-11)
+
+
+### Features
+
+* **stream:** add runner debug logs endpoint and stream stats reporting ([551e993](https://github.com/JMaroz/home-arcade-ha/commit/551e99369675c6344b30f5ed66a594a27220d6d7))
+
 ## [2.57.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.57.0...v2.57.1) (2026-10-11)
 
 
