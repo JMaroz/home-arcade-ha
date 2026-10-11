@@ -563,6 +563,22 @@ func coreEnvironment(cmd C.unsigned, data unsafe.Pointer) C.bool {
 		}
 	case C.RETRO_ENVIRONMENT_SET_VARIABLES:
 		return true
+	case C.RETRO_ENVIRONMENT_GET_VARIABLE:
+		if data != nil {
+			v := (*C.struct_retro_variable)(data)
+			if v.key != nil {
+				key := C.GoString(v.key)
+				if key == "parallel-n64-pak1" || key == "mupen64plus-pak1" {
+					v.value = C.CString("memory")
+					return true
+				}
+				if key == "parallel-n64-gfxplugin" {
+					v.value = C.CString("angrylion")
+					return true
+				}
+			}
+		}
+		return false
 	}
 	return false
 }

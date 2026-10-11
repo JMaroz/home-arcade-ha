@@ -25,3 +25,8 @@ Modelfile.txt
 # Package manager cache
 .pnpm-store/
 .pnpm-store
+
+# Native runner binary and runtime cores
+cabinet_bridge/server/native-runner/homearcade-runner
+cabinet_bridge/cores/
+bin/homearcade-runner

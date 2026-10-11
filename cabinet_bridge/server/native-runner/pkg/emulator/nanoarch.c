@@ -229,7 +229,19 @@ int16_t core_input_state_cgo(unsigned port, unsigned device, unsigned index, uns
                 case RETRO_DEVICE_INDEX_ANALOG_LEFT:
                     // id: RETRO_DEVICE_ID_ANALOG_X=0, RETRO_DEVICE_ID_ANALOG_Y=1
                     if (id <= RETRO_DEVICE_ID_ANALOG_Y) {
-                        return input_cache.analog[port][id];
+                        int16_t val = input_cache.analog[port][id];
+                        if (val != 0) {
+                            return val;
+                        }
+                        // Fallback: translate digital D-Pad to analog stick for 3D games (N64/PS1)
+                        if (id == RETRO_DEVICE_ID_ANALOG_X) {
+                            if ((input_cache.buttons[port] >> RETRO_DEVICE_ID_JOYPAD_RIGHT) & 1) return 0x7FFF;
+                            if ((input_cache.buttons[port] >> RETRO_DEVICE_ID_JOYPAD_LEFT) & 1) return -0x7FFF;
+                        } else if (id == RETRO_DEVICE_ID_ANALOG_Y) {
+                            if ((input_cache.buttons[port] >> RETRO_DEVICE_ID_JOYPAD_DOWN) & 1) return 0x7FFF;
+                            if ((input_cache.buttons[port] >> RETRO_DEVICE_ID_JOYPAD_UP) & 1) return -0x7FFF;
+                        }
+                        return 0;
                     }
                     break;
                 case RETRO_DEVICE_INDEX_ANALOG_RIGHT:

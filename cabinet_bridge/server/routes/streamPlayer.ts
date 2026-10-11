@@ -87,10 +87,74 @@ export function renderStreamPlayerPage({
       }
       .menu-btn:hover { background: rgba(236, 72, 153, 0.4); border-color: #ec4899; }
       #menu-trigger { left: max(12px, env(safe-area-inset-left)); }
-      #coop-trigger { left: max(96px, calc(env(safe-area-inset-left) + 84px)); border-color: rgba(56, 189, 248, 0.4); }
+      #pad-trigger { left: max(88px, calc(env(safe-area-inset-left) + 76px)); border-color: rgba(236, 72, 153, 0.4); }
+      #pad-trigger:hover { background: rgba(236, 72, 153, 0.3); border-color: #ec4899; }
+      #coop-trigger { left: max(168px, calc(env(safe-area-inset-left) + 156px)); border-color: rgba(56, 189, 248, 0.4); }
       #coop-trigger:hover { background: rgba(56, 189, 248, 0.3); border-color: #38bdf8; }
-      #hud-trigger { left: max(184px, calc(env(safe-area-inset-left) + 172px)); border-color: rgba(16, 185, 129, 0.4); }
+      #hud-trigger { left: max(256px, calc(env(safe-area-inset-left) + 244px)); border-color: rgba(16, 185, 129, 0.4); }
       #hud-trigger:hover { background: rgba(16, 185, 129, 0.3); border-color: #10b981; }
+
+      /* Touch & On-Screen Gamepad Overlay */
+      .virtual-controller {
+        position: fixed; inset: 0; pointer-events: none; z-index: 950;
+        user-select: none; -webkit-user-select: none; touch-action: none;
+        transition: opacity 200ms ease;
+      }
+      .virtual-controller.is-hidden {
+        opacity: 0; pointer-events: none; display: none;
+      }
+      .v-btn {
+        pointer-events: auto; touch-action: none; position: absolute;
+        background: rgba(255, 255, 255, 0.12); border: 2px solid rgba(255, 255, 255, 0.28);
+        border-radius: 50%; color: #fff; font-weight: 800; font-size: 14px;
+        display: flex; align-items: center; justify-content: center;
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        cursor: pointer; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        transition: transform 60ms ease, background 60ms ease, border-color 60ms ease;
+      }
+      .v-btn:active, .v-btn.is-pressed {
+        background: rgba(236, 72, 153, 0.65) !important;
+        border-color: #ec4899 !important;
+        transform: scale(0.92);
+      }
+      .v-dpad {
+        position: absolute; left: max(20px, env(safe-area-inset-left)); bottom: max(24px, env(safe-area-inset-bottom));
+        width: 150px; height: 150px; pointer-events: auto;
+      }
+      .v-dpad-btn {
+        position: absolute; width: 48px; height: 48px; border-radius: 12px; font-size: 16px;
+      }
+      .v-dpad-up    { top: 0; left: 51px; }
+      .v-dpad-down  { bottom: 0; left: 51px; }
+      .v-dpad-left  { top: 51px; left: 0; }
+      .v-dpad-right { top: 51px; right: 0; }
+
+      .v-actions {
+        position: absolute; right: max(20px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom));
+        width: 150px; height: 150px; pointer-events: auto;
+      }
+      .v-act-btn {
+        position: absolute; width: 48px; height: 48px; border-radius: 50%; font-size: 16px; font-weight: 900;
+      }
+      .v-btn-a { right: 0; top: 51px; background: rgba(16, 185, 129, 0.25); border-color: rgba(16, 185, 129, 0.5); }
+      .v-btn-b { left: 51px; bottom: 0; background: rgba(239, 68, 68, 0.25); border-color: rgba(239, 68, 68, 0.5); }
+      .v-btn-x { left: 51px; top: 0; background: rgba(59, 130, 246, 0.25); border-color: rgba(59, 130, 246, 0.5); }
+      .v-btn-y { left: 0; top: 51px; background: rgba(234, 179, 8, 0.25); border-color: rgba(234, 179, 8, 0.5); }
+
+      .v-shoulders {
+        position: absolute; top: max(60px, calc(env(safe-area-inset-top) + 52px)); width: 100%; pointer-events: none;
+      }
+      .v-btn-l { left: max(20px, env(safe-area-inset-left)); width: 68px; height: 36px; border-radius: 18px; font-size: 12px; }
+      .v-btn-r { right: max(20px, env(safe-area-inset-right)); width: 68px; height: 36px; border-radius: 18px; font-size: 12px; }
+      .v-btn-z { right: max(96px, calc(env(safe-area-inset-right) + 76px)); width: 56px; height: 36px; border-radius: 18px; font-size: 12px; }
+
+      .v-menu-btns {
+        position: absolute; left: 50%; transform: translateX(-50%); bottom: max(24px, env(safe-area-inset-bottom));
+        display: flex; gap: 16px; pointer-events: auto;
+      }
+      .v-btn-pill {
+        width: 76px; height: 34px; border-radius: 17px; font-size: 11px; letter-spacing: 0.08em;
+      }
 
       .stats-badge {
         position: fixed; z-index: 999; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
@@ -132,7 +196,40 @@ export function renderStreamPlayerPage({
       <video id="remote-video" autoplay playsinline muted></video>
     </div>
 
+    <!-- On-Screen Virtual Gamepad Overlay (Touch & Click) -->
+    <div id="virtual-controller" class="virtual-controller is-hidden">
+      <!-- D-Pad (Left) -->
+      <div class="v-dpad">
+        <div class="v-btn v-dpad-btn v-dpad-up" data-btn="4">▲</div>
+        <div class="v-btn v-dpad-btn v-dpad-down" data-btn="5">▼</div>
+        <div class="v-btn v-dpad-btn v-dpad-left" data-btn="6">◀</div>
+        <div class="v-btn v-dpad-btn v-dpad-right" data-btn="7">▶</div>
+      </div>
+
+      <!-- Center Menu Buttons (Select / Start) -->
+      <div class="v-menu-btns">
+        <div class="v-btn v-btn-pill" data-btn="2">SELECT</div>
+        <div class="v-btn v-btn-pill" data-btn="3" style="background: rgba(236, 72, 153, 0.35); border-color: #ec4899;">START</div>
+      </div>
+
+      <!-- Action Buttons (Right) -->
+      <div class="v-actions">
+        <div class="v-btn v-act-btn v-btn-y" data-btn="1">Y</div>
+        <div class="v-btn v-act-btn v-btn-x" data-btn="9">X</div>
+        <div class="v-btn v-act-btn v-btn-b" data-btn="0">B</div>
+        <div class="v-btn v-act-btn v-btn-a" data-btn="8">A</div>
+      </div>
+
+      <!-- Shoulder Triggers -->
+      <div class="v-shoulders">
+        <div class="v-btn v-btn-l" data-btn="10">L</div>
+        <div class="v-btn v-btn-z" data-btn="12">Z</div>
+        <div class="v-btn v-btn-r" data-btn="11">R</div>
+      </div>
+    </div>
+
     <button id="menu-trigger" class="menu-btn">Menu</button>
+    <button id="pad-trigger" class="menu-btn" title="Toggle On-Screen Gamepad">🎮 Pad</button>
     <button id="coop-trigger" class="menu-btn">👥 Co-Op</button>
     <button id="hud-trigger" class="menu-btn">📊 Stats</button>
     <div id="stats" class="stats-badge" title="Click or press 'H' / Select+Start to toggle HUD">STREAM · 60 FPS</div>
@@ -236,6 +333,9 @@ export function renderStreamPlayerPage({
         <div style="display: flex; flex-direction: column; gap: 8px;">
           <button id="btn-unmute" class="btn btn-secondary">🔊 Unmute Audio</button>
           <button id="btn-fullscreen" class="btn btn-secondary">⛶ Toggle Fullscreen</button>
+          <button id="btn-toggle-pad" class="btn btn-secondary" style="border-color: rgba(236, 72, 153, 0.4);">
+            🎮 Mostra/Nascondi Controller su Schermo
+          </button>
           <button id="btn-open-coop-menu" class="btn btn-secondary" style="border-color: rgba(56, 189, 248, 0.4);">
             👥 Invite Player 2 (Co-Op)
           </button>
@@ -246,6 +346,17 @@ export function renderStreamPlayerPage({
           <button id="btn-exit" class="btn btn-secondary" style="border-color: rgba(239, 68, 68, 0.3); color: #fca5a5;">
             Exit Game
           </button>
+
+          <!-- Keyboard & Gamepad Legend -->
+          <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; font-size: 11px; text-align: left; line-height: 1.6; color: rgba(255,255,255,0.85); margin-top: 4px;">
+            <div style="font-weight: 800; color: #ec4899; text-transform: uppercase; margin-bottom: 4px; font-size: 10px; letter-spacing: 0.08em;">🎮 Mappatura Comandi</div>
+            <div>• <b style="color: #fff;">Enter</b>: START &nbsp;|&nbsp; <b style="color: #fff;">Shift</b>: SELECT</div>
+            <div>• <b style="color: #fff;">Frecce</b>: D-Pad / Analogico</div>
+            <div>• <b style="color: #fff;">X / K</b>: Tasto A &nbsp;|&nbsp; <b style="color: #fff;">Z / J</b>: Tasto B</div>
+            <div>• <b style="color: #fff;">S / I</b>: Tasto X &nbsp;|&nbsp; <b style="color: #fff;">A / U</b>: Tasto Y</div>
+            <div>• <b style="color: #fff;">Q / W</b>: Dorsali L / R</div>
+            <div style="color: #10b981; margin-top: 4px;">• Gamepad USB/Bluetooth plug & play</div>
+          </div>
         </div>
       </div>
     </div>
@@ -264,8 +375,11 @@ export function renderStreamPlayerPage({
         const coopOverlay = document.getElementById("coop-overlay");
         const telemetryOverlay = document.getElementById("telemetry-overlay");
         const menuBtn = document.getElementById("menu-trigger");
+        const padTrigger = document.getElementById("pad-trigger");
         const coopBtn = document.getElementById("coop-trigger");
         const hudBtn = document.getElementById("hud-trigger");
+        const virtualController = document.getElementById("virtual-controller");
+        const btnTogglePad = document.getElementById("btn-toggle-pad");
         const retryBtn = document.getElementById("retry-btn");
         const btnResume = document.getElementById("btn-resume");
         const btnExit = document.getElementById("btn-exit");
@@ -510,6 +624,63 @@ export function renderStreamPlayerPage({
         });
 
         let prevSelectStart = false;
+        let virtualButtonsMask = 0;
+
+        function setVirtualPadVisible(visible) {
+          if (!virtualController) return;
+          if (visible) {
+            virtualController.classList.remove("is-hidden");
+            if (padTrigger) padTrigger.style.borderColor = "#ec4899";
+          } else {
+            virtualController.classList.add("is-hidden");
+            if (padTrigger) padTrigger.style.borderColor = "";
+          }
+          try {
+            localStorage.setItem("ha_arcade_touch_controller", visible ? "1" : "0");
+          } catch (_) {}
+        }
+
+        function toggleVirtualPad() {
+          if (!virtualController) return;
+          const isHidden = virtualController.classList.contains("is-hidden");
+          setVirtualPadVisible(isHidden);
+        }
+
+        // Virtual Touch Button handlers with Pointer Events
+        document.querySelectorAll(".v-btn").forEach((btn) => {
+          const btnCode = parseInt(btn.getAttribute("data-btn") || "-1", 10);
+          if (btnCode < 0) return;
+
+          btn.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            unlockAudio();
+            virtualButtonsMask |= (1 << btnCode);
+            btn.classList.add("is-pressed");
+            try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+          });
+
+          const release = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            virtualButtonsMask &= ~(1 << btnCode);
+            btn.classList.remove("is-pressed");
+            try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+          };
+
+          btn.addEventListener("pointerup", release);
+          btn.addEventListener("pointercancel", release);
+          btn.addEventListener("pointerleave", release);
+        });
+
+        // Initialize virtual pad from localStorage or auto-enable on touch devices
+        try {
+          const storedPad = localStorage.getItem("ha_arcade_touch_controller");
+          const isTouchDevice = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+          if (storedPad === "1" || (storedPad === null && isTouchDevice)) {
+            setVirtualPadVisible(true);
+          }
+        } catch (_) {}
 
         function pollInput() {
           if (dataChannel && dataChannel.readyState === "open") {
@@ -564,6 +735,17 @@ export function renderStreamPlayerPage({
               if (bit !== undefined) {
                 mask |= (1 << bit);
               }
+            }
+
+            // 3. Virtual Touch Controller Overlay
+            mask |= virtualButtonsMask;
+
+            // D-Pad to Analog fallback if physical analog stick is centered
+            if (axisX === 0 && axisY === 0) {
+              if (mask & (1 << 4)) axisY = -128; // Up
+              if (mask & (1 << 5)) axisY = 127;  // Down
+              if (mask & (1 << 6)) axisX = -128; // Left
+              if (mask & (1 << 7)) axisX = 127;  // Right
             }
 
             // Pack 5 bytes: [playerSlot, mask_lo, mask_hi, axisX, axisY]
@@ -659,6 +841,15 @@ export function renderStreamPlayerPage({
 
         // UI Event Listeners
         menuBtn.addEventListener("click", () => menuOverlay.classList.remove("is-hidden"));
+        if (padTrigger) {
+          padTrigger.addEventListener("click", () => toggleVirtualPad());
+        }
+        if (btnTogglePad) {
+          btnTogglePad.addEventListener("click", () => {
+            toggleVirtualPad();
+            menuOverlay.classList.add("is-hidden");
+          });
+        }
         coopBtn.addEventListener("click", () => {
           updateCoopInvite();
           coopOverlay.classList.remove("is-hidden");
