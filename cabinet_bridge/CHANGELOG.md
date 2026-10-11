@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.58.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.58.0...v2.58.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **stream:** eliminate recursive cgo mutex deadlock in retro_init and step ([16b8413](https://github.com/JMaroz/home-arcade-ha/commit/16b8413af179e10179ea0e2dc0053e4aeb71a6fb))
+
 ## [2.58.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.57.1...v2.58.0) (2026-10-11)
 
 
