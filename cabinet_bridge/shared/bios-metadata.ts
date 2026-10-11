@@ -19,6 +19,12 @@ export const REQUIRED_BIOS: Record<string, BiosEntry[]> = {
     { filename: "scph5502.bin", md5: "32736f17079d0b2b7024407c39bd3050", label: "Europe", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation/scph5502.bin` },
     { filename: "ps1_rom.bin",  md5: "00000000000000000000000000000000", label: "Custom", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation/ps1_rom.bin` },
   ],
+  psx: [
+    { filename: "scph5501.bin", md5: "490f666e1afb15b7362b406ed1cea246", label: "USA", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation/scph5501.bin` },
+    { filename: "scph5500.bin", md5: "8dd7d5296a650fac7319bce665a6a53c", label: "Japan", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation/scph5500.bin` },
+    { filename: "scph5502.bin", md5: "32736f17079d0b2b7024407c39bd3050", label: "Europe", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation/scph5502.bin` },
+    { filename: "ps1_rom.bin",  md5: "00000000000000000000000000000000", label: "Custom", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation/ps1_rom.bin` },
+  ],
   play: [
     { filename: "scph39001.bin", md5: "d5ce2c7d119f563ce04bc04dbc3a323e", label: "USA v1.60", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-39001.bin` },
     { filename: "scph70008.bin", md5: "9a0a1a5b6c7d8e9f0a1b2c3d4e5f6a7b", label: "Generic v2.0" },
@@ -39,6 +45,7 @@ export const REQUIRED_BIOS: Record<string, BiosEntry[]> = {
 
 export const CORE_PERFORMANCE_TIERS: Record<string, { arm64: PerformanceTier; x64: PerformanceTier }> = {
   pcsx_rearmed: { arm64: "excellent", x64: "excellent" },
+  psx: { arm64: "excellent", x64: "excellent" },
   play: { arm64: "unplayable", x64: "experimental" },
   segacd: { arm64: "excellent", x64: "excellent" },
   mgba: { arm64: "excellent", x64: "excellent" },

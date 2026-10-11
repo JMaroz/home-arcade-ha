@@ -79,7 +79,7 @@ export const EMULATORJS_CORES: Record<string, string> = {
   n64: "n64",
   gba: "mgba",
   genesis: "segaMD",
-  ps1: "pcsx_rearmed",
+  ps1: "psx",
   ps2: "play",
   arcade: "fbneo",
   dreamcast: "flycast",

@@ -939,7 +939,7 @@ export function registerRomRoutes(app: Express) {
   // Without Accept-Ranges the browser must fully buffer the ROM before
   // EmulatorJS can start the core.  With Range support it can begin booting
   // as soon as the first chunk arrives.
-  app.get("/api/roms/:id/file", async (req, res) => {
+  app.get(["/api/roms/:id/file", "/api/roms/:id/file/:filename"], async (req, res) => {
     const id = Number(req.params.id);
     const rom = await storage.getUploadedRom(id);
     if (!rom) {
@@ -1089,8 +1089,10 @@ export function registerRomRoutes(app: Express) {
       res.setHeader("Content-Type", "application/javascript; charset=utf-8");
       return res.status(400).send(`document.body.textContent = ${JSON.stringify(`${rom.system.toUpperCase()} is not configured for browser play yet.`)};`);
     }
-    let discs: Array<{ id: number; label: string }> = [];
+    let bootRom = rom;
+    let discs: Array<{ id: number; label: string; fileName?: string }> = [];
     let gameUrlIsArray = false;
+    let externalFiles: Record<string, string> = {};
 
     if (rom.isPlaylist && rom.m3uContent) {
       // M3U record — resolve each referenced file to a child disc record
@@ -1098,32 +1100,60 @@ export function registerRomRoutes(app: Express) {
         .map(l => l.trim())
         .filter(l => l.length > 0 && !l.startsWith("#"));
       const children = await storage.listChildrenByM3uId(rom.id);
-      if (children.length > 1) {
-        discs = children.map((s) => ({ id: s.id, label: s.discNumber ? `Disc ${s.discNumber}` : s.title }));
-        gameUrlIsArray = true;
+      let resolved: Array<{ id: number; label: string; fileName: string; originalName: string }> = [];
+
+      if (children.length > 0) {
+        resolved = children.map(s => ({
+          id: s.id,
+          label: s.discNumber ? `Disc ${s.discNumber}` : s.title,
+          fileName: s.fileName,
+          originalName: s.originalName
+        }));
       } else if (refs.length > 0) {
-        // Try to find children by originalName match
-        const resolved: typeof discs = [];
         for (const ref of refs) {
-          const found = children.find(c => c.originalName === ref) ?? await storage.findRomByOriginalName(ref);
-          if (found) resolved.push({ id: found.id, label: found.discNumber ? `Disc ${found.discNumber}` : found.title });
+          const found = await storage.findRomByOriginalName(ref);
+          if (found) {
+            resolved.push({
+              id: found.id,
+              label: found.discNumber ? `Disc ${found.discNumber}` : found.title,
+              fileName: found.fileName,
+              originalName: found.originalName
+            });
+          }
         }
-        if (resolved.length > 1) {
-          discs = resolved;
-          gameUrlIsArray = true;
+      }
+
+      if (resolved.length === 1) {
+        // Single-disc M3U — boot directly the resolved disc image (e.g. Ape Escape.chd)
+        const singleChild = await storage.getUploadedRom(resolved[0].id);
+        if (singleChild) {
+          bootRom = singleChild;
+        }
+      } else if (resolved.length > 1) {
+        // Multi-disc M3U: populate externalFiles for EmulatorJS virtual filesystem
+        discs = resolved.map(d => ({ id: d.id, label: d.label, fileName: d.fileName }));
+        // Ingress base for externalFiles URLs
+        const ingressMatch = req.originalUrl.match(/^\/api\/(?:hassio_)?ingress\/[^\/]+/);
+        const resolvedBase = ingressMatch ? ingressMatch[0] : "";
+        for (const disc of resolved) {
+          const url = `${resolvedBase}/api/roms/${disc.id}/file/${encodeURIComponent(disc.fileName)}`;
+          externalFiles[disc.originalName] = url;
+          if (disc.fileName !== disc.originalName) {
+            externalFiles[disc.fileName] = url;
+          }
         }
       }
     } else if (rom.discGroup) {
       const siblings = await storage.listRomsByDiscGroup(rom.discGroup);
       if (siblings.length > 1) {
-        discs = siblings.map((s) => ({ id: s.id, label: s.discNumber ? `Disc ${s.discNumber}` : s.title, }));
+        discs = siblings.map((s) => ({ id: s.id, label: s.discNumber ? `Disc ${s.discNumber}` : s.title, fileName: s.fileName }));
         gameUrlIsArray = true;
       }
     } else if (rom.parentM3uId) {
       // Child disc — include siblings for disc switching
       const children = await storage.listChildrenByM3uId(rom.parentM3uId);
       if (children.length > 1) {
-        discs = children.map((s) => ({ id: s.id, label: s.discNumber ? `Disc ${s.discNumber}` : s.title }));
+        discs = children.map((s) => ({ id: s.id, label: s.discNumber ? `Disc ${s.discNumber}` : s.title, fileName: s.fileName }));
       }
     }
     const bootstrapSettings = await storage.getIntegrationSettings();
@@ -1167,7 +1197,7 @@ export function registerRomRoutes(app: Express) {
     }
 
     res.send(renderEmulatorBootstrap({
-      core, title: rom.title, gameId: `${rom.system}-${rom.slug}`, romId: rom.id, discs, romHash: rom.romHash ?? null, gameUrlIsArray,
+      core, title: bootRom.title, gameId: `${bootRom.system}-${bootRom.slug}`, romId: bootRom.id, fileName: bootRom.fileName, discs, romHash: bootRom.romHash ?? null, gameUrlIsArray, externalFiles,
       raUsername: bootstrapSettings.raUsername ?? "", raToken: bootstrapSettings.raToken ?? "",
       controlDefaults: await (async () => {
         const global = (bootstrapSettings.controlDefaults ?? {}) as Record<string, Record<number, string>>;

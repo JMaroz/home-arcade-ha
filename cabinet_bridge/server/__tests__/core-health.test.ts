@@ -124,5 +124,45 @@ describe("Bootstrap Script Syntax Validation", () => {
     expect(n64Code).toContain('"mupen64plus-EnableHybridFilter": "False"');
     expect(n64Code).toContain('"mupen64plus-43screensize": "640x480"');
   });
+
+  it("should configure PS1 core mapping, filename extension in gameUrl, biosUrl and externalFiles", async () => {
+    const { renderEmulatorBootstrap } = await import("../routes/player");
+    const { Script } = await import("node:vm");
+
+    const ps1Code = renderEmulatorBootstrap({
+      core: "pcsx_rearmed",
+      title: "Metal Gear Solid",
+      gameId: "ps1-metal-gear-solid",
+      romId: 789,
+      fileName: "Metal Gear Solid (Disc 1).chd",
+      discs: [],
+      romHash: "mgs-hash",
+      userId: "test-user",
+      userName: "Solid Snake",
+      profileId: "1",
+      biosUrl: "/api/bios/psx/scph5501.bin",
+      externalFiles: {
+        "disc1.chd": "/api/roms/789/file/disc1.chd",
+        "disc2.chd": "/api/roms/790/file/disc2.chd",
+      },
+      netplayRole: null,
+      netplayRoom: null,
+      netplaySyncMode: "rollback",
+      controlDefaults: {},
+      gamepadBindings: {},
+      controlDefaultsP2: {},
+      gamepadBindingsP2: {}
+    });
+
+    expect(() => new Script(ps1Code)).not.toThrow();
+    // Core pcsx_rearmed mapped to "psx" for EmulatorJS
+    expect(ps1Code).toContain('window.EJS_core = "psx";');
+    // Filename appended to gameUrl
+    expect(ps1Code).toContain('/file/Metal%20Gear%20Solid%20(Disc%201).chd');
+    // BIOS URL injected
+    expect(ps1Code).toContain('window.EJS_biosUrl = "/api/bios/psx/scph5501.bin";');
+    // External files injected
+    expect(ps1Code).toContain('window.EJS_externalFiles = {"disc1.chd":"/api/roms/789/file/disc1.chd","disc2.chd":"/api/roms/790/file/disc2.chd"};');
+  });
 });
 

@@ -82,19 +82,36 @@
       - **Timeout Headers Node.js (node-gyp ETIMEDOUT)**: Durante il build locale su Raspberry Pi / aarch64, la compilazione C++ di `better-sqlite3` e `bufferutil` scaricava gli header di Node da `nodejs.org` fallendo con `ETIMEDOUT` al primo tentativo. Aggiunte variabili d'ambiente `npm_config_fetch_retries=5`, `npm_config_fetch_retry_mintimeout=20000`, `npm_config_fetch_retry_maxtimeout=120000`, `npm_config_fetch_timeout=120000` nello stage `node-builder`.
       - **Bug Regex Estrazione Versione in GitHub Actions**: In `.github/workflows/build.yml`, il comando `sed 's/version: "\(.*\)"/\1/'` falliva con versioni senza apici (`version: 2.54.1`), generando tag non validi (`homearcade-aarch64:version: 2.54.1`) e bloccando il push su GHCR. Corretto con `sed 's/version: //; s/"//g'`.
 
+12. **Fix WebRTC Signaling Race Condition & Risoluzione Boot PS1 (Menu RetroArch)**:
+    - Risolti i due problemi critici segnalati nel log `f5e1d3f5_cabinet_bridge_2026-10-10T22-07-34.406Z.log`:
+      - **WebRTC Race Condition (`ECONNREFUSED 127.0.0.1:<port>`)**:
+        - `StreamRunnerManager.startSession` lanciava il processo Go in background e restituiva istantaneamente `{ sessionId, port }` in ~6ms con `status: "ready"`.
+        - Il client web inviava immediatamente la richiesta POST di offer SDP a `/api/stream/signal/:id`, prima che il listener HTTP del runner Go terminasse il bind della porta, causando `ECONNREFUSED`.
+        - In `server/stream/runner-manager.ts`: introdotto `waitForPortReady(port, 3000)` che interroga l'endpoint `/health` del runner prima di marcare la sessione come `ready`, e implementato un ciclo di retry con backoff esponenziale (5 tentativi) su `relaySignal`.
+      - **Apertura Menu RetroArch su tutti i giochi PS1 (RGUI anziché il gioco)**:
+        - **Estensione mancante nel Virtual File System**: `EJS_gameUrl` era `/api/roms/:id/file`. EmulatorJS estrae il nome file dall'ultimo segmento dell'URL (`/file`). RetroArch riceveva `/file` privo di estensione (`.chd`, `.cue`, `.bin`, `.iso`) e non riusciva a riconoscere il formato della ROM, tornando al menu principale.
+        - **Route `/file/:filename?`**: Estesa la route in `server/routes/roms.ts` a `["/api/roms/:id/file", "/api/roms/:id/file/:filename"]` e aggiornato `renderEmulatorBootstrap` in `server/routes/player.ts` per generare `/api/roms/:id/file/${encodeURIComponent(fileName)}`.
+        - **Core Identifier EmulatorJS**: In `server/routes/shared.ts` e `player.ts`, mappato `ps1` a `"psx"` (identificativo ufficiale di EmulatorJS per PCSX ReARMed).
+        - **Iniezione BIOS PS1**: `renderEmulatorBootstrap` ora inietta correttamente `window.EJS_biosUrl` con il percorso al BIOS verificato (`scph5501.bin`).
+        - **Supporto Playlist M3U**: I file M3U a disco singolo (es. Ape Escape) ora vengono risolti direttamente al CHD sottostante. I file M3U multi-disco popolano `window.EJS_externalFiles` mappando i nomi dei dischi ai rispettivi file URL nel VFS.
+
 ---
 
 ## 2. File Rilevanti
 
-- [cabinet_bridge/Dockerfile](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/Dockerfile): Aggiornato a `golang:1.24-alpine`, layer caching Go `go mod download`, e retry/timeout per `npm_config_fetch_*`.
-- [cabinet_bridge/server/native-runner/go.mod](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/go.mod): Versione modulo Go aggiornata a 1.24.0 per compatibilità Pion WebRTC v4.
-- [.github/workflows/build.yml](file:///Users/andrea/Repository/home-arcade-ha/.github/workflows/build.yml): Corretta estrazione versione per supportare stringhe senza apici in `config.yaml`.
-- [docs/plans/2026-10-10_fix_ha_addon_update_build_failures.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-10_fix_ha_addon_update_build_failures.md): Piano di lavoro e analisi dettagliata del log di errore.
+- [cabinet_bridge/server/routes/player.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/player.ts): Generazione `window.EJS_gameUrl` con estensione, `EJS_biosUrl`, `EJS_externalFiles` e core `psx`.
+- [cabinet_bridge/server/routes/roms.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/roms.ts): Route `/api/roms/:id/file/:filename?` e risoluzione diretta CHD per M3U singolo.
+- [cabinet_bridge/server/routes/shared.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/shared.ts): Core `ps1: "psx"`.
+- [cabinet_bridge/server/stream/runner-manager.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/stream/runner-manager.ts): `waitForPortReady` e retry loop su `relaySignal`.
+- [cabinet_bridge/shared/bios-metadata.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/shared/bios-metadata.ts): Alias `"psx"` in `REQUIRED_BIOS` e `CORE_PERFORMANCE_TIERS`.
+- [cabinet_bridge/server/__tests__/core-health.test.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/__tests__/core-health.test.ts): Unit test per bootstrap PS1, biosUrl ed externalFiles.
+- [docs/plans/2026-10-11_webrtc_signaling_and_ps1_retroarch_boot_fix.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-11_webrtc_signaling_and_ps1_retroarch_boot_fix.md): Piano di lavoro e checklist.
 
 ---
 
 ## 3. Prossimi Passi (Next Steps)
 
-1. **Commit Git Hygiene**: Salvare le modifiche con Conventional Commit (`fix: update go to 1.24 for pion webrtc and add npm fetch retries in docker build`).
-2. **Push & Release**: Eseguire il push su `main`. Con il Dockerfile corretto, l'aggiornamento da sorgente su Home Assistant completerà con successo senza blocchi. In parallelo, il workflow di build GitHub Actions può essere eseguito per pubblicare le immagini ufficiali su GHCR (`ghcr.io/jmaroz/homearcade-{arch}`).
+1. **Commit Git Hygiene**: Salvare le modifiche con Conventional Commit (`fix: resolve webrtc signaling race condition and ps1 emulatorjs boot`).
+2. **Push su `main`**: Allineare il repository remoto.
+3. **Evoluzione Cgo Libretro Runner (Fase futura)**: Procedere con l'implementazione del runner Cgo reale basato sull'architettura CloudRetro per il rendering video e l'encoding x264/VP8.
 

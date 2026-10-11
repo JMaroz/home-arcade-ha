@@ -773,16 +773,21 @@ export function renderEmulatorPage({ title, returnTo, romHash, queryString, syst
 }
 
 export function renderEmulatorBootstrap({
-  core, title, gameId, romId, discs, romHash, userId, userName, profileId, biosUrl, netplayRole, netplayRoom, netplaySyncMode, controlDefaults, gamepadBindings, controlDefaultsP2, gamepadBindingsP2, keyboardBindings, gameUrlIsArray
+  core, title, gameId, romId, discs, romHash, userId, userName, profileId, biosUrl, netplayRole, netplayRoom, netplaySyncMode, controlDefaults, gamepadBindings, controlDefaultsP2, gamepadBindingsP2, keyboardBindings, gameUrlIsArray, fileName, externalFiles
 }: any) {
   let ejsGameUrl: string;
   if (gameUrlIsArray && discs?.length > 0) {
     ejsGameUrl = `window.EJS_gameUrl = [${discs.map((d: any) => `window.CABINET_INGRESS_BASE + "/api/roms/${d.id}/file"`).join(", ")}];`;
   } else {
-    ejsGameUrl = `window.EJS_gameUrl = window.CABINET_INGRESS_BASE + "/api/roms/" + ${JSON.stringify(romId)} + "/file";`;
+    const fileSuffix = fileName ? "/" + encodeURIComponent(fileName) : "";
+    ejsGameUrl = `window.EJS_gameUrl = window.CABINET_INGRESS_BASE + "/api/roms/" + ${JSON.stringify(romId)} + "/file${fileSuffix}";`;
   }
   const ejsDiscs = discs?.length > 1 
     ? `window.EJS_discs = [${discs.map((d: any) => `{ fileName: window.CABINET_INGRESS_BASE + "/api/roms/${d.id}/file", label: ${JSON.stringify(d.label)} }`).join(", ")}];`
+    : "";
+  const ejsBiosUrl = biosUrl ? `window.EJS_biosUrl = ${JSON.stringify(biosUrl)};` : "";
+  const ejsExternalFiles = externalFiles && Object.keys(externalFiles).length > 0
+    ? `window.EJS_externalFiles = ${JSON.stringify(externalFiles)};`
     : "";
 
   let ejsDefaultControls = "";
@@ -1472,11 +1477,13 @@ window.EJS_onGameStart = function () {
 cabinetSetupMenu();
 
 window.EJS_player = "#game";
-window.EJS_core = ${JSON.stringify(core)};
+window.EJS_core = ${JSON.stringify(core === "pcsx_rearmed" ? "psx" : core)};
 window.EJS_gameName = ${JSON.stringify(title)};
 window.EJS_gameID = ${JSON.stringify(userId + "_" + gameId)};
 ${ejsGameUrl}
 ${ejsDiscs}
+${ejsBiosUrl}
+${ejsExternalFiles}
 ${ejsDefaultControls}
 
 window.EJS_pathtodata = window.CABINET_INGRESS_BASE + "/api/emulatorjs/";
@@ -1504,7 +1511,7 @@ if (${JSON.stringify(core)} === "n64") {
     "mupen64plus-rsp-plugin": "hle"
   });
 }
-if (${JSON.stringify(core)} === "pcsx_rearmed") {
+if (${JSON.stringify(core)} === "pcsx_rearmed" || ${JSON.stringify(core)} === "psx") {
   window.EJS_defaultOptions = Object.assign({}, window.EJS_defaultOptions || {}, {
     "pcsx_rearmed_neon_enhancement_enable": "disabled"
   });

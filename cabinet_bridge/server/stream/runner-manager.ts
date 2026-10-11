@@ -44,6 +44,20 @@ async function getAvailablePort(): Promise<number> {
   });
 }
 
+async function waitForPortReady(port: number, timeoutMs = 3000): Promise<boolean> {
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(300) });
+      if (res.ok) return true;
+    } catch {
+      // not ready yet
+    }
+    await new Promise((r) => setTimeout(r, 60));
+  }
+  return false;
+}
+
 function getRunnerBinaryPath(): string | null {
   // Check candidate locations for native runner binary
   const candidates = [
@@ -153,6 +167,10 @@ export class StreamRunnerManager {
       });
 
       session.process = child;
+      const ready = await waitForPortReady(port, 3000);
+      if (!ready && child.exitCode === null) {
+        console.warn(`[native-runner:${sessionId.slice(0, 8)}] Runner port ${port} did not respond to /health within 3000ms; proceeding.`);
+      }
       session.status = "ready";
     } else {
       // In development or when runner binary is not built, mark as ready for mock/fallback signaling
@@ -193,16 +211,31 @@ export class StreamRunnerManager {
       throw new Error("Runner binary not found on host. Please launch using Browser WebAssembly.");
     }
 
-    // Forward offer to runner's local HTTP signaling port
-    const res = await fetch(`http://127.0.0.1:${session.port}/offer`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(offer),
-    });
+    // Forward offer to runner's local HTTP signaling port with retry backoff
+    let res: Response | null = null;
+    let lastErr: any = null;
+    const maxRetries = 5;
 
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Runner signaling error (${res.status}): ${errText}`);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        res = await fetch(`http://127.0.0.1:${session.port}/offer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(offer),
+          signal: AbortSignal.timeout(2000),
+        });
+        if (res.ok) break;
+      } catch (err: any) {
+        lastErr = err;
+        if (attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, 60 * attempt));
+        }
+      }
+    }
+
+    if (!res || !res.ok) {
+      const errDetail = res ? `status ${res.status}: ${await res.text().catch(() => "")}` : (lastErr?.message || "connection refused");
+      throw new Error(`Runner signaling error: ${errDetail}`);
     }
 
     session.status = "active";
