@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.56.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.56.0...v2.56.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **docker:** correct Home Assistant base image to base-debian:bookworm ([4a96335](https://github.com/JMaroz/home-arcade-ha/commit/4a9633566a675620fcbb9b8b691cd501b2fbbb35))
+
 ## [2.56.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.55.1...v2.56.0) (2026-10-11)
 
 
