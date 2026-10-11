@@ -77,26 +77,30 @@ Evolvere il modulo di streaming nativo di **HomeArcade** da prototipo a soluzion
   - [x] Impacchettamento in frame Opus/PCM da 20ms (960 campioni stereo) e invio a `audioTrack` di Pion WebRTC.
 
 ### Fase 5: Couch & Cloud Co-Op (Multiplayer Fan-in / Fan-out con QR Code)
-- [ ] In `server/stream/runner-manager.ts` e `server/routes/roms.ts`:
-  - [ ] Supporto sessioni condivise: endpoint `GET /api/stream/session/:sessionId/join` che consente la connessione di un secondo peer alla medesima sessione runner.
-  - [ ] Generazione codice QR o URL condivisibile nel player ("Invita Giocatore 2").
-- [ ] In `server/native-runner/main.go`:
-  - [ ] Supporto multi-peer: il video/audio track viene aggiunto a molteplici `PeerConnection` contemporaneamente (Fan-out).
-  - [ ] Gli input provenienti da differenti DataChannel vengono assegnati al rispettivo slot giocatore (Player 1 e Player 2) (Fan-in).
+- [x] In `server/stream/runner-manager.ts` e `server/routes/stream.ts`:
+  - [x] Supporto sessioni condivise: endpoint `POST /api/stream/join/:sessionId` che consente la connessione di un secondo peer alla medesima sessione runner.
+  - [x] Endpoint `GET /api/stream/peers/:sessionId` per monitorare i peer connessi in tempo reale.
+  - [x] Generazione codice QR o URL condivisibile nel player con dialog "👥 Couch & Cloud Co-Op".
+- [x] In `server/native-runner/main.go`:
+  - [x] Supporto multi-peer: il video/audio track viene aggiunto a molteplici `PeerConnection` contemporaneamente (Fan-out).
+  - [x] Gli input provenienti da differenti DataChannel vengono assegnati al rispettivo slot giocatore (Player 1 e Player 2) (Fan-in).
+  - [x] Endpoint `/peers` per il conteggio e stato dei peer attivi.
 
 ### Fase 6: Client UI, Gestione Autoplay & HUD Diagnostico
-- [ ] In `server/routes/streamPlayer.ts`:
-  - [ ] Video element con `autoplay playsinline muted` e riproduzione audio sbloccata al primo tocco o pressione di tasto (risoluzione policy WebKit/TV).
-  - [ ] Mini HUD a comparsa (attivabile con combinazione di tasti sul gamepad o pulsante dedicato):
+- [x] In `server/routes/streamPlayer.ts`:
+  - [x] Video element con `autoplay playsinline muted` e riproduzione audio sbloccata al primo tocco o pressione di tasto (risoluzione policy WebKit/TV).
+  - [x] Mini HUD a comparsa e pannello telemetria dedicato (attivabile con `Stats`, tasto `H` o combinazione `Select + Start` sul gamepad):
     - RTT (Ping) calcolato dalle statistiche WebRTC (`pc.getStats()`).
     - FPS effettivi del player video.
     - Bitrate corrente e stima packet loss.
-  - [ ] Pulsante rapido di switch per tornare a WebAssembly in caso di instabilità di rete.
+    - Slot giocatore e conteggio peer connessi.
+  - [x] Pulsante rapido di switch per tornare a WebAssembly in caso di instabilità di rete.
+  - [x] Gestione graceful della disconnessione dei guest (Player 2 non interrompe la sessione dell'host).
 
 ### Fase 7: Verifica Empirica & Test di Regressione
-- [ ] Esecuzione `pnpm check` e `pnpm test` per garantire zero regressioni sullo stack TypeScript/Express.
-- [ ] Compilazione e test binario del runner Go (`go test ./...` in `server/native-runner`).
-- [ ] Aggiornamento di `docs/HANDOFF.md`.
+- [x] Esecuzione `pnpm check` (zero errori) e `pnpm test` (19 suite su 19 passate, 120/120 test).
+- [x] Compilazione e test binario del runner Go (`go test -v ./...` e `go vet ./...` in `server/native-runner`).
+- [x] Aggiornamento di `docs/HANDOFF.md`.
 
 ---
 

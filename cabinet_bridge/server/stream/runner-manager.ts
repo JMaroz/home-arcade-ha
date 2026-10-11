@@ -223,7 +223,9 @@ export class StreamRunnerManager {
 
   static async relaySignal(
     sessionId: string,
-    offer: { sdp: string; type: string }
+    offer: { sdp: string; type: string },
+    peerId?: string,
+    player?: number
   ): Promise<{ sdp: string; type: string }> {
     const session = this.getSession(sessionId);
     if (!session) {
@@ -235,6 +237,11 @@ export class StreamRunnerManager {
       throw new Error("Runner binary not found on host. Please launch using Browser WebAssembly.");
     }
 
+    const queryParams = new URLSearchParams();
+    if (peerId) queryParams.set("peerId", peerId);
+    if (player !== undefined) queryParams.set("player", String(player));
+    const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : "";
+
     // Forward offer to runner's local HTTP signaling port with retry backoff
     let res: Response | null = null;
     let lastErr: any = null;
@@ -242,7 +249,7 @@ export class StreamRunnerManager {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        res = await fetch(`http://127.0.0.1:${session.port}/offer`, {
+        res = await fetch(`http://127.0.0.1:${session.port}/offer${queryStr}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(offer),
@@ -266,15 +273,46 @@ export class StreamRunnerManager {
     return (await res.json()) as { sdp: string; type: string };
   }
 
-  static async relayCandidate(sessionId: string, candidate: unknown): Promise<void> {
+  static async relayCandidate(sessionId: string, candidate: unknown, peerId?: string): Promise<void> {
     const session = this.getSession(sessionId);
     if (!session || !getRunnerBinaryPath()) return;
 
-    await fetch(`http://127.0.0.1:${session.port}/candidate`, {
+    const queryStr = peerId ? `?peerId=${encodeURIComponent(peerId)}` : "";
+    await fetch(`http://127.0.0.1:${session.port}/candidate${queryStr}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(candidate),
     }).catch(() => {});
+  }
+
+  static async getPeers(sessionId: string): Promise<{ count: number; peers: Array<{ id: string; playerSlot: number; state: string }> }> {
+    const session = this.getSession(sessionId);
+    if (!session || !getRunnerBinaryPath()) {
+      return { count: 0, peers: [] };
+    }
+    try {
+      const res = await fetch(`http://127.0.0.1:${session.port}/peers`, { signal: AbortSignal.timeout(1000) });
+      if (res.ok) {
+        return (await res.json()) as { count: number; peers: Array<{ id: string; playerSlot: number; state: string }> };
+      }
+    } catch {}
+    return { count: 0, peers: [] };
+  }
+
+  static joinSession(sessionId: string): { sessionId: string; romId: number; system: string; playerIndex: number } {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+    if (session.status === "stopped" || session.status === "error") {
+      throw new Error(`Session ${sessionId} is no longer active`);
+    }
+    return {
+      sessionId,
+      romId: session.romId,
+      system: session.system,
+      playerIndex: 1,
+    };
   }
 
   static stopSession(sessionId: string): void {

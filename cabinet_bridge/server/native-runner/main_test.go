@@ -60,3 +60,41 @@ func TestHandleHealth_Output(t *testing.T) {
 		t.Fatalf("Expected host_ip 192.168.1.100, got %v", res["host_ip"])
 	}
 }
+
+func TestHandlePeers_Output(t *testing.T) {
+	peerMu.Lock()
+	peerMap["peer-test-1"] = &PeerEntry{
+		ID:         "peer-test-1",
+		PlayerSlot: 0,
+	}
+	peerMap["peer-test-2"] = &PeerEntry{
+		ID:         "peer-test-2",
+		PlayerSlot: 1,
+	}
+	peerMu.Unlock()
+
+	req := httptest.NewRequest(http.MethodGet, "/peers", nil)
+	w := httptest.NewRecorder()
+
+	handlePeers(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", w.Code)
+	}
+
+	var res map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
+		t.Fatalf("Failed to parse peers JSON: %v", err)
+	}
+
+	if count, ok := res["count"].(float64); !ok || int(count) < 2 {
+		t.Fatalf("Expected at least 2 peers, got %v", res["count"])
+	}
+
+	// Cleanup
+	peerMu.Lock()
+	delete(peerMap, "peer-test-1")
+	delete(peerMap, "peer-test-2")
+	peerMu.Unlock()
+}
+

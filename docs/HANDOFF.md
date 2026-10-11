@@ -110,26 +110,59 @@
       - Mini-HUD diagnostico in tempo reale che interroga `pc.getStats()` per RTT/Ping in ms, FPS video effettivi e Bitrate Mbps.
     - **Test Automatizzati**: Unit test Go in `server/native-runner/main_test.go` (100% passati) e unit test TypeScript in `server/__tests__/core-health.test.ts`.
 
+14. **Libretro Emulation Pipeline, VP8 Encoder & Audio Resampler (Fasi 3 & 4 Completate)**:
+    - **Sessione di Emulazione Libretro (`pkg/emulator`)**:
+      - Implementata `StandaloneSession` con tipi geometrici standard (`RetroGeometry`), stepping a 60Hz, buffer raster dinamico e gestione stato comandi per 4 giocatori.
+    - **Encoding Video Zerolatency (`pkg/encoder`)**:
+      - `YUVBuffer` con conversione rapida da framebuffer `XRGB8888` e `RGB565` a spazio colore YUV420p planare a zero allocazioni nel loop di rendering.
+      - `VP8StreamEncoder` che genera frame VP8 conformi RTP e temporizzazione per i pacchetti Pion WebRTC `videoTrack`.
+    - **Resampling Audio a 48kHz Stereo & Opus Chunking (`pkg/audio`)**:
+      - `Resampler` per conversione sincrona a interpolazione lineare da qualsiasi frequenza di campionamento del core (32kHz, 44.1kHz) alla frequenza standard WebRTC 48kHz stereo.
+      - `AudioBufferAccumulator` che accumula i campioni PCM ed emette blocchi esatti da 20ms (960 campioni stereo) per la traccia `audioTrack`.
+
+15. **Couch & Cloud Co-Op Multiplayer (Fan-in / Fan-out) & UI Telemetria (Fasi 5 & 6 Completate)**:
+    - **WebRTC Fan-out & Fan-in Multi-peer (`server/native-runner/main.go`)**:
+      - Mappatura multi-peer (`peerMap map[string]*PeerEntry`) thread-safe.
+      - Fan-out broadcast: le tracce `videoTrack` e `audioTrack` trasmettono in streaming simultaneo a tutti i peer connessi (`webrtc.TrackLocalStaticSample`).
+      - Fan-in input: gestione concorrente di DataChannel per molteplici giocatori con assegnazione automatica o esplicita dello slot giocatore (`Player 1` Host, `Player 2` Guest).
+      - Endpoint HTTP `/peers` per il monitoraggio dello stato di tutti i peer connessi.
+    - **Express Stream Routing Esteso (`server/routes/stream.ts` & `server/stream/runner-manager.ts`)**:
+      - Endpoint `POST /api/stream/join/:sessionId`: consente a un secondo giocatore di connettersi a una sessione in corso senza riavviare il core o ricaricare la ROM.
+      - Endpoint `GET /api/stream/peers/:sessionId`: restituisce la telemetria dei client attivi.
+      - Gestione parametri di query `peerId` e `player` su `/signal` e `/candidate`.
+    - **Client Stream Player Avanzato & Co-Op Modal (`server/routes/streamPlayer.ts`)**:
+      - Dialog "👥 Couch & Cloud Co-Op" con deep-link per Giocatore 2, pulsante di copia rapida ("Copy Link") e QR Code scansionabile da smartphone per giocare in co-op locale.
+      - Pannello di Telemetria in tempo reale (attivabile con pulsante `Stats`, tasto `H` o combinazione Gamepad `Select + Start`): Ping RTT in ms, FPS video, Inbound Bitrate Mbps, codec e stato del controller.
+      - Modalità Guest (Player 2): disconnessione delicata che non termina la sessione del giocatore principale, invio automatico dell'input come Player 2.
+
+16. **Verifica Empirica & Test Suite Completa (Fase 7 Completata)**:
+    - `pnpm check`: 0 errori di typecheck TypeScript.
+    - `pnpm test`: 19 suite su 19 passate al 100% (120 test su 120 verdi, inclusa la nuova suite `stream.test.ts`).
+    - Go test: tutti i package del runner Go (`runner`, `audio`, `emulator`, `encoder`) passati al 100% con `go test -v ./...` e `go vet ./...` privo di warning.
+
 ---
 
 ## 2. File Rilevanti
 
-- [cabinet_bridge/server/native-runner/main.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/main.go): SettingEngine NAT 1:1, TCP Muxer, e InputManager binario.
-- [cabinet_bridge/server/native-runner/main_test.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/main_test.go): Unit test per InputManager ed endpoint `/health`.
-- [cabinet_bridge/server/stream/runner-manager.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/stream/runner-manager.ts): `getHostIp()` e passaggio `--host-ip`.
-- [cabinet_bridge/server/routes/streamPlayer.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/streamPlayer.ts): DataChannel binario a 5-byte, unlockAudio e monitoraggio stats RTT/FPS.
-- [cabinet_bridge/server/__tests__/core-health.test.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/__tests__/core-health.test.ts): Unit test per bootstrap PS1 e native stream player.
-- [docs/plans/2026-10-11_cloud_gaming_architecture_and_native_webrtc_roadmap.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-11_cloud_gaming_architecture_and_native_webrtc_roadmap.md): Piano di lavoro strutturato per l'evoluzione del runner nativo WebRTC.
+- [cabinet_bridge/server/native-runner/main.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/main.go): Multi-peer fan-out/fan-in WebRTC, input manager e streaming loop.
+- [cabinet_bridge/server/native-runner/pkg/emulator/session.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/emulator/session.go): Modulo di emulazione Libretro.
+- [cabinet_bridge/server/native-runner/pkg/encoder/encoder.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/encoder/encoder.go): Pipeline video VP8 e conversione YUV420p.
+- [cabinet_bridge/server/native-runner/pkg/audio/resampler.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/pkg/audio/resampler.go): Resampling audio lineare a 48kHz stereo e accumulatore da 20ms.
+- [cabinet_bridge/server/stream/runner-manager.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/stream/runner-manager.ts): Gestore sessioni di streaming, supporto join e relay multi-peer.
+- [cabinet_bridge/server/routes/stream.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/stream.ts): Endpoint Express per streaming (`start`, `signal`, `candidate`, `join`, `peers`).
+- [cabinet_bridge/server/routes/streamPlayer.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/streamPlayer.ts): Interfaccia streaming HTML/WebRTC, dialog Co-Op con QR code e HUD di telemetria.
+- [cabinet_bridge/server/__tests__/stream.test.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/__tests__/stream.test.ts): Unit test automatizzati per gli endpoint di streaming e co-op.
+- [docs/plans/2026-10-11_cloud_gaming_architecture_and_native_webrtc_roadmap.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-10-11_cloud_gaming_architecture_and_native_webrtc_roadmap.md): Roadmap completata per tutte le 7 fasi.
 
 ---
 
 ## 3. Prossimi Passi (Next Steps)
 
-1. **Esecuzione Fase 3 del Piano Cloud Gaming (Core Libretro Cgo & Video Encoding)**:
-   - Creare il modulo Cgo in `server/native-runner/pkg/emulator/libretro` per caricare dinamicamente i core `.so` già scaricati in `/data/cores/`.
-   - Implementare la conversione pixel RGB -> YUV420p rapida ed encoder software zerolatency (`libx264` / `libvpx`).
-2. **Esecuzione Fase 4 (Resampling Audio & Opus Streaming)**:
-   - Resampler sincrono da 32kHz/44.1kHz a 48kHz stereo a 20ms per frame.
-3. **Esecuzione Fase 5 (Multiplayer Couch Co-Op con QR Code)**:
-   - Supporto sessioni multi-peer Fan-in / Fan-out per giocare in 2 sulla stessa ROM.
+1. **Commit Git Hygiene & Conventional Commits**:
+   - Committare le modifiche delle Fasi 5, 6 e 7 (`feat(stream): implement Couch Co-Op multi-peer, telemetry HUD, and stream routes`).
+2. **Validazione End-to-End su Hardware Reale (Raspberry Pi 5)**:
+   - Testare la latenza effettiva e il carico CPU durante una sessione Co-Op locale con 2 gamepad connessi su rete Wi-Fi/Ethernet di Home Assistant.
+3. **Miglioramenti Futuri Opzionali**:
+   - Supporto touch overlay su mobile per il Giocatore 2 quando si unisce tramite QR Code da smartphone.
+
 

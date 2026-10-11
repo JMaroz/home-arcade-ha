@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -77,14 +78,25 @@ func (im *InputManager) GetState(player int) PlayerInputState {
 	return im.players[player]
 }
 
+type PeerEntry struct {
+	ID         string                  `json:"id"`
+	PlayerSlot int                     `json:"playerSlot"`
+	PC         *webrtc.PeerConnection  `json:"-"`
+	DC         *webrtc.DataChannel     `json:"-"`
+	State      webrtc.PeerConnectionState `json:"state"`
+}
+
 var (
-	config     RunnerConfig
-	api        *webrtc.API
-	peerConn   *webrtc.PeerConnection
-	videoTrack *webrtc.TrackLocalStaticSample
-	audioTrack *webrtc.TrackLocalStaticSample
-	inputMgr   = &InputManager{}
-	mu         sync.Mutex
+	config      RunnerConfig
+	api         *webrtc.API
+	peerMap     = make(map[string]*PeerEntry)
+	peerMu      sync.RWMutex
+	videoTrack  *webrtc.TrackLocalStaticSample
+	audioTrack  *webrtc.TrackLocalStaticSample
+	inputMgr    = &InputManager{}
+	loopMu      sync.Mutex
+	loopRunning bool
+	peerSeq     uint64
 )
 
 func main() {
@@ -142,7 +154,7 @@ func main() {
 
 	api = webrtc.NewAPI(webrtc.WithSettingEngine(settingEngine))
 
-	// Setup WebRTC media tracks
+	// Setup WebRTC media tracks (shared across all peers - Fan-out)
 	var err error
 	videoTrack, err = webrtc.NewTrackLocalStaticSample(
 		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8},
@@ -165,6 +177,7 @@ func main() {
 	// HTTP Signaling routes
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", handleHealth)
+	mux.HandleFunc("/peers", handlePeers)
 	mux.HandleFunc("/offer", handleOffer)
 	mux.HandleFunc("/candidate", handleCandidate)
 	mux.HandleFunc("/stop", handleStop)
@@ -187,11 +200,13 @@ func main() {
 	<-sigChan
 
 	log.Println("[runner] Shutting down runner...")
-	mu.Lock()
-	if peerConn != nil {
-		peerConn.Close()
+	peerMu.Lock()
+	for _, p := range peerMap {
+		if p.PC != nil {
+			p.PC.Close()
+		}
 	}
-	mu.Unlock()
+	peerMu.Unlock()
 	server.Close()
 	log.Println("[runner] Shutdown complete.")
 }
@@ -199,6 +214,10 @@ func main() {
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	p1State := inputMgr.GetState(0)
+	peerMu.RLock()
+	peerCount := len(peerMap)
+	peerMu.RUnlock()
+
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":     "ok",
 		"session":    config.SessionID,
@@ -208,6 +227,35 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 		"udp_range":  fmt.Sprintf("%d-%d", config.UDPMinPort, config.UDPMaxPort),
 		"tcp_port":   config.TCPPort,
 		"p1_buttons": p1State.Buttons,
+		"peer_count": peerCount,
+	})
+}
+
+func handlePeers(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	peerMu.RLock()
+	defer peerMu.RUnlock()
+
+	type PeerInfo struct {
+		ID         string `json:"id"`
+		PlayerSlot int    `json:"playerSlot"`
+		State      string `json:"state"`
+	}
+	peers := make([]PeerInfo, 0, len(peerMap))
+	for _, p := range peerMap {
+		stateStr := "unknown"
+		if p.PC != nil {
+			stateStr = p.PC.ConnectionState().String()
+		}
+		peers = append(peers, PeerInfo{
+			ID:         p.ID,
+			PlayerSlot: p.PlayerSlot,
+			State:      stateStr,
+		})
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"count": len(peers),
+		"peers": peers,
 	})
 }
 
@@ -217,14 +265,36 @@ func handleOffer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	peerID := r.URL.Query().Get("peerId")
+	if peerID == "" {
+		peerMu.Lock()
+		peerSeq++
+		peerID = fmt.Sprintf("peer-%d-%d", time.Now().Unix(), peerSeq)
+		peerMu.Unlock()
+	}
+
+	playerSlot := 0
+	if pStr := r.URL.Query().Get("player"); pStr != "" {
+		if val, err := strconv.Atoi(pStr); err == nil && val >= 0 && val < 4 {
+			playerSlot = val
+		}
+	} else {
+		// Auto-assign: if there is already an active peer, assign next slot
+		peerMu.RLock()
+		if len(peerMap) > 0 {
+			playerSlot = len(peerMap)
+			if playerSlot > 3 {
+				playerSlot = 3
+			}
+		}
+		peerMu.RUnlock()
+	}
+
 	var offerMsg SignalMessage
 	if err := json.NewDecoder(r.Body).Decode(&offerMsg); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	mu.Lock()
-	defer mu.Unlock()
 
 	webrtcConfig := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
@@ -232,6 +302,7 @@ func handleOffer(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
+	var peerConn *webrtc.PeerConnection
 	var err error
 	if api != nil {
 		peerConn, err = api.NewPeerConnection(webrtcConfig)
@@ -243,28 +314,49 @@ func handleOffer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Add video and audio tracks to PeerConnection
+	// Add video and audio tracks to PeerConnection (Fan-out)
 	if _, err = peerConn.AddTrack(videoTrack); err != nil {
+		peerConn.Close()
 		http.Error(w, fmt.Sprintf("Failed to add video track: %v", err), http.StatusInternalServerError)
 		return
 	}
 	if _, err = peerConn.AddTrack(audioTrack); err != nil {
+		peerConn.Close()
 		http.Error(w, fmt.Sprintf("Failed to add audio track: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Listen for DataChannel input
+	entry := &PeerEntry{
+		ID:         peerID,
+		PlayerSlot: playerSlot,
+		PC:         peerConn,
+		State:      peerConn.ConnectionState(),
+	}
+
+	peerMu.Lock()
+	if existing, exists := peerMap[peerID]; exists && existing.PC != nil {
+		existing.PC.Close()
+	}
+	peerMap[peerID] = entry
+	peerMu.Unlock()
+
+	// Listen for DataChannel input (Fan-in)
 	peerConn.OnDataChannel(func(dc *webrtc.DataChannel) {
 		if dc.Label() == "input" {
-			log.Printf("[runner] Input DataChannel opened from browser client")
+			log.Printf("[runner] Input DataChannel opened for peer %s (Slot P%d)\n", peerID, playerSlot+1)
+			entry.DC = dc
+
 			dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 				// 1. Ultra-fast binary packet (5 bytes: player, btn_lo, btn_hi, axis_x, axis_y)
 				if !msg.IsString && len(msg.Data) >= 5 {
-					player := int(msg.Data[0])
+					pIdx := int(msg.Data[0])
+					if playerSlot > 0 && pIdx == 0 {
+						pIdx = playerSlot
+					}
 					buttons := uint16(msg.Data[1]) | (uint16(msg.Data[2]) << 8)
 					axisX := int8(msg.Data[3])
 					axisY := int8(msg.Data[4])
-					inputMgr.Update(player, buttons, axisX, axisY)
+					inputMgr.Update(pIdx, buttons, axisX, axisY)
 					return
 				}
 
@@ -291,7 +383,7 @@ func handleOffer(w http.ResponseWriter, r *http.Request) {
 										ay = int8(f * 127)
 									}
 								}
-								inputMgr.Update(0, mask, ax, ay)
+								inputMgr.Update(playerSlot, mask, ax, ay)
 							}
 						}
 					}
@@ -301,9 +393,16 @@ func handleOffer(w http.ResponseWriter, r *http.Request) {
 	})
 
 	peerConn.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		log.Printf("[runner] WebRTC connection state changed: %s\n", state)
+		log.Printf("[runner] Peer %s connection state changed: %s\n", peerID, state)
+		peerMu.Lock()
+		entry.State = state
+		if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed || state == webrtc.PeerConnectionStateDisconnected {
+			delete(peerMap, peerID)
+		}
+		peerMu.Unlock()
+
 		if state == webrtc.PeerConnectionStateConnected {
-			startMediaStreamLoop()
+			ensureMediaStreamLoop()
 		}
 	})
 
@@ -347,17 +446,31 @@ func handleCandidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	peerID := r.URL.Query().Get("peerId")
 	var init webrtc.ICECandidateInit
 	if err := json.NewDecoder(r.Body).Decode(&init); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
+	peerMu.RLock()
+	var targetPC *webrtc.PeerConnection
+	if peerID != "" {
+		if p, ok := peerMap[peerID]; ok && p.PC != nil {
+			targetPC = p.PC
+		}
+	} else {
+		for _, p := range peerMap {
+			if p.PC != nil {
+				targetPC = p.PC
+				break
+			}
+		}
+	}
+	peerMu.RUnlock()
 
-	if peerConn != nil {
-		peerConn.AddICECandidate(init)
+	if targetPC != nil {
+		targetPC.AddICECandidate(init)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -373,71 +486,97 @@ func handleStop(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// Emulation and media streaming loop
-func startMediaStreamLoop() {
-	go func() {
-		fps := config.FPS
-		if fps <= 0 {
-			fps = 60
+func hasConnectedPeers() bool {
+	peerMu.RLock()
+	defer peerMu.RUnlock()
+	for _, p := range peerMap {
+		if p.PC != nil && (p.PC.ConnectionState() == webrtc.PeerConnectionStateConnected || p.PC.ConnectionState() == webrtc.PeerConnectionStateConnecting) {
+			return true
 		}
-		ticker := time.NewTicker(time.Duration(1000/fps) * time.Millisecond)
-		defer ticker.Stop()
+	}
+	return false
+}
 
-		emuSession := emulator.NewStandaloneSession(config.Width, config.Height, fps, 44100)
-		_ = emuSession.Load(config.RomPath, config.CorePath)
-		defer emuSession.Close()
+func ensureMediaStreamLoop() {
+	loopMu.Lock()
+	defer loopMu.Unlock()
+	if loopRunning {
+		return
+	}
+	loopRunning = true
+	go runMediaStreamLoop()
+}
 
-		videoEncoder := encoder.NewVP8StreamEncoder(config.Width, config.Height, fps)
-		defer videoEncoder.Close()
+// Emulation and media streaming loop with fan-out to all connected peers
+func runMediaStreamLoop() {
+	defer func() {
+		loopMu.Lock()
+		loopRunning = false
+		loopMu.Unlock()
+	}()
 
-		audioAccumulator := audio.NewAudioBufferAccumulator(44100)
+	fps := config.FPS
+	if fps <= 0 {
+		fps = 60
+	}
+	ticker := time.NewTicker(time.Duration(1000/fps) * time.Millisecond)
+	defer ticker.Stop()
 
-		log.Printf("[runner] Emulation & WebRTC media stream pipeline active (%dx%d @ %d FPS)\n",
-			config.Width, config.Height, fps)
+	emuSession := emulator.NewStandaloneSession(config.Width, config.Height, fps, 44100)
+	_ = emuSession.Load(config.RomPath, config.CorePath)
+	defer emuSession.Close()
 
-		for range ticker.C {
-			mu.Lock()
-			pc := peerConn
-			mu.Unlock()
+	videoEncoder := encoder.NewVP8StreamEncoder(config.Width, config.Height, fps)
+	defer videoEncoder.Close()
 
-			if pc == nil || pc.ConnectionState() != webrtc.PeerConnectionStateConnected {
+	audioAccumulator := audio.NewAudioBufferAccumulator(44100)
+
+	log.Printf("[runner] Emulation & WebRTC media stream pipeline active (%dx%d @ %d FPS)\n",
+		config.Width, config.Height, fps)
+
+	idleTicks := 0
+	maxIdleTicks := fps * 30
+
+	for range ticker.C {
+		if !hasConnectedPeers() {
+			idleTicks++
+			if idleTicks > maxIdleTicks {
+				log.Println("[runner] No peers connected for 30s, pausing media loop")
 				return
 			}
+			continue
+		}
+		idleTicks = 0
 
-			// 1. Sync input states from DataChannel to emulator session
-			p1 := inputMgr.GetState(0)
-			emuSession.SetInput(0, emulator.RetroInputState{
-				Buttons: p1.Buttons,
-				AxisX:   p1.AxisX,
-				AxisY:   p1.AxisY,
+		// 1. Sync input states from DataChannel to emulator session (P1 to P4)
+		for p := 0; p < 4; p++ {
+			st := inputMgr.GetState(p)
+			emuSession.SetInput(p, emulator.RetroInputState{
+				Buttons: st.Buttons,
+				AxisX:   st.AxisX,
+				AxisY:   st.AxisY,
 			})
-			p2 := inputMgr.GetState(1)
-			emuSession.SetInput(1, emulator.RetroInputState{
-				Buttons: p2.Buttons,
-				AxisX:   p2.AxisX,
-				AxisY:   p2.AxisY,
-			})
+		}
 
-			// 2. Step emulator frame
-			emuSession.Step()
+		// 2. Step emulator frame
+		emuSession.Step()
 
-			// 3. Encode & write video sample
-			if videoTrack != nil {
-				rawRGB, pixFmt := emuSession.GetFrame()
-				sample, err := videoEncoder.Encode(rawRGB, pixFmt)
-				if err == nil {
-					_ = videoTrack.WriteSample(sample)
-				}
-			}
-
-			// 4. Resample & write audio samples (Opus 48kHz, 20ms frames)
-			if audioTrack != nil {
-				pcmAudio := emuSession.GetAudio()
-				audioSamples := audioAccumulator.Push(pcmAudio)
-				for _, aSample := range audioSamples {
-					_ = audioTrack.WriteSample(aSample)
-				}
+		// 3. Encode & write video sample (fan-out via WebRTC track to all peers)
+		if videoTrack != nil {
+			rawRGB, pixFmt := emuSession.GetFrame()
+			sample, err := videoEncoder.Encode(rawRGB, pixFmt)
+			if err == nil {
+				_ = videoTrack.WriteSample(sample)
 			}
 		}
-	}()
+
+		// 4. Resample & write audio samples (Opus 48kHz, 20ms frames)
+		if audioTrack != nil {
+			pcmAudio := emuSession.GetAudio()
+			audioSamples := audioAccumulator.Push(pcmAudio)
+			for _, aSample := range audioSamples {
+				_ = audioTrack.WriteSample(aSample)
+			}
+		}
+	}
 }
