@@ -2,6 +2,14 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.59.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.58.1...v2.59.0) (2026-10-11)
+
+
+### Features
+
+* **stream:** add virtual touch gamepad overlay and n64 controller pak support ([bdfb38b](https://github.com/JMaroz/home-arcade-ha/commit/bdfb38b373e4d5b3b1832dbd7c8218cb4c72971e))
+* **stream:** auto-hide touch overlay on gamepad connection and multi-system support ([d78adc0](https://github.com/JMaroz/home-arcade-ha/commit/d78adc03701484afbd4959ee869f879fc1b75e62))
+
 ## [2.58.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.58.0...v2.58.1) (2026-10-11)
 
 
