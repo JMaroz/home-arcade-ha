@@ -3,7 +3,9 @@
 package emulator
 
 import (
+	"archive/zip"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -38,6 +40,7 @@ type CgoLibretroSession struct {
 	geometry     RetroGeometry
 	frameBuffer  []byte
 	audioBuffer  []int16
+	cleanup      func()
 	fnRetroRun   unsafe.Pointer
 	fnRetroDeinit unsafe.Pointer
 	fnRetroUnload unsafe.Pointer
@@ -67,6 +70,112 @@ func NewCgoLibretroSession(width, height, fps, sampleRate int) EmulatorSession {
 		frameBuffer: make([]byte, width*height*4),
 		audioBuffer: make([]int16, (sampleRate/fps)*2),
 	}
+}
+
+// extractZippedRom extracts a .zip archive into a temporary directory and identifies the primary ROM file.
+func extractZippedRom(zipPath string, validExtensions string) (string, string, error) {
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to open zip archive '%s': %w", zipPath, err)
+	}
+	defer zr.Close()
+
+	if len(zr.File) == 0 {
+		return "", "", fmt.Errorf("zip archive '%s' is empty", zipPath)
+	}
+
+	tempDir, err := os.MkdirTemp("", "arcade-rom-*")
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create temp extraction directory: %w", err)
+	}
+
+	var validExtList []string
+	if validExtensions != "" {
+		for _, ext := range strings.Split(validExtensions, "|") {
+			ext = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(ext), "."))
+			if ext != "" {
+				validExtList = append(validExtList, ext)
+			}
+		}
+	}
+
+	var chosenEntry *zip.File
+	var maxScore int
+
+	for _, f := range zr.File {
+		cleanName := filepath.Clean(f.Name)
+		if strings.HasPrefix(cleanName, "..") || filepath.IsAbs(cleanName) {
+			continue
+		}
+		base := filepath.Base(cleanName)
+		if strings.HasPrefix(base, ".") || strings.HasPrefix(cleanName, "__MACOSX") {
+			continue
+		}
+
+		targetPath := filepath.Join(tempDir, cleanName)
+		if f.FileInfo().IsDir() {
+			_ = os.MkdirAll(targetPath, 0755)
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+			_ = os.RemoveAll(tempDir)
+			return "", "", fmt.Errorf("failed to create directory for '%s': %w", cleanName, err)
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			_ = os.RemoveAll(tempDir)
+			return "", "", fmt.Errorf("failed to open zip entry '%s': %w", f.Name, err)
+		}
+
+		outFile, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			rc.Close()
+			_ = os.RemoveAll(tempDir)
+			return "", "", fmt.Errorf("failed to create extracted file '%s': %w", targetPath, err)
+		}
+
+		_, copyErr := io.Copy(outFile, rc)
+		rc.Close()
+		outFile.Close()
+		if copyErr != nil {
+			_ = os.RemoveAll(tempDir)
+			return "", "", fmt.Errorf("failed to write extracted file '%s': %w", targetPath, copyErr)
+		}
+
+		ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(cleanName), "."))
+		if ext == "txt" || ext == "nfo" || ext == "diz" || ext == "xml" || ext == "html" || ext == "jpg" || ext == "png" {
+			continue
+		}
+
+		score := 10
+		if ext == "m3u" {
+			score += 1000
+		} else if ext == "cue" {
+			score += 500
+		}
+
+		for _, ve := range validExtList {
+			if ext == ve {
+				score += 100
+				break
+			}
+		}
+
+		if chosenEntry == nil || score > maxScore || (score == maxScore && f.UncompressedSize64 > chosenEntry.UncompressedSize64) {
+			chosenEntry = f
+			maxScore = score
+		}
+	}
+
+	if chosenEntry == nil {
+		_ = os.RemoveAll(tempDir)
+		return "", "", fmt.Errorf("no valid ROM file candidate found in '%s'", zipPath)
+	}
+
+	romPath := filepath.Join(tempDir, filepath.Clean(chosenEntry.Name))
+	return romPath, tempDir, nil
 }
 
 func (s *CgoLibretroSession) Load(romPath, corePath string) error {
@@ -137,24 +246,55 @@ func (s *CgoLibretroSession) Load(romPath, corePath string) error {
 	// retro_init
 	C.bridge_call(fnInit)
 
+	// Query system info
+	var needFullPath bool
+	var validExts string
+	if fnGetSysInfo, err := dlib.load("retro_get_system_info"); err == nil {
+		var sysInfo C.struct_retro_system_info
+		C.bridge_retro_get_system_info(fnGetSysInfo, &sysInfo)
+		needFullPath = bool(sysInfo.need_fullpath)
+		if sysInfo.valid_extensions != nil {
+			validExts = C.GoString(sysInfo.valid_extensions)
+		}
+	}
+
+	actualRomPath := romPath
+	if strings.ToLower(filepath.Ext(romPath)) == ".zip" {
+		extractedPath, tempDir, err := extractZippedRom(romPath, validExts)
+		if err != nil {
+			return fmt.Errorf("failed to extract zipped ROM '%s': %w", romPath, err)
+		}
+		actualRomPath = extractedPath
+		s.cleanup = func() {
+			_ = os.RemoveAll(tempDir)
+		}
+	}
+
+	defer func() {
+		if !s.isRunning && s.cleanup != nil {
+			s.cleanup()
+			s.cleanup = nil
+		}
+	}()
+
 	// Prepare ROM loading path
-	cPath := C.CString(romPath)
+	cPath := C.CString(actualRomPath)
 	defer C.free(unsafe.Pointer(cPath))
 
 	var ok C.bool
-	ext := strings.ToLower(filepath.Ext(romPath))
-	// Disk systems (.chd, .iso, .cue, .m3u, .pbp, .cso) or files > 16MB must load from path directly
+	ext := strings.ToLower(filepath.Ext(actualRomPath))
+	// Disk systems (.chd, .iso, .cue, .m3u, .pbp, .cso) or files > 64MB must load from path directly
 	isDiskOrLarge := false
 	if ext == ".chd" || ext == ".iso" || ext == ".cue" || ext == ".m3u" || ext == ".pbp" || ext == ".cso" {
 		isDiskOrLarge = true
-	} else if fi, err := os.Stat(romPath); err == nil && fi.Size() > 16*1024*1024 {
+	} else if fi, err := os.Stat(actualRomPath); err == nil && fi.Size() > 64*1024*1024 {
 		isDiskOrLarge = true
 	}
 
-	if isDiskOrLarge {
+	if needFullPath || isDiskOrLarge {
 		ok = C.bridge_load_game(fnLoadGame, cPath, nil, 0)
 	} else {
-		romBytes, err := os.ReadFile(romPath)
+		romBytes, err := os.ReadFile(actualRomPath)
 		if err == nil && len(romBytes) > 0 {
 			cData := C.CBytes(romBytes)
 			defer C.free(cData)
@@ -165,7 +305,7 @@ func (s *CgoLibretroSession) Load(romPath, corePath string) error {
 	}
 
 	if !bool(ok) {
-		return fmt.Errorf("retro_load_game returned false for ROM '%s'", romPath)
+		return fmt.Errorf("retro_load_game returned false for ROM '%s' (actual: '%s', need_fullpath: %v)", romPath, actualRomPath, needFullPath)
 	}
 
 	// Query AV info
@@ -249,6 +389,11 @@ func (s *CgoLibretroSession) Close() error {
 			C.bridge_call(s.fnRetroDeinit)
 		}
 		C.same_thread_stop()
+	}
+
+	if s.cleanup != nil {
+		s.cleanup()
+		s.cleanup = nil
 	}
 
 	if s.dlib != nil {
@@ -370,12 +515,24 @@ func coreEnvironment(cmd C.unsigned, data unsafe.Pointer) C.bool {
 		}
 	case C.RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY:
 		if data != nil {
-			*(**C.char)(data) = C.CString("/data/bios")
+			dataDir := os.Getenv("CABINET_DATA_DIR")
+			if dataDir == "" {
+				dataDir = "/data"
+			}
+			biosDir := filepath.Join(dataDir, "bios")
+			_ = os.MkdirAll(biosDir, 0755)
+			*(**C.char)(data) = C.CString(biosDir)
 			return true
 		}
 	case C.RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY:
 		if data != nil {
-			*(**C.char)(data) = C.CString("/data/saves")
+			dataDir := os.Getenv("CABINET_DATA_DIR")
+			if dataDir == "" {
+				dataDir = "/data"
+			}
+			savesDir := filepath.Join(dataDir, "saves")
+			_ = os.MkdirAll(savesDir, 0755)
+			*(**C.char)(data) = C.CString(savesDir)
 			return true
 		}
 	case C.RETRO_ENVIRONMENT_GET_CAN_DUPE:

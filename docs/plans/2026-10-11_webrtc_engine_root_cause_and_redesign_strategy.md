@@ -40,10 +40,24 @@
   - Sostituito GStreamer con `libvpx` diretto (eliminata la fragilità di pipeline caps e plugin).
   - Gestione dinamica risoluzione nativa core (`w`, `h`) e correzione calcolo pitch RGB565/XRGB in `coreVideoRefresh`.
 - [x] Dockerfile aggiornato: `libvpx-dev` in stage build, `libvpx7` in runtime (rimosse dipendenze GStreamer).
-- [x] Test unitari ed empirici superati: `TestVpxVideoEncoder_RealFrameEncode` (frame reale 6,162 byte a 60 FPS), `pnpm check`, `pnpm test` (120/120 passati).
+- [x] Diagnosi fallimento caricamento ROM (`retro_load_game`):
+  - Le ROM della libreria sono archivi `.zip` (`n64_007_the_world_is_not_enough_mqwuvtl8.zip`).
+  - I core Libretro ufficiali non decomprimono i `.zip` internamente; aspettano il file scompattato (`.z64`, `.sfc`, `.cue`/`.bin`).
+  - `cgo_session.go:Load` falliva silenziosamente e cadeva in `StandaloneSession` (generatore fittizio senza emulazione reale).
+- [x] Implementazione estrazione automatica ROM `.zip` in `cgo_session.go`:
+  - `extractZippedRom` usando `archive/zip` della stdlib Go (zero dipendenze esterne).
+  - Estrazione isolata in directory temporanea con sanitizzazione anti-zip-slip.
+  - Riconoscimento del file primario tramite `retro_get_system_info` (`valid_extensions`, scoring m3u > cue > rom).
+  - Pulizia automatica (`cleanup`) della directory temporanea alla chiusura della sessione.
+  - Gestione corretta di `need_fullpath` vs buffer in-memory e supporto `CABINET_DATA_DIR` per `bios` e `saves`.
+- [x] Test unitari ed empirici superati:
+  - `TestVpxVideoEncoder_RealFrameEncode` (frame reale 6,162 byte a 60 FPS).
+  - `TestExtractZippedRom` (verifica estrazione e pulizia temp).
+  - `pnpm check` (zero errori TypeScript) e `pnpm test` (120/120 passati).
+- [x] Version bump a `2.57.1` in `config.yaml` e `package.json` per scatenare l'aggiornamento su Home Assistant Supervisor.
 
 ## 5. Strategia di Verifica
-1. Verifica compilazione Go e unit test libvpx (`go test -v ./...`).
-2. Typecheck e suite Vitest (`pnpm check && pnpm test`).
-3. Push su `main` e validazione live.
+1. `go test -v ./...` in `server/native-runner` (tutti passati).
+2. Typecheck e suite Vitest (`pnpm check && pnpm test`, 120/120 passati).
+3. Push su `main` e notifica all'utente per test con ricostruzione add-on su Home Assistant.
 

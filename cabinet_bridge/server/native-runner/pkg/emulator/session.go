@@ -2,6 +2,7 @@ package emulator
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"sync"
 
@@ -71,6 +72,8 @@ func CreateActiveSession(width, height, fps, sampleRate int, romPath, corePath s
 		cgoSess := NewCgoLibretroSession(width, height, fps, sampleRate)
 		if err := cgoSess.Load(romPath, corePath); err == nil {
 			return cgoSess
+		} else {
+			log.Printf("[runner] Cgo Libretro session load failed for core '%s', rom '%s': %v\n", corePath, romPath, err)
 		}
 	}
 	fallback := NewStandaloneSession(width, height, fps, sampleRate)
