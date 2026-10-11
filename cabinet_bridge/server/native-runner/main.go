@@ -15,7 +15,10 @@ import (
 
 	"github.com/pion/ice/v4"
 	"github.com/pion/webrtc/v4"
-	"github.com/pion/webrtc/v4/pkg/media"
+
+	"homearcade/runner/pkg/audio"
+	"homearcade/runner/pkg/emulator"
+	"homearcade/runner/pkg/encoder"
 )
 
 type SignalMessage struct {
@@ -370,18 +373,27 @@ func handleStop(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// Emulation frame generator loop
+// Emulation and media streaming loop
 func startMediaStreamLoop() {
 	go func() {
-		ticker := time.NewTicker(time.Duration(1000/config.FPS) * time.Millisecond)
+		fps := config.FPS
+		if fps <= 0 {
+			fps = 60
+		}
+		ticker := time.NewTicker(time.Duration(1000/fps) * time.Millisecond)
 		defer ticker.Stop()
 
-		// Minimal VP8 synthetic keyframe for stream handshake / keepalive
-		// (Real Libretro integration pushes encoded frames from software libx264/VP8 encoder)
-		dummySample := media.Sample{
-			Data:     []byte{0x10, 0x02, 0x00, 0x9d, 0x01, 0x2a, 0x80, 0x02, 0xe0, 0x01},
-			Duration: time.Duration(1000/config.FPS) * time.Millisecond,
-		}
+		emuSession := emulator.NewStandaloneSession(config.Width, config.Height, fps, 44100)
+		_ = emuSession.Load(config.RomPath, config.CorePath)
+		defer emuSession.Close()
+
+		videoEncoder := encoder.NewVP8StreamEncoder(config.Width, config.Height, fps)
+		defer videoEncoder.Close()
+
+		audioAccumulator := audio.NewAudioBufferAccumulator(44100)
+
+		log.Printf("[runner] Emulation & WebRTC media stream pipeline active (%dx%d @ %d FPS)\n",
+			config.Width, config.Height, fps)
 
 		for range ticker.C {
 			mu.Lock()
@@ -392,8 +404,39 @@ func startMediaStreamLoop() {
 				return
 			}
 
+			// 1. Sync input states from DataChannel to emulator session
+			p1 := inputMgr.GetState(0)
+			emuSession.SetInput(0, emulator.RetroInputState{
+				Buttons: p1.Buttons,
+				AxisX:   p1.AxisX,
+				AxisY:   p1.AxisY,
+			})
+			p2 := inputMgr.GetState(1)
+			emuSession.SetInput(1, emulator.RetroInputState{
+				Buttons: p2.Buttons,
+				AxisX:   p2.AxisX,
+				AxisY:   p2.AxisY,
+			})
+
+			// 2. Step emulator frame
+			emuSession.Step()
+
+			// 3. Encode & write video sample
 			if videoTrack != nil {
-				_ = videoTrack.WriteSample(dummySample)
+				rawRGB, pixFmt := emuSession.GetFrame()
+				sample, err := videoEncoder.Encode(rawRGB, pixFmt)
+				if err == nil {
+					_ = videoTrack.WriteSample(sample)
+				}
+			}
+
+			// 4. Resample & write audio samples (Opus 48kHz, 20ms frames)
+			if audioTrack != nil {
+				pcmAudio := emuSession.GetAudio()
+				audioSamples := audioAccumulator.Push(pcmAudio)
+				for _, aSample := range audioSamples {
+					_ = audioTrack.WriteSample(aSample)
+				}
 			}
 		}
 	}()
