@@ -124,6 +124,15 @@ bool bridge_retro_load_game(void *f, struct retro_game_info *gi) {
     return ((bool (*)(struct retro_game_info *)) f)(gi);
 }
 
+bool bridge_load_game(void *f, const char *path, const void *data, size_t size) {
+    struct retro_game_info gi;
+    memset(&gi, 0, sizeof(gi));
+    gi.path = path;
+    gi.data = data;
+    gi.size = size;
+    return ((bool (*)(const struct retro_game_info *)) f)(&gi);
+}
+
 size_t bridge_retro_get_memory_size(void *f, unsigned id) {
     return ((size_t (*)(unsigned)) f)(id);
 }

@@ -35,6 +35,15 @@ function getHostIp(): string | null {
     if (!list) continue;
     for (const iface of list) {
       if (iface.family === "IPv4" && !iface.internal) {
+        const parts = iface.address.split(".").map(Number);
+        // Exclude Docker internal bridge IPs (172.16.0.0 - 172.31.255.255)
+        if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) {
+          continue;
+        }
+        // Exclude link-local IPs (169.254.0.0/16)
+        if (parts[0] === 169 && parts[1] === 254) {
+          continue;
+        }
         return iface.address;
       }
     }

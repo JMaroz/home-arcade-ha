@@ -4,9 +4,10 @@ package emulator
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -136,30 +137,34 @@ func (s *CgoLibretroSession) Load(romPath, corePath string) error {
 	// retro_init
 	C.bridge_call(fnInit)
 
-	// Read ROM
-	romFile, err := os.Open(romPath)
-	if err != nil {
-		return fmt.Errorf("failed to open ROM '%s': %w", romPath, err)
-	}
-	defer romFile.Close()
-
-	romBytes, err := io.ReadAll(romFile)
-	if err != nil {
-		return fmt.Errorf("failed to read ROM: %w", err)
-	}
-
+	// Prepare ROM loading path
 	cPath := C.CString(romPath)
 	defer C.free(unsafe.Pointer(cPath))
 
-	var gi C.struct_retro_game_info
-	gi.path = cPath
-	if len(romBytes) > 0 {
-		gi.data = unsafe.Pointer(&romBytes[0])
-		gi.size = C.size_t(len(romBytes))
+	var ok C.bool
+	ext := strings.ToLower(filepath.Ext(romPath))
+	// Disk systems (.chd, .iso, .cue, .m3u, .pbp, .cso) or files > 16MB must load from path directly
+	isDiskOrLarge := false
+	if ext == ".chd" || ext == ".iso" || ext == ".cue" || ext == ".m3u" || ext == ".pbp" || ext == ".cso" {
+		isDiskOrLarge = true
+	} else if fi, err := os.Stat(romPath); err == nil && fi.Size() > 16*1024*1024 {
+		isDiskOrLarge = true
 	}
 
-	ok := C.bridge_retro_load_game(fnLoadGame, &gi)
-	if !ok {
+	if isDiskOrLarge {
+		ok = C.bridge_load_game(fnLoadGame, cPath, nil, 0)
+	} else {
+		romBytes, err := os.ReadFile(romPath)
+		if err == nil && len(romBytes) > 0 {
+			cData := C.CBytes(romBytes)
+			defer C.free(cData)
+			ok = C.bridge_load_game(fnLoadGame, cPath, cData, C.size_t(len(romBytes)))
+		} else {
+			ok = C.bridge_load_game(fnLoadGame, cPath, nil, 0)
+		}
+	}
+
+	if !bool(ok) {
 		return fmt.Errorf("retro_load_game returned false for ROM '%s'", romPath)
 	}
 

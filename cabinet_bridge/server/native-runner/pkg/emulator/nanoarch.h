@@ -10,6 +10,7 @@ void bridge_call(void *f);
 void bridge_set_callback(void *f, void *callback);
 
 bool bridge_retro_load_game(void *f, struct retro_game_info *gi);
+bool bridge_load_game(void *f, const char *path, const void *data, size_t size);
 bool bridge_retro_serialize(void *f, void *data, size_t size);
 size_t bridge_retro_serialize_size(void *f);
 bool bridge_retro_unserialize(void *f, void *data, size_t size);

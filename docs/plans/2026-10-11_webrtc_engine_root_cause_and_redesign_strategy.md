@@ -35,10 +35,15 @@
 - [x] Implementazione Dockerfile multi-arch con `base-debian:bookworm` e GStreamer
 - [x] Integrazione del layer Cgo Libretro (`nanoarch.c`, `cgo_session.go`) e pipeline GStreamer (`gstreamer.go`) nel runner Go
 - [x] Esecuzione test di regressione e build (`go test` ok, `pnpm check` ok, `pnpm test` ok, `pnpm build` ok)
-- [x] Aggiornamento di `docs/HANDOFF.md` and ADR `002-native-webrtc-debian-gstreamer-cgo-pipeline.md`
+- [x] Risoluzione panic cgo pointer check (`cgo argument has Go pointer to unpinned Go pointer`) in `cgo_session.go` e `nanoarch.c`
+- [x] Gestione disk-based (.chd, .iso, .cue, .m3u) e large ROM (>16MB) a zero-overhead via `need_fullpath`
+- [x] Filtro IP Docker bridge (`172.16.0.0/12`) e link-local in `runner-manager.ts`
+- [x] Abilitazione `host_network: true` in `config.yaml` e allineamento linter add-on HA
+- [x] Verifica DoD con test completati con successo (`go test` ok, `pnpm check` ok, `pnpm test` ok, `pnpm build` ok)
 
 ## 5. Strategia di Verifica
 1. `docker build` multi-arch con `ghcr.io/home-assistant/base-debian:bookworm`.
-2. Verifica caricamento core Libretro `parallel_n64_libretro.so` e `pcsx_rearmed_libretro.so` via `dlopen`.
-3. Verifica ricezione flusso video VP8 e audio Opus su client browser con frame rate effettivo di 60 FPS.
+2. Verifica caricamento core Libretro `parallel_n64_libretro.so` e `pcsx_rearmed_libretro.so` via `dlopen` e avvio senza panic cgo.
+3. Connessione ICE WebRTC diretta tramite `host_network: true` e IP host LAN.
+4. Verifica ricezione flusso video VP8 e audio Opus su client browser con frame rate effettivo di 60 FPS.
 

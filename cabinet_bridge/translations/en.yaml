@@ -12,5 +12,3 @@ configuration:
   steamgriddb_api_key:
     name: "SteamGridDB API key"
     description: "Optional API key used to automatically fetch game artwork, covers, and banners."
-network:
-  5000/tcp: "Direct Web UI and WebRTC streaming port (optional; Ingress is used by default)"
