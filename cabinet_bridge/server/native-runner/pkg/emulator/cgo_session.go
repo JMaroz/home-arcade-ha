@@ -32,16 +32,18 @@ var (
 )
 
 type CgoLibretroSession struct {
-	mu           sync.RWMutex
-	dlib         *dynamicLib
-	romPath      string
-	corePath     string
-	isRunning    bool
-	geometry     RetroGeometry
-	frameBuffer  []byte
-	audioBuffer  []int16
-	cleanup      func()
-	fnRetroRun   unsafe.Pointer
+	stateMu       sync.Mutex
+	frameMu       sync.RWMutex
+	audioMu       sync.RWMutex
+	dlib          *dynamicLib
+	romPath       string
+	corePath      string
+	isRunning     bool
+	geometry      RetroGeometry
+	frameBuffer   []byte
+	audioBuffer   []int16
+	cleanup       func()
+	fnRetroRun    unsafe.Pointer
 	fnRetroDeinit unsafe.Pointer
 	fnRetroUnload unsafe.Pointer
 }
@@ -179,9 +181,6 @@ func extractZippedRom(zipPath string, validExtensions string) (string, string, e
 }
 
 func (s *CgoLibretroSession) Load(romPath, corePath string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	dlib, err := openDynamicLib(corePath)
 	if err != nil {
 		return fmt.Errorf("failed to open Libretro core '%s': %w", corePath, err)
@@ -312,6 +311,7 @@ func (s *CgoLibretroSession) Load(romPath, corePath string) error {
 	if fnGetAv, err := dlib.load("retro_get_system_av_info"); err == nil {
 		var av C.struct_retro_system_av_info
 		C.bridge_retro_get_system_av_info(fnGetAv, &av)
+		s.frameMu.Lock()
 		if av.geometry.base_width > 0 && av.geometry.base_height > 0 {
 			s.geometry.Width = int(av.geometry.base_width)
 			s.geometry.Height = int(av.geometry.base_height)
@@ -323,9 +323,13 @@ func (s *CgoLibretroSession) Load(romPath, corePath string) error {
 		if av.timing.sample_rate > 0 {
 			s.geometry.SampleRate = int(av.timing.sample_rate)
 		}
+		s.frameMu.Unlock()
 	}
 
+	s.stateMu.Lock()
 	s.isRunning = true
+	s.stateMu.Unlock()
+
 	log.Printf("[runner:cgo] Libretro core loaded: %s (%dx%d @ %d FPS, Audio: %dHz)\n",
 		corePath, s.geometry.Width, s.geometry.Height, s.geometry.FPS, s.geometry.SampleRate)
 
@@ -333,25 +337,27 @@ func (s *CgoLibretroSession) Load(romPath, corePath string) error {
 }
 
 func (s *CgoLibretroSession) Step() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.stateMu.Lock()
+	running := s.isRunning
+	fn := s.fnRetroRun
+	s.stateMu.Unlock()
 
-	if !s.isRunning || s.fnRetroRun == nil {
+	if !running || fn == nil {
 		return
 	}
 
-	C.same_thread(s.fnRetroRun)
+	C.same_thread(fn)
 }
 
 func (s *CgoLibretroSession) GetFrame() ([]byte, encoder.PixelFormat) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.frameMu.RLock()
+	defer s.frameMu.RUnlock()
 	return s.frameBuffer, s.geometry.PixelFormat
 }
 
 func (s *CgoLibretroSession) GetAudio() []int16 {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.audioMu.RLock()
+	defer s.audioMu.RUnlock()
 	return s.audioBuffer
 }
 
@@ -377,23 +383,28 @@ func (s *CgoLibretroSession) Unserialize(data []byte) error {
 }
 
 func (s *CgoLibretroSession) Close() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.isRunning {
-		s.isRunning = false
-		if s.fnRetroUnload != nil {
-			C.bridge_call(s.fnRetroUnload)
-		}
-		if s.fnRetroDeinit != nil {
-			C.bridge_call(s.fnRetroDeinit)
-		}
-		C.same_thread_stop()
+	s.stateMu.Lock()
+	if !s.isRunning {
+		s.stateMu.Unlock()
+		return nil
 	}
+	s.isRunning = false
+	fnUnload := s.fnRetroUnload
+	fnDeinit := s.fnRetroDeinit
+	cleanup := s.cleanup
+	s.cleanup = nil
+	s.stateMu.Unlock()
 
-	if s.cleanup != nil {
-		s.cleanup()
-		s.cleanup = nil
+	if fnUnload != nil {
+		C.bridge_call(fnUnload)
+	}
+	if fnDeinit != nil {
+		C.bridge_call(fnDeinit)
+	}
+	C.same_thread_stop()
+
+	if cleanup != nil {
+		cleanup()
 	}
 
 	if s.dlib != nil {
@@ -411,8 +422,8 @@ func (s *CgoLibretroSession) Close() error {
 }
 
 func (s *CgoLibretroSession) GetGeometry() RetroGeometry {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.frameMu.RLock()
+	defer s.frameMu.RUnlock()
 	return s.geometry
 }
 
@@ -430,8 +441,8 @@ func coreVideoRefresh(data unsafe.Pointer, width, height C.uint, pitch C.size_t)
 		return
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.frameMu.Lock()
+	defer s.frameMu.Unlock()
 
 	w := int(width)
 	h := int(height)
@@ -445,16 +456,26 @@ func coreVideoRefresh(data unsafe.Pointer, width, height C.uint, pitch C.size_t)
 		bytesPerPixel = 2
 	}
 
-	bytesCount := int(pitch) * h
-	if bytesCount <= 0 {
-		bytesCount = w * h * bytesPerPixel
+	rowBytes := w * bytesPerPixel
+	pitchBytes := int(pitch)
+	totalDestBytes := rowBytes * h
+
+	if len(s.frameBuffer) < totalDestBytes {
+		s.frameBuffer = make([]byte, totalDestBytes)
 	}
 
-	srcSlice := unsafe.Slice((*byte)(data), bytesCount)
-	if len(s.frameBuffer) < bytesCount {
-		s.frameBuffer = make([]byte, bytesCount)
+	if pitchBytes == rowBytes || pitchBytes <= 0 {
+		srcSlice := unsafe.Slice((*byte)(data), totalDestBytes)
+		copy(s.frameBuffer, srcSlice)
+	} else {
+		// Stride/pitch mismatch: unpack line-by-line into tightly packed buffer
+		for y := 0; y < h; y++ {
+			srcOffset := y * pitchBytes
+			dstOffset := y * rowBytes
+			srcLine := unsafe.Slice((*byte)(unsafe.Pointer(uintptr(data)+uintptr(srcOffset))), rowBytes)
+			copy(s.frameBuffer[dstOffset:dstOffset+rowBytes], srcLine)
+		}
 	}
-	copy(s.frameBuffer, srcSlice)
 }
 
 //export coreAudioSampleBatch
@@ -469,8 +490,8 @@ func coreAudioSampleBatch(data *C.int16_t, frames C.size_t) C.size_t {
 		return frames
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.audioMu.Lock()
+	defer s.audioMu.Unlock()
 
 	count := int(frames) * 2 // stereo
 	srcSlice := unsafe.Slice((*int16)(unsafe.Pointer(data)), count)
@@ -483,8 +504,8 @@ func coreAudioSampleBatch(data *C.int16_t, frames C.size_t) C.size_t {
 
 //export coreLog
 func coreLog(level C.enum_retro_log_level, msg *C.char) {
-	// Filter debug logs
-	if level > C.RETRO_LOG_INFO {
+	// Filter debug logs (0); log INFO (1), WARN (2), and ERROR (3)
+	if level < C.RETRO_LOG_INFO {
 		return
 	}
 	log.Printf("[libretro:core] %s", C.GoString(msg))
@@ -500,16 +521,16 @@ func coreEnvironment(cmd C.unsigned, data unsafe.Pointer) C.bool {
 			s := activeSession
 			activeSessionMu.RUnlock()
 			if s != nil {
-				s.mu.Lock()
+				s.frameMu.Lock()
 				switch *fmtPtr {
 				case C.RETRO_PIXEL_FORMAT_0RGB1555:
-					s.geometry.PixelFormat = encoder.PixelFormatRGB565
+					s.geometry.PixelFormat = encoder.PixelFormat0RGB1555
 				case C.RETRO_PIXEL_FORMAT_XRGB8888:
 					s.geometry.PixelFormat = encoder.PixelFormatXRGB8888
 				case C.RETRO_PIXEL_FORMAT_RGB565:
 					s.geometry.PixelFormat = encoder.PixelFormatRGB565
 				}
-				s.mu.Unlock()
+				s.frameMu.Unlock()
 			}
 			return true
 		}
@@ -540,6 +561,8 @@ func coreEnvironment(cmd C.unsigned, data unsafe.Pointer) C.bool {
 			*(*C.bool)(data) = true
 			return true
 		}
+	case C.RETRO_ENVIRONMENT_SET_VARIABLES:
+		return true
 	}
 	return false
 }

@@ -119,6 +119,40 @@ func (buf *YUVBuffer) ConvertRGBToYUV420p(src []byte, srcFormat PixelFormat) {
 				}
 			}
 		}
+
+	case PixelFormat0RGB1555:
+		for y := 0; y < h; y++ {
+			srcRow := y * w * 2
+			yRow := y * w
+			uRow := (y / 2) * halfW
+			for x := 0; x < w; x++ {
+				idx := srcRow + (x * 2)
+				if idx+1 >= len(src) {
+					continue
+				}
+				raw := uint16(src[idx]) | (uint16(src[idx+1]) << 8)
+
+				// Extract 5-5-5 channels and scale to 0-255
+				r5 := int((raw >> 10) & 0x1F)
+				g5 := int((raw >> 5) & 0x1F)
+				b5 := int(raw & 0x1F)
+
+				r := (r5 * 527 + 23) >> 6
+				g := (g5 * 527 + 23) >> 6
+				b := (b5 * 527 + 23) >> 6
+
+				yVal := ((66*r + 129*g + 25*b + 128) >> 8) + 16
+				yPlane[yRow+x] = clampUint8(yVal)
+
+				if x%2 == 0 && y%2 == 0 {
+					uVal := ((-38*r - 74*g + 112*b + 128) >> 8) + 128
+					vVal := ((112*r - 94*g - 18*b + 128) >> 8) + 128
+					uvIdx := uRow + (x / 2)
+					uPlane[uvIdx] = clampUint8(uVal)
+					vPlane[uvIdx] = clampUint8(vVal)
+				}
+			}
+		}
 	}
 }
 

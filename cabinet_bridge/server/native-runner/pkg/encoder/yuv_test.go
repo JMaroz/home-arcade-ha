@@ -62,3 +62,29 @@ func TestYUVBuffer_ConvertRGB565(t *testing.T) {
 		t.Fatalf("Expected green Y > 100, got %d", yPlane[0])
 	}
 }
+
+func TestYUVBuffer_Convert0RGB1555(t *testing.T) {
+	width, height := 2, 2
+	buf := NewYUVBuffer(width, height)
+
+	// Pure red in 0RGB1555: (31 << 10) = 0x7C00. Little-endian: 0x00, 0x7C
+	src := []byte{
+		0x00, 0x7C, 0x00, 0x7C,
+		0x00, 0x7C, 0x00, 0x7C,
+	}
+
+	buf.ConvertRGBToYUV420p(src, PixelFormat0RGB1555)
+
+	yPlane := buf.Data[buf.yOffset:buf.uOffset]
+	// Red produces Y around 81
+	if yPlane[0] < 70 || yPlane[0] > 95 {
+		t.Fatalf("Expected red Y around 81, got %d", yPlane[0])
+	}
+
+	vPlane := buf.Data[buf.vOffset:]
+	// Red has high V (V > 200 in BT.601)
+	if vPlane[0] < 200 {
+		t.Fatalf("Expected red V > 200, got %d", vPlane[0])
+	}
+}
+

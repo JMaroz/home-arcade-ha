@@ -175,7 +175,14 @@ bool core_environment_cgo(unsigned cmd, void *data) {
           return false;
           break;
         case RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE:
-          return false;
+          if (data != NULL) *(int *)data = 1 | 2;
+          return true;
+          break;
+        case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
+          if (data != NULL) {
+              ((struct retro_log_callback *)data)->log = core_log_cgo;
+              return true;
+          }
           break;
         case RETRO_ENVIRONMENT_GET_CLEAR_ALL_THREAD_WAITS_CB:
           *(retro_environment_t *)data = clear_all_thread_waits_cb;
@@ -347,13 +354,18 @@ void *run_loop(void *unused) {
     mutex_unlock(&done_mutex);
     while (initialized) {
         mutex_wait(&run_mutex);
+        if (!initialized) {
+            break;
+        }
         switch (call.type) {
             case CALL_SERIALIZE:
             case CALL_UNSERIALIZE:
               *(bool*)call.result = ((bool (*)(void*, size_t))call.fn)(call.arg1, *(size_t*)call.arg2);
               break;
             default:
-                ((void (*)(void)) call.fn)();
+                if (call.fn != NULL) {
+                    ((void (*)(void)) call.fn)();
+                }
         }
         mutex_lock(&done_mutex);
         mutex_signal(&done_mutex);
@@ -361,13 +373,18 @@ void *run_loop(void *unused) {
     }
     mutex_destroy(&run_mutex);
     mutex_destroy(&done_mutex);
-    pthread_detach(thread);
     core_log_cgo(RETRO_LOG_DEBUG, "UnLibCo run loop stop\n");
     pthread_exit(NULL);
 }
 
 void same_thread_stop() {
-    initialized = 0;
+    if (initialized) {
+        initialized = 0;
+        mutex_lock(&run_mutex);
+        mutex_signal(&run_mutex);
+        mutex_unlock(&run_mutex);
+        pthread_join(thread, NULL);
+    }
 }
 
 void *same_thread_with_args(void *f, int type, ...) {
