@@ -25,11 +25,17 @@ func TestInputManager_BinaryUpdate(t *testing.T) {
 		t.Fatalf("Expected AxisY -64, got %d", state.AxisY)
 	}
 
-	// P2: Buttons = 0x0008 (Start)
-	im.Update(1, 0x0008, 0, 0)
+	// P2: Buttons = 0x0008 (Start) | 0x3000 (L2+R2), Left = (-30, 40), Right = (100, -100)
+	im.Update(1, 0x3008, -30, 40, 100, -100)
 	p2State := im.GetState(1)
-	if p2State.Buttons != 0x0008 {
-		t.Fatalf("Expected P2 buttons 0x0008, got 0x%04x", p2State.Buttons)
+	if p2State.Buttons != 0x3008 {
+		t.Fatalf("Expected P2 buttons 0x3008, got 0x%04x", p2State.Buttons)
+	}
+	if p2State.AxisX != -30 || p2State.AxisY != 40 {
+		t.Fatalf("Expected P2 left axes (-30, 40), got (%d, %d)", p2State.AxisX, p2State.AxisY)
+	}
+	if p2State.RightAxisX != 100 || p2State.RightAxisY != -100 {
+		t.Fatalf("Expected P2 right axes (100, -100), got (%d, %d)", p2State.RightAxisX, p2State.RightAxisY)
 	}
 }
 

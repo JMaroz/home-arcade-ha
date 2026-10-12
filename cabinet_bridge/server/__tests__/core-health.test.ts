@@ -165,7 +165,7 @@ describe("Bootstrap Script Syntax Validation", () => {
     expect(ps1Code).toContain('window.EJS_externalFiles = {"disc1.chd":"/api/roms/789/file/disc1.chd","disc2.chd":"/api/roms/790/file/disc2.chd"};');
   });
 
-  it("should render Native Stream Player with binary 5-byte DataChannel and stats HUD", async () => {
+  it("should render Native Stream Player with binary 7-byte DataChannel and stats HUD", async () => {
     const { renderStreamPlayerPage } = await import("../routes/streamPlayer");
 
     const html = renderStreamPlayerPage({
@@ -178,7 +178,7 @@ describe("Bootstrap Script Syntax Validation", () => {
     });
 
     expect(html).toContain("Gran Turismo 2 · Native Stream · HomeArcade");
-    expect(html).toContain("new Uint8Array(5)");
+    expect(html).toContain("new Uint8Array(7)");
     expect(html).toContain("unlockAudio");
     expect(html).toContain("currentRoundTripTime");
     expect(html).toContain("dataChannel.send(inputBuffer)");

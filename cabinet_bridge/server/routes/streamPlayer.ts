@@ -141,11 +141,11 @@ export function renderStreamPlayerPage({
       }
       .v-btn {
         pointer-events: auto; touch-action: none; position: absolute;
-        background: rgba(255, 255, 255, 0.12); border: 2px solid rgba(255, 255, 255, 0.28);
+        background: rgba(255, 255, 255, 0.14); border: 2px solid rgba(255, 255, 255, 0.3);
         border-radius: 50%; color: #fff; font-weight: 800; font-size: 14px;
         display: flex; align-items: center; justify-content: center;
         backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-        cursor: pointer; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        cursor: pointer; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
         transition: transform 60ms ease, background 60ms ease, border-color 60ms ease;
       }
       .v-btn:active, .v-btn.is-pressed {
@@ -155,41 +155,96 @@ export function renderStreamPlayerPage({
       }
       .v-dpad {
         position: absolute; left: max(20px, env(safe-area-inset-left)); bottom: max(24px, env(safe-area-inset-bottom));
-        width: 150px; height: 150px; pointer-events: auto;
+        width: 144px; height: 144px; pointer-events: none;
       }
       .v-dpad-btn {
-        position: absolute; width: 48px; height: 48px; border-radius: 12px; font-size: 16px;
+        position: absolute; width: 46px; height: 46px; border-radius: 12px; font-size: 16px;
       }
-      .v-dpad-up    { top: 0; left: 51px; }
-      .v-dpad-down  { bottom: 0; left: 51px; }
-      .v-dpad-left  { top: 51px; left: 0; }
-      .v-dpad-right { top: 51px; right: 0; }
+      .v-dpad-up    { top: 0; left: 49px; }
+      .v-dpad-down  { bottom: 0; left: 49px; }
+      .v-dpad-left  { top: 49px; left: 0; }
+      .v-dpad-right { top: 49px; right: 0; }
 
       .v-actions {
         position: absolute; right: max(20px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom));
-        width: 150px; height: 150px; pointer-events: auto;
+        width: 144px; height: 144px; pointer-events: none;
       }
       .v-act-btn {
-        position: absolute; width: 48px; height: 48px; border-radius: 50%; font-size: 16px; font-weight: 900;
+        position: absolute; width: 46px; height: 46px; border-radius: 50%; font-size: 15px; font-weight: 900;
       }
-      .v-btn-a { right: 0; top: 51px; background: rgba(16, 185, 129, 0.25); border-color: rgba(16, 185, 129, 0.5); }
-      .v-btn-b { left: 51px; bottom: 0; background: rgba(239, 68, 68, 0.25); border-color: rgba(239, 68, 68, 0.5); }
-      .v-btn-x { left: 51px; top: 0; background: rgba(59, 130, 246, 0.25); border-color: rgba(59, 130, 246, 0.5); }
-      .v-btn-y { left: 0; top: 51px; background: rgba(234, 179, 8, 0.25); border-color: rgba(234, 179, 8, 0.5); }
+      .v-btn-a { right: 0; top: 49px; background: rgba(16, 185, 129, 0.28); border-color: rgba(16, 185, 129, 0.55); }
+      .v-btn-b { left: 49px; bottom: 0; background: rgba(239, 68, 68, 0.28); border-color: rgba(239, 68, 68, 0.55); }
+      .v-btn-x { left: 49px; top: 0; background: rgba(59, 130, 246, 0.28); border-color: rgba(59, 130, 246, 0.55); }
+      .v-btn-y { left: 0; top: 49px; background: rgba(234, 179, 8, 0.28); border-color: rgba(234, 179, 8, 0.55); }
 
-      .v-shoulders {
-        position: absolute; top: max(60px, calc(env(safe-area-inset-top) + 52px)); width: 100%; pointer-events: none;
+      /* Ergonomic Shoulder Clusters directly above D-Pad (Left) and Action Buttons (Right) */
+      .v-shoulders-left {
+        position: absolute;
+        left: max(20px, env(safe-area-inset-left));
+        bottom: calc(max(24px, env(safe-area-inset-bottom)) + 160px);
+        display: flex; gap: 10px; pointer-events: none;
       }
-      .v-btn-l { left: max(20px, env(safe-area-inset-left)); width: 68px; height: 36px; border-radius: 18px; font-size: 12px; }
-      .v-btn-r { right: max(20px, env(safe-area-inset-right)); width: 68px; height: 36px; border-radius: 18px; font-size: 12px; }
-      .v-btn-z { right: max(96px, calc(env(safe-area-inset-right) + 76px)); width: 56px; height: 36px; border-radius: 18px; font-size: 12px; }
+      .v-shoulders-right {
+        position: absolute;
+        right: max(20px, env(safe-area-inset-right));
+        bottom: calc(max(24px, env(safe-area-inset-bottom)) + 160px);
+        display: flex; gap: 10px; pointer-events: none;
+      }
+      .v-shoulder-btn {
+        position: relative; width: 64px; height: 36px; border-radius: 18px; font-size: 12px; letter-spacing: 0.05em;
+      }
 
+      /* Virtual Analog Thumbsticks */
+      .v-stick {
+        position: absolute; width: 104px; height: 104px; border-radius: 50%;
+        background: rgba(255, 255, 255, 0.07); border: 2px solid rgba(255, 255, 255, 0.22);
+        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.35);
+        pointer-events: auto; touch-action: none;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .v-stick.is-active {
+        border-color: rgba(236, 72, 153, 0.75);
+        background: rgba(236, 72, 153, 0.14);
+      }
+      .v-stick-left {
+        left: calc(max(20px, env(safe-area-inset-left)) + 162px);
+        bottom: max(24px, env(safe-area-inset-bottom));
+      }
+      .v-stick-right {
+        right: calc(max(20px, env(safe-area-inset-right)) + 162px);
+        bottom: max(24px, env(safe-area-inset-bottom));
+      }
+      .v-stick-thumb {
+        width: 44px; height: 44px; border-radius: 50%;
+        background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.55), rgba(236, 72, 153, 0.45));
+        border: 2px solid rgba(255, 255, 255, 0.6);
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+        pointer-events: none; font-size: 9px; font-weight: 800; color: rgba(255, 255, 255, 0.85);
+        display: flex; align-items: center; justify-content: center;
+        will-change: transform;
+      }
+
+      /* Center Menu Buttons (SELECT / START) — relative flex items so they never overlap */
       .v-menu-btns {
-        position: absolute; left: 50%; transform: translateX(-50%); bottom: max(24px, env(safe-area-inset-bottom));
-        display: flex; gap: 16px; pointer-events: auto;
+        position: absolute; left: 50%; transform: translateX(-50%); bottom: max(18px, env(safe-area-inset-bottom));
+        display: flex; align-items: center; justify-content: center; gap: 14px; pointer-events: none;
       }
       .v-btn-pill {
-        width: 76px; height: 34px; border-radius: 17px; font-size: 11px; letter-spacing: 0.08em;
+        position: relative; width: 74px; height: 32px; border-radius: 16px; font-size: 11px; letter-spacing: 0.08em;
+      }
+
+      @media (max-width: 720px) {
+        .v-stick { width: 88px; height: 88px; }
+        .v-stick-thumb { width: 38px; height: 38px; }
+        .v-stick-left {
+          left: calc(max(14px, env(safe-area-inset-left)) + 148px);
+          bottom: calc(max(20px, env(safe-area-inset-bottom)) + 48px);
+        }
+        .v-stick-right {
+          right: calc(max(14px, env(safe-area-inset-right)) + 148px);
+          bottom: calc(max(20px, env(safe-area-inset-bottom)) + 48px);
+        }
       }
 
       .stats-badge {
@@ -236,6 +291,18 @@ export function renderStreamPlayerPage({
 
     <!-- On-Screen Virtual Gamepad Overlay (Touch & Click) -->
     <div id="virtual-controller" class="virtual-controller is-hidden">
+      <!-- Left Shoulder Triggers (L + ZL) -->
+      <div id="v-shoulders-left" class="v-shoulders-left">
+        <div id="v-btn-l" class="v-btn v-shoulder-btn" data-btn="10">L</div>
+        <div id="v-btn-zl" class="v-btn v-shoulder-btn" data-btn="12">ZL</div>
+      </div>
+
+      <!-- Right Shoulder Triggers (ZR + R) -->
+      <div id="v-shoulders-right" class="v-shoulders-right">
+        <div id="v-btn-zr" class="v-btn v-shoulder-btn" data-btn="13">ZR</div>
+        <div id="v-btn-r" class="v-btn v-shoulder-btn" data-btn="11">R</div>
+      </div>
+
       <!-- D-Pad (Left) -->
       <div class="v-dpad">
         <div class="v-btn v-dpad-btn v-dpad-up" data-btn="4">▲</div>
@@ -244,10 +311,20 @@ export function renderStreamPlayerPage({
         <div class="v-btn v-dpad-btn v-dpad-right" data-btn="7">▶</div>
       </div>
 
+      <!-- Left Analog Stick -->
+      <div id="v-stick-left" class="v-stick v-stick-left" style="display: none;">
+        <div class="v-stick-thumb">L</div>
+      </div>
+
       <!-- Center Menu Buttons (Select / Start) -->
       <div class="v-menu-btns">
         <div class="v-btn v-btn-pill" data-btn="2">SELECT</div>
         <div class="v-btn v-btn-pill" data-btn="3" style="background: rgba(236, 72, 153, 0.35); border-color: #ec4899;">START</div>
+      </div>
+
+      <!-- Right Analog Stick -->
+      <div id="v-stick-right" class="v-stick v-stick-right" style="display: none;">
+        <div class="v-stick-thumb">R</div>
       </div>
 
       <!-- Action Buttons (Right) -->
@@ -256,13 +333,6 @@ export function renderStreamPlayerPage({
         <div class="v-btn v-act-btn v-btn-x" data-btn="9">X</div>
         <div class="v-btn v-act-btn v-btn-b" data-btn="0">B</div>
         <div class="v-btn v-act-btn v-btn-a" data-btn="8">A</div>
-      </div>
-
-      <!-- Shoulder Triggers -->
-      <div class="v-shoulders">
-        <div class="v-btn v-btn-l" data-btn="10">L</div>
-        <div class="v-btn v-btn-z" data-btn="12">Z</div>
-        <div class="v-btn v-btn-r" data-btn="11">R</div>
       </div>
     </div>
 
@@ -396,7 +466,7 @@ export function renderStreamPlayerPage({
             <div>• <b style="color: #fff;">Frecce</b>: D-Pad / Analogico</div>
             <div>• <b style="color: #fff;">X / K</b>: Tasto A &nbsp;|&nbsp; <b style="color: #fff;">Z / J</b>: Tasto B</div>
             <div>• <b style="color: #fff;">S / I</b>: Tasto X &nbsp;|&nbsp; <b style="color: #fff;">A / U</b>: Tasto Y</div>
-            <div>• <b style="color: #fff;">Q / W</b>: Dorsali L / R</div>
+            <div>• <b style="color: #fff;">Q / W</b>: Dorsali L / R &nbsp;|&nbsp; <b style="color: #fff;">E / R</b>: ZL / ZR</div>
             <div style="color: #10b981; margin-top: 4px;">• Gamepad USB/Bluetooth plug & play</div>
           </div>
         </div>
@@ -439,6 +509,46 @@ export function renderStreamPlayerPage({
 
         // Aspect ratio handling & persistence
         const systemName = ${JSON.stringify(system.toLowerCase())};
+
+        // Platform-aware virtual controls configuration (Shoulders & Analog Thumbsticks)
+        (function configurePlatformVirtualControls(sys) {
+          const noShoulderSystems = new Set([
+            "nes", "gb", "gbc", "mastersystem", "gamegear", "atari2600",
+            "atari5200", "atari7800", "coleco", "ngp", "wonderswan"
+          ]);
+          const dualShoulderSystems = new Set([
+            "ps1", "ps2", "n64", "gc", "dreamcast", "saturn", "arcade", "mame", "fbneo"
+          ]);
+          const leftStickSystems = new Set([
+            "n64", "ps1", "ps2", "psp", "dreamcast", "saturn", "gc", "nds", "3ds", "arcade", "mame", "fbneo"
+          ]);
+          const rightStickSystems = new Set([
+            "n64", "ps1", "ps2", "gc"
+          ]);
+
+          const shLeft = document.getElementById("v-shoulders-left");
+          const shRight = document.getElementById("v-shoulders-right");
+          const btnZl = document.getElementById("v-btn-zl");
+          const btnZr = document.getElementById("v-btn-zr");
+          const stickLeft = document.getElementById("v-stick-left");
+          const stickRight = document.getElementById("v-stick-right");
+
+          if (noShoulderSystems.has(sys)) {
+            if (shLeft) shLeft.style.display = "none";
+            if (shRight) shRight.style.display = "none";
+          } else if (!dualShoulderSystems.has(sys)) {
+            if (btnZl) btnZl.style.display = "none";
+            if (btnZr) btnZr.style.display = "none";
+          }
+
+          if (stickLeft) {
+            stickLeft.style.display = leftStickSystems.has(sys) ? "flex" : "none";
+          }
+          if (stickRight) {
+            stickRight.style.display = rightStickSystems.has(sys) ? "flex" : "none";
+          }
+        })(systemName);
+
         function getSystemDefaultAspect(sys) {
           if (sys === "gba") return "3:2";
           if (sys === "gb" || sys === "gbc" || sys === "gamegear" || sys === "ngp") return "10:9";
@@ -674,8 +784,8 @@ export function renderStreamPlayerPage({
           }
         }
 
-        // ── Ultra-low Latency Input Loop (5-Byte Binary DataChannel) ──
-        const inputBuffer = new Uint8Array(5);
+        // ── Ultra-low Latency Input Loop (7-Byte Binary DataChannel) ──
+        const inputBuffer = new Uint8Array(7);
         const activeKeys = new Set();
         let inputLoopRunning = false;
         let audioUnlocked = false;
@@ -706,6 +816,8 @@ export function renderStreamPlayerPage({
           "KeyS": 9, "KeyI": 9,             // X
           "KeyQ": 10,                       // L
           "KeyW": 11,                       // R
+          "KeyE": 12,                       // ZL / L2
+          "KeyR": 13,                       // ZR / R2
         };
 
         window.addEventListener("keydown", (e) => {
@@ -721,6 +833,10 @@ export function renderStreamPlayerPage({
 
         let prevSelectStart = false;
         let virtualButtonsMask = 0;
+        let virtualLeftAxisX = 0;
+        let virtualLeftAxisY = 0;
+        let virtualRightAxisX = 0;
+        let virtualRightAxisY = 0;
 
         let toastTimeout = null;
         function showGamepadToast(msg) {
@@ -814,6 +930,77 @@ export function renderStreamPlayerPage({
           btn.addEventListener("pointerleave", release);
         });
 
+        // Virtual Analog Thumbstick handlers with Pointer Capture
+        function bindVirtualStick(stickId, onMove) {
+          const stickEl = document.getElementById(stickId);
+          if (!stickEl) return;
+          const thumbEl = stickEl.querySelector(".v-stick-thumb");
+          let activePointerId = null;
+
+          const updateStick = (clientX, clientY) => {
+            const rect = stickEl.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const maxRadius = Math.max(24, rect.width * 0.35);
+            let dx = clientX - centerX;
+            let dy = clientY - centerY;
+            const dist = Math.hypot(dx, dy);
+            if (dist > maxRadius) {
+              const scale = maxRadius / dist;
+              dx *= scale;
+              dy *= scale;
+            }
+            if (thumbEl) {
+              thumbEl.style.transform = "translate3d(" + dx.toFixed(1) + "px, " + dy.toFixed(1) + "px, 0)";
+            }
+            const normX = Math.max(-128, Math.min(127, Math.round((dx / maxRadius) * 127)));
+            const normY = Math.max(-128, Math.min(127, Math.round((dy / maxRadius) * 127)));
+            onMove(normX, normY);
+          };
+
+          stickEl.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            unlockAudio();
+            activePointerId = e.pointerId;
+            stickEl.classList.add("is-active");
+            try { stickEl.setPointerCapture(e.pointerId); } catch (_) {}
+            updateStick(e.clientX, e.clientY);
+          });
+
+          stickEl.addEventListener("pointermove", (e) => {
+            if (activePointerId !== e.pointerId) return;
+            e.preventDefault();
+            e.stopPropagation();
+            updateStick(e.clientX, e.clientY);
+          });
+
+          const releaseStick = (e) => {
+            if (activePointerId !== null && e.pointerId !== activePointerId) return;
+            e.preventDefault();
+            e.stopPropagation();
+            activePointerId = null;
+            stickEl.classList.remove("is-active");
+            if (thumbEl) {
+              thumbEl.style.transform = "translate3d(0px, 0px, 0)";
+            }
+            onMove(0, 0);
+            try { stickEl.releasePointerCapture(e.pointerId); } catch (_) {}
+          };
+
+          stickEl.addEventListener("pointerup", releaseStick);
+          stickEl.addEventListener("pointercancel", releaseStick);
+        }
+
+        bindVirtualStick("v-stick-left", (x, y) => {
+          virtualLeftAxisX = x;
+          virtualLeftAxisY = y;
+        });
+        bindVirtualStick("v-stick-right", (x, y) => {
+          virtualRightAxisX = x;
+          virtualRightAxisY = y;
+        });
+
         // Initialize virtual pad from localStorage or auto-enable on touch devices if no gamepad is active
         try {
           const gamepads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
@@ -837,6 +1024,8 @@ export function renderStreamPlayerPage({
             let mask = 0;
             let axisX = 0;
             let axisY = 0;
+            let rightAxisX = 0;
+            let rightAxisY = 0;
 
             // 1. Native Gamepad Input
             const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -870,14 +1059,18 @@ export function renderStreamPlayerPage({
               if (b[3] && b[3].pressed) mask |= (1 << 9);   // X
               if (b[4] && b[4].pressed) mask |= (1 << 10);  // L
               if (b[5] && b[5].pressed) mask |= (1 << 11);  // R
-              if (b[6] && b[6].pressed) mask |= (1 << 12);  // L2
-              if (b[7] && b[7].pressed) mask |= (1 << 13);  // R2
+              if (b[6] && b[6].pressed) mask |= (1 << 12);  // L2 / ZL
+              if (b[7] && b[7].pressed) mask |= (1 << 13);  // R2 / ZR
               if (b[10] && b[10].pressed) mask |= (1 << 14);// L3
               if (b[11] && b[11].pressed) mask |= (1 << 15);// R3
 
               if (gp.axes && gp.axes.length >= 2) {
                 axisX = Math.max(-128, Math.min(127, Math.round(gp.axes[0] * 127)));
                 axisY = Math.max(-128, Math.min(127, Math.round(gp.axes[1] * 127)));
+              }
+              if (gp.axes && gp.axes.length >= 4) {
+                rightAxisX = Math.max(-128, Math.min(127, Math.round(gp.axes[2] * 127)));
+                rightAxisY = Math.max(-128, Math.min(127, Math.round(gp.axes[3] * 127)));
               }
 
               // Select + Start toggle telemetry HUD
@@ -901,10 +1094,18 @@ export function renderStreamPlayerPage({
               }
             }
 
-            // 3. Virtual Touch Controller Overlay
+            // 3. Virtual Touch Controller Overlay (Buttons + Dual Analog Thumbsticks)
             mask |= virtualButtonsMask;
+            if (virtualLeftAxisX !== 0 || virtualLeftAxisY !== 0) {
+              axisX = virtualLeftAxisX;
+              axisY = virtualLeftAxisY;
+            }
+            if (virtualRightAxisX !== 0 || virtualRightAxisY !== 0) {
+              rightAxisX = virtualRightAxisX;
+              rightAxisY = virtualRightAxisY;
+            }
 
-            // D-Pad to Analog fallback if physical analog stick is centered
+            // D-Pad to Analog fallback if left analog stick is centered
             if (axisX === 0 && axisY === 0) {
               if (mask & (1 << 4)) axisY = -128; // Up
               if (mask & (1 << 5)) axisY = 127;  // Down
@@ -912,12 +1113,14 @@ export function renderStreamPlayerPage({
               if (mask & (1 << 7)) axisX = 127;  // Right
             }
 
-            // Pack 5 bytes: [playerSlot, mask_lo, mask_hi, axisX, axisY]
+            // Pack 7 bytes: [playerSlot, mask_lo, mask_hi, axisX, axisY, rightAxisX, rightAxisY]
             inputBuffer[0] = myPlayerSlot;
             inputBuffer[1] = mask & 0xFF;
             inputBuffer[2] = (mask >> 8) & 0xFF;
             inputBuffer[3] = (axisX < 0 ? 256 + axisX : axisX) & 0xFF;
             inputBuffer[4] = (axisY < 0 ? 256 + axisY : axisY) & 0xFF;
+            inputBuffer[5] = (rightAxisX < 0 ? 256 + rightAxisX : rightAxisX) & 0xFF;
+            inputBuffer[6] = (rightAxisY < 0 ? 256 + rightAxisY : rightAxisY) & 0xFF;
 
             dataChannel.send(inputBuffer);
           }

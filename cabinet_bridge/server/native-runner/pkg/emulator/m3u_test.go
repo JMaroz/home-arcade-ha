@@ -78,3 +78,57 @@ func TestResolveM3uFile_MultiDiscCRLF(t *testing.T) {
 		t.Errorf("Resolved M3U missing expected disc entries: %s", string(content))
 	}
 }
+
+func TestResolveM3uFile_SlugRenamedChd(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "m3u-test-slug-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Uploaded CHD with slugified name and random suffix
+	chdPath := filepath.Join(tempDir, "ps1_ace_combat_3_electrosphere_mqwau7o0.chd")
+	if err := os.WriteFile(chdPath, []byte("CHD_DATA"), 0644); err != nil {
+		t.Fatalf("Failed to write chd: %v", err)
+	}
+
+	// M3U references the original No-Intro filename
+	m3uPath := filepath.Join(tempDir, "Ace Combat 3 - Electrosphere (USA).m3u")
+	if err := os.WriteFile(m3uPath, []byte("Ace Combat 3 - Electrosphere (USA).chd\n"), 0644); err != nil {
+		t.Fatalf("Failed to write m3u: %v", err)
+	}
+
+	resolved, cleanup, err := resolveM3uFile(m3uPath)
+	if err != nil {
+		t.Fatalf("resolveM3uFile failed on slug-renamed CHD: %v", err)
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	if resolved != chdPath {
+		t.Errorf("Expected resolved path '%s', got '%s'", chdPath, resolved)
+	}
+}
+
+func TestResolveM3uFile_MissingDiscError(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "m3u-test-missing-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	m3uPath := filepath.Join(tempDir, "Orphan Game (USA).m3u")
+	if err := os.WriteFile(m3uPath, []byte("Orphan Game (USA).chd\n"), 0644); err != nil {
+		t.Fatalf("Failed to write m3u: %v", err)
+	}
+
+	_, cleanup, err := resolveM3uFile(m3uPath)
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if err == nil {
+		t.Fatalf("Expected error when M3U references missing disc file, got nil")
+	}
+}
+

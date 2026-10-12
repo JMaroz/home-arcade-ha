@@ -137,4 +137,41 @@ describe("Scanner Module — Advanced Hashing, SSE Events & Reconciliation", () 
     expect(folders[0].platformId).toBe("gba");
     expect(folders[0].fileCount).toBe(1);
   });
+
+  it("scanNow imports M3U matching slug-renamed CHD and skips orphaned M3U with missing disc files", async () => {
+    const ps1Dir = path.join(testDir, "ps1");
+    fs.mkdirSync(ps1Dir, { recursive: true });
+
+    // Slug-renamed CHD on disk
+    fs.writeFileSync(path.join(ps1Dir, "ps1_ape_escape_mqwatvdb.chd"), "chd-data");
+    // Valid M3U referencing original No-Intro filename (with CRLF)
+    fs.writeFileSync(path.join(ps1Dir, "Ape Escape (USA).m3u"), "Ape Escape (USA).chd\r\n");
+    // Orphaned M3U referencing a non-existent CHD
+    fs.writeFileSync(path.join(ps1Dir, "Missing Game (USA).m3u"), "Missing Game (USA).chd\r\n");
+
+    const importedRoms: any[] = [];
+    initScanner(
+      testDir,
+      async (roms) => {
+        importedRoms.push(...roms);
+      },
+      async () => [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false
+    );
+
+    await scanNow();
+
+    const importedNames = importedRoms.map((r) => r.fileName);
+    expect(importedNames).toContain("ps1_ape_escape_mqwatvdb.chd");
+    expect(importedNames).toContain("Ape Escape (USA).m3u");
+    expect(importedNames).not.toContain("Missing Game (USA).m3u");
+
+    const validM3u = importedRoms.find((r) => r.fileName === "Ape Escape (USA).m3u");
+    expect(validM3u?.m3uContent).not.toContain("\r");
+  });
 });
+

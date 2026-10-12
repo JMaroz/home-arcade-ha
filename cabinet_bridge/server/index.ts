@@ -143,6 +143,9 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
 async function initApp() {
   log("Initializing database...", "boot");
   initializeDatabase();
+  await storage.reconcileM3uPlaylists().catch((err) => {
+    console.warn("[boot] M3U reconciliation warning:", err);
+  });
   log("Database ready", "boot");
 
   await registerRoutes(httpServer, app);

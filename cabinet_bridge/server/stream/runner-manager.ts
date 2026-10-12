@@ -153,20 +153,11 @@ export class StreamRunnerManager {
 
     let bootRom = rom;
     if (rom.isPlaylist) {
-      const children = await storage.listChildrenByM3uId(rom.id);
+      const children = await storage.resolveM3uDiscs(rom);
       if (children.length === 1) {
         bootRom = children[0];
-      } else if (children.length === 0 && rom.m3uContent) {
-        const refs = rom.m3uContent
-          .split("\n")
-          .map((l) => l.trim())
-          .filter((l) => l.length > 0 && !l.startsWith("#"));
-        if (refs.length === 1) {
-          const found = await storage.findRomByOriginalName(refs[0]);
-          if (found) {
-            bootRom = found;
-          }
-        }
+      } else if (children.length === 0) {
+        throw new Error(`M3U playlist "${rom.title}" references missing disc files on disk.`);
       }
     }
 

@@ -45,10 +45,12 @@ type RunnerConfig struct {
 
 // PlayerInputState tracks real-time pad buttons and analog axes
 type PlayerInputState struct {
-	Buttons uint16
-	AxisX   int8
-	AxisY   int8
-	Updated time.Time
+	Buttons    uint16
+	AxisX      int8
+	AxisY      int8
+	RightAxisX int8
+	RightAxisY int8
+	Updated    time.Time
 }
 
 type InputManager struct {
@@ -56,16 +58,23 @@ type InputManager struct {
 	players [4]PlayerInputState
 }
 
-func (im *InputManager) Update(player int, buttons uint16, axisX, axisY int8) {
+func (im *InputManager) Update(player int, buttons uint16, axisX, axisY int8, rightAxes ...int8) {
 	if player < 0 || player >= 4 {
 		return
 	}
+	var rx, ry int8
+	if len(rightAxes) >= 2 {
+		rx = rightAxes[0]
+		ry = rightAxes[1]
+	}
 	im.mu.Lock()
 	im.players[player] = PlayerInputState{
-		Buttons: buttons,
-		AxisX:   axisX,
-		AxisY:   axisY,
-		Updated: time.Now(),
+		Buttons:    buttons,
+		AxisX:      axisX,
+		AxisY:      axisY,
+		RightAxisX: rx,
+		RightAxisY: ry,
+		Updated:    time.Now(),
 	}
 	im.mu.Unlock()
 }
@@ -357,7 +366,7 @@ func handleOffer(w http.ResponseWriter, r *http.Request) {
 			entry.DC = dc
 
 			dc.OnMessage(func(msg webrtc.DataChannelMessage) {
-				// 1. Ultra-fast binary packet (5 bytes: player, btn_lo, btn_hi, axis_x, axis_y)
+				// 1. Ultra-fast binary packet (5 or 7 bytes: player, btn_lo, btn_hi, lx, ly[, rx, ry])
 				if !msg.IsString && len(msg.Data) >= 5 {
 					pIdx := int(msg.Data[0])
 					if playerSlot > 0 && pIdx == 0 {
@@ -366,7 +375,12 @@ func handleOffer(w http.ResponseWriter, r *http.Request) {
 					buttons := uint16(msg.Data[1]) | (uint16(msg.Data[2]) << 8)
 					axisX := int8(msg.Data[3])
 					axisY := int8(msg.Data[4])
-					inputMgr.Update(pIdx, buttons, axisX, axisY)
+					var rx, ry int8
+					if len(msg.Data) >= 7 {
+						rx = int8(msg.Data[5])
+						ry = int8(msg.Data[6])
+					}
+					inputMgr.Update(pIdx, buttons, axisX, axisY, rx, ry)
 					return
 				}
 
@@ -384,7 +398,7 @@ func handleOffer(w http.ResponseWriter, r *http.Request) {
 										}
 									}
 								}
-								var ax, ay int8
+								var ax, ay, rx, ry int8
 								if aList, ok := legacy["a"].([]interface{}); ok && len(aList) >= 2 {
 									if f, ok := aList[0].(float64); ok {
 										ax = int8(f * 127)
@@ -392,8 +406,16 @@ func handleOffer(w http.ResponseWriter, r *http.Request) {
 									if f, ok := aList[1].(float64); ok {
 										ay = int8(f * 127)
 									}
+									if len(aList) >= 4 {
+										if f, ok := aList[2].(float64); ok {
+											rx = int8(f * 127)
+										}
+										if f, ok := aList[3].(float64); ok {
+											ry = int8(f * 127)
+										}
+									}
 								}
-								inputMgr.Update(playerSlot, mask, ax, ay)
+								inputMgr.Update(playerSlot, mask, ax, ay, rx, ry)
 							}
 						}
 					}
@@ -568,9 +590,11 @@ func runMediaStreamLoop() {
 		for p := 0; p < 4; p++ {
 			st := inputMgr.GetState(p)
 			emuSession.SetInput(p, emulator.RetroInputState{
-				Buttons: st.Buttons,
-				AxisX:   st.AxisX,
-				AxisY:   st.AxisY,
+				Buttons:    st.Buttons,
+				AxisX:      st.AxisX,
+				AxisY:      st.AxisY,
+				RightAxisX: st.RightAxisX,
+				RightAxisY: st.RightAxisY,
 			})
 		}
 

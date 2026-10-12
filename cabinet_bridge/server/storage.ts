@@ -33,7 +33,7 @@ import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import crypto from "node:crypto";
 import { REQUIRED_BIOS } from "@shared/bios-metadata";
-import { slugify } from "./routes/utils";
+import { slugify, titleFromFileName, extractUploadedSlug } from "./routes/utils";
 import { ROM_ROOT, SAVE_BACKUP_DIR } from "./routes/shared";
 
 export let sqlite: Database.Database;
@@ -601,6 +601,143 @@ export class DatabaseStorage implements IStorage {
     });
     // Auto-generate M3U for any complete disc groups found during scan
     await this.generateM3uForAllDiscGroups();
+    // Link scanned M3U playlists to their disc files (including slug-renamed CHDs) and prune orphan M3Us
+    await this.reconcileM3uPlaylists();
+  }
+
+  /**
+   * Resolves all disc ROM records referenced by an M3U playlist ROM, matching either by
+   * exact filename/originalName or by uploaded slug (`<system>_<slug>_<id>.<ext>`).
+   * Automatically links resolved disc records via `parentM3uId` and normalizes the M3U content.
+   */
+  async resolveM3uDiscs(m3uRom: UploadedRom): Promise<UploadedRom[]> {
+    const existingChildren = await this.listChildrenByM3uId(m3uRom.id);
+    let rawContent = m3uRom.m3uContent ?? "";
+    if (!rawContent && m3uRom.filePath && existsSync(m3uRom.filePath)) {
+      try {
+        rawContent = await fs.readFile(m3uRom.filePath, "utf8");
+      } catch {}
+    }
+
+    const refs = rawContent
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !l.startsWith("#"));
+
+    if (existingChildren.length > 0 && existingChildren.length >= refs.length) {
+      return existingChildren;
+    }
+
+    if (refs.length === 0) {
+      return existingChildren;
+    }
+
+    const systemRoms = (await this.listRomsBySystem(m3uRom.system))
+      .filter((r) => !r.isPlaylist && r.id !== m3uRom.id)
+      .sort((a, b) => (a.discNumber ?? 0) - (b.discNumber ?? 0) || a.fileName.localeCompare(b.fileName));
+
+    const usedIds = new Set<number>();
+    const resolved: UploadedRom[] = [];
+
+    for (let idx = 0; idx < refs.length; idx++) {
+      const ref = refs[idx];
+      const refBase = path.basename(ref).toLowerCase();
+      const targetSlug = slugify(titleFromFileName(ref));
+
+      // 1. Exact originalName or fileName match
+      let match = systemRoms.find(
+        (r) => !usedIds.has(r.id) && (r.originalName.toLowerCase() === refBase || r.fileName.toLowerCase() === refBase)
+      );
+
+      // 2. Fallback: slug-renamed uploaded ROM match (`<system>_<slug>_<suffix>.<ext>`)
+      if (!match && targetSlug) {
+        match = systemRoms.find(
+          (r) =>
+            !usedIds.has(r.id) &&
+            (extractUploadedSlug(r.fileName, r.system) === targetSlug ||
+              extractUploadedSlug(r.originalName, r.system) === targetSlug)
+        );
+      }
+
+      if (match) {
+        usedIds.add(match.id);
+        const desiredDiscNum = refs.length > 1 ? (match.discNumber ?? idx + 1) : match.discNumber;
+        if (match.parentM3uId !== m3uRom.id || match.discNumber !== desiredDiscNum) {
+          const updated = await this.updateUploadedRomFile(match.id, {
+            parentM3uId: m3uRom.id,
+            discNumber: desiredDiscNum,
+          });
+          if (updated) match = updated;
+        }
+        resolved.push(match);
+      }
+    }
+
+    if (resolved.length > 0) {
+      const normalizedLines = resolved.map((d) => d.fileName).join("\n") + "\n";
+      if (m3uRom.m3uContent !== normalizedLines.trim()) {
+        await this.updateUploadedRomFile(m3uRom.id, { m3uContent: normalizedLines.trim() });
+      }
+      if (m3uRom.filePath && existsSync(m3uRom.filePath)) {
+        try {
+          const currentDisk = await fs.readFile(m3uRom.filePath, "utf8");
+          if (currentDisk !== normalizedLines) {
+            await fs.writeFile(m3uRom.filePath, normalizedLines, "utf8");
+          }
+        } catch {}
+      }
+    }
+
+    return resolved;
+  }
+
+  /**
+   * Reconciles all M3U playlists in the database:
+   * - Links each valid M3U to its disc ROMs (`parentM3uId`) and updates the M3U on disk with actual filenames.
+   * - Removes orphaned M3U playlists whose referenced disc files do not exist in the DB or on disk.
+   */
+  async reconcileM3uPlaylists(): Promise<{ linkedDiscs: number; prunedOrphans: number }> {
+    const allRoms = await this.listUploadedRoms(false);
+    const playlists = allRoms.filter((r) => r.isPlaylist);
+    let linkedDiscs = 0;
+    let prunedOrphans = 0;
+
+    for (const m3u of playlists) {
+      const discs = await this.resolveM3uDiscs(m3u);
+      if (discs.length > 0) {
+        linkedDiscs += discs.length;
+        continue;
+      }
+
+      // Check if any referenced disc file exists directly on disk in the M3U directory
+      const m3uDir = m3u.filePath ? path.dirname(m3u.filePath) : "";
+      const refs = (m3u.m3uContent ?? "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0 && !l.startsWith("#"));
+
+      const hasDiskFile =
+        m3uDir &&
+        refs.some((ref) => existsSync(path.join(m3uDir, path.basename(ref))));
+
+      if (!hasDiskFile) {
+        log(`Pruning orphaned M3U playlist "${m3u.title}" (ID ${m3u.id}) — referenced disc files missing`, "storage");
+        await this.deleteUploadedRom(m3u.id);
+        if (m3u.filePath && existsSync(m3u.filePath)) {
+          await fs.unlink(m3u.filePath).catch(() => {});
+        }
+        prunedOrphans++;
+      }
+    }
+
+    if (linkedDiscs > 0 || prunedOrphans > 0) {
+      log(`M3U reconciliation complete: ${linkedDiscs} disc(s) linked, ${prunedOrphans} orphan M3U(s) pruned`, "storage");
+    }
+    return { linkedDiscs, prunedOrphans };
   }
   async generateM3uForAllDiscGroups(): Promise<void> {
     const groups = await db.select({

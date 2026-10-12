@@ -25,9 +25,11 @@ type RetroGeometry struct {
 
 // RetroInputState represents a player's inputs for the current frame
 type RetroInputState struct {
-	Buttons uint16
-	AxisX   int8
-	AxisY   int8
+	Buttons    uint16
+	AxisX      int8
+	AxisY      int8
+	RightAxisX int8
+	RightAxisY int8
 }
 
 // EmulatorSession abstracts the underlying Libretro core execution

@@ -97,4 +97,24 @@ describe("Native Stream & Co-Op Routes", () => {
     expect(body?.count).toBe(0);
     expect(Array.isArray(body?.peers)).toBe(true);
   });
+
+  it("renderStreamPlayerPage includes aligned SELECT/START, L/ZL & ZR/R shoulders, dual analog thumbsticks, and 7-byte WebRTC input packet", async () => {
+    const { renderStreamPlayerPage } = await import("../routes/streamPlayer");
+    const html = renderStreamPlayerPage({
+      title: "Ape Escape",
+      returnTo: "/",
+      romId: 42,
+      system: "ps1",
+    });
+
+    expect(html).toContain('id="v-shoulders-left"');
+    expect(html).toContain('id="v-shoulders-right"');
+    expect(html).toContain('id="v-btn-zl"');
+    expect(html).toContain('id="v-btn-zr"');
+    expect(html).toContain('id="v-stick-left"');
+    expect(html).toContain('id="v-stick-right"');
+    expect(html).toContain("new Uint8Array(7)");
+    expect(html).toContain(".v-btn-pill {\n        position: relative;");
+  });
 });
+

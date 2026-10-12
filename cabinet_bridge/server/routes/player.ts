@@ -219,8 +219,8 @@ export function renderEmulatorPage({ title, returnTo, romHash, queryString, syst
       .cabinet-progress-bar { width: 0%; height: 100%; background: #ec4899; transition: width 200ms ease; }
 
       /* Virtual Pad */
-      .virtual-pad { position: fixed; z-index: 999997; inset: 0; pointer-events: none; opacity: 0; transition: opacity 250ms ease; opacity: var(--vpad-opacity); }
-      .virtual-pad.is-visible { opacity: var(--vpad-opacity); }
+      .virtual-pad { position: fixed; z-index: 999997; inset: 0; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity 250ms ease, visibility 250ms ease; }
+      .virtual-pad.is-visible { opacity: var(--vpad-opacity); visibility: visible; }
       .virtual-pad button {
         appearance: none; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
         color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.6);
@@ -323,20 +323,69 @@ export function renderEmulatorPage({ title, returnTo, romHash, queryString, syst
         justify-content: space-between;
         padding: 0 max(16px, env(safe-area-inset-left)) 0 max(16px, env(safe-area-inset-right));
       }
+      .vpad-shoulder-group {
+        display: flex;
+        gap: calc(8px * var(--vpad-scale));
+        pointer-events: none;
+      }
       .vpad-shoulders button {
         pointer-events: auto;
-        width: calc(90px * var(--vpad-scale));
-        height: calc(38px * var(--vpad-scale));
-        border-radius: calc(10px * var(--vpad-scale));
+        width: calc(68px * var(--vpad-scale));
+        height: calc(36px * var(--vpad-scale));
+        border-radius: calc(18px * var(--vpad-scale));
         font-size: calc(11px * var(--vpad-scale));
         font-weight: 900;
         background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.12) 0%, transparent 65%), rgba(20, 20, 25, 0.7);
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.15);
         box-shadow: 0 6px 16px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.1);
       }
       .vpad-shoulders button.is-pressed, .vpad-shoulders button:active {
         background: radial-gradient(circle at 50% 50%, rgba(236, 72, 153, 0.45), rgba(236, 72, 153, 0.15)), rgba(10, 10, 15, 0.85);
         border-color: rgba(236, 72, 153, 0.5);
+      }
+
+      .vpad-stick {
+        position: absolute;
+        width: calc(100px * var(--vpad-scale));
+        height: calc(100px * var(--vpad-scale));
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1.5px solid rgba(255, 255, 255, 0.2);
+        box-shadow: inset 0 2px 12px rgba(0,0,0,0.5), 0 6px 18px rgba(0,0,0,0.4);
+        backdrop-filter: blur(8px);
+        pointer-events: auto;
+        touch-action: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .vpad-stick.is-active {
+        border-color: rgba(236, 72, 153, 0.75);
+        background: rgba(236, 72, 153, 0.14);
+      }
+      .vpad-stick-left {
+        left: calc(max(16px, env(safe-area-inset-left)) + ((var(--vpad-btn-size) * 3 + var(--vpad-gap) * 2 + var(--vpad-padding) * 2) * var(--vpad-scale)) + 14px);
+        bottom: max(24px, env(safe-area-inset-bottom));
+      }
+      .vpad-stick-right {
+        right: calc(max(16px, env(safe-area-inset-right)) + ((var(--vpad-btn-size) * 3 + var(--vpad-gap) * 2 + var(--vpad-padding) * 2) * var(--vpad-scale)) + 14px);
+        bottom: max(24px, env(safe-area-inset-bottom));
+      }
+      .vpad-stick-thumb {
+        width: calc(42px * var(--vpad-scale));
+        height: calc(42px * var(--vpad-scale));
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.55), rgba(236,72,153,0.45));
+        border: 1.5px solid rgba(255,255,255,0.6);
+        box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+        pointer-events: none;
+        font-size: calc(9px * var(--vpad-scale));
+        font-weight: 800;
+        color: rgba(255,255,255,0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        will-change: transform;
       }
 
       .vpad-system {
@@ -616,9 +665,15 @@ export function renderEmulatorPage({ title, returnTo, romHash, queryString, syst
     </div>
 
     <div class="virtual-pad" id="cabinet-vpad">
-      <div class="vpad-shoulders">
-        <button type="button" data-ejs-input="10">L</button>
-        <button type="button" data-ejs-input="11">R</button>
+      <div class="vpad-shoulders" id="vpad-shoulders">
+        <div class="vpad-shoulder-group" id="vpad-shoulders-left">
+          <button type="button" id="vpad-btn-l" data-ejs-input="10">L</button>
+          <button type="button" id="vpad-btn-zl" data-ejs-input="12">ZL</button>
+        </div>
+        <div class="vpad-shoulder-group" id="vpad-shoulders-right">
+          <button type="button" id="vpad-btn-zr" data-ejs-input="13">ZR</button>
+          <button type="button" id="vpad-btn-r" data-ejs-input="11">R</button>
+        </div>
       </div>
       <div class="vpad-system">
         <button type="button" data-ejs-input="2">SELECT</button>
@@ -629,6 +684,12 @@ export function renderEmulatorPage({ title, returnTo, romHash, queryString, syst
         <button type="button" class="left" data-ejs-input="6">←</button>
         <button type="button" class="right" data-ejs-input="7">→</button>
         <button type="button" class="down" data-ejs-input="5">↓</button>
+      </div>
+      <div class="vpad-stick vpad-stick-left" id="vpad-stick-left" style="display:none;">
+        <div class="vpad-stick-thumb">L</div>
+      </div>
+      <div class="vpad-stick vpad-stick-right" id="vpad-stick-right" style="display:none;">
+        <div class="vpad-stick-thumb">R</div>
       </div>
       <div class="vpad-face">
         <button type="button" class="x" data-ejs-input="9">X</button>
@@ -926,6 +987,81 @@ function cabinetSetupVirtualPad() {
       cabinetSimulateInput(input, false);
     };
   });
+
+  // Platform-aware shoulder & analog stick visibility
+  var sys = (document.body.getAttribute("data-system") || "").toLowerCase();
+  var noShoulders = { nes:1, gb:1, gbc:1, mastersystem:1, gamegear:1, atari2600:1, atari5200:1, atari7800:1, coleco:1, ngp:1, wonderswan:1 };
+  var dualShoulders = { ps1:1, ps2:1, n64:1, gc:1, dreamcast:1, saturn:1, arcade:1, mame:1, fbneo:1 };
+  var leftStickSys = { n64:1, ps1:1, ps2:1, psp:1, dreamcast:1, saturn:1, gc:1, nds:1, "3ds":1, arcade:1, mame:1, fbneo:1 };
+  var rightStickSys = { n64:1, ps1:1, ps2:1, gc:1 };
+
+  var shWrap = document.getElementById("vpad-shoulders");
+  var btnZl = document.getElementById("vpad-btn-zl");
+  var btnZr = document.getElementById("vpad-btn-zr");
+  var stickL = document.getElementById("vpad-stick-left");
+  var stickR = document.getElementById("vpad-stick-right");
+
+  if (noShoulders[sys]) {
+    if (shWrap) shWrap.style.display = "none";
+  } else if (!dualShoulders[sys]) {
+    if (btnZl) btnZl.style.display = "none";
+    if (btnZr) btnZr.style.display = "none";
+  }
+  if (stickL) stickL.style.display = leftStickSys[sys] ? "flex" : "none";
+  if (stickR) stickR.style.display = rightStickSys[sys] ? "flex" : "none";
+
+  function bindEjsStick(stickEl, posXIdx, negXIdx, posYIdx, negYIdx) {
+    if (!stickEl) return;
+    var thumb = stickEl.querySelector(".vpad-stick-thumb");
+    var activeId = null;
+    function sendAxis(idx, val) {
+      var emu = window.EJS_emulator;
+      if (emu && emu.gameManager && typeof emu.gameManager.simulateInput === "function") {
+        emu.gameManager.simulateInput(0, idx, val);
+      }
+    }
+    function move(clientX, clientY) {
+      var rect = stickEl.getBoundingClientRect();
+      var cx = rect.left + rect.width / 2;
+      var cy = rect.top + rect.height / 2;
+      var maxR = Math.max(24, rect.width * 0.35);
+      var dx = clientX - cx;
+      var dy = clientY - cy;
+      var dist = Math.hypot(dx, dy);
+      if (dist > maxR) { dx = (dx / dist) * maxR; dy = (dy / dist) * maxR; }
+      if (thumb) thumb.style.transform = "translate3d(" + dx.toFixed(1) + "px," + dy.toFixed(1) + "px,0)";
+      var nx = dx / maxR;
+      var ny = dy / maxR;
+      sendAxis(posXIdx, nx > 0.1 ? Math.round(nx * 0x7fff) : 0);
+      sendAxis(negXIdx, nx < -0.1 ? Math.round(-nx * 0x7fff) : 0);
+      sendAxis(posYIdx, ny > 0.1 ? Math.round(ny * 0x7fff) : 0);
+      sendAxis(negYIdx, ny < -0.1 ? Math.round(-ny * 0x7fff) : 0);
+    }
+    stickEl.onpointerdown = function(e) {
+      e.preventDefault();
+      activeId = e.pointerId;
+      stickEl.classList.add("is-active");
+      if (stickEl.setPointerCapture) stickEl.setPointerCapture(e.pointerId);
+      move(e.clientX, e.clientY);
+    };
+    stickEl.onpointermove = function(e) {
+      if (activeId !== e.pointerId) return;
+      e.preventDefault();
+      move(e.clientX, e.clientY);
+    };
+    stickEl.onpointerup = stickEl.onpointercancel = function(e) {
+      if (activeId !== null && e.pointerId !== activeId) return;
+      e.preventDefault();
+      activeId = null;
+      stickEl.classList.remove("is-active");
+      if (thumb) thumb.style.transform = "translate3d(0,0,0)";
+      sendAxis(posXIdx, 0); sendAxis(negXIdx, 0); sendAxis(posYIdx, 0); sendAxis(negYIdx, 0);
+    };
+  }
+
+  bindEjsStick(stickL, 16, 17, 18, 19);
+  bindEjsStick(stickR, 20, 21, 22, 23);
+
   setPadVisible(visible);
 }
 

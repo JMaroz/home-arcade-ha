@@ -87,6 +87,23 @@ export function slugify(value: string) {
   );
 }
 
+/**
+ * Extracts the slug portion from an uploaded ROM filename of the form
+ * `<system>_<slug>_<7..10-char-base36>.<ext>` (e.g. `ps1_ape_escape_mqwatvdb.chd` -> `ape_escape`),
+ * or falls back to `slugify(titleFromFileName(fileName))`.
+ */
+export function extractUploadedSlug(fileName: string, system?: string): string {
+  const base = path.basename(fileName, path.extname(fileName));
+  const re = system
+    ? new RegExp(`^${system.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_(.+)_[a-z0-9]{7,10}$`, "i")
+    : /^[a-z0-9]+_(.+)_[a-z0-9]{7,10}$/i;
+  const match = base.match(re);
+  if (match && match[1]) {
+    return match[1].toLowerCase();
+  }
+  return slugify(titleFromFileName(fileName));
+}
+
 export function normalizeTitle(value: string) {
   return value
     .toLowerCase()

@@ -12,7 +12,7 @@ import fsSync from "fs";
 import path from "path";
 import crypto from "node:crypto";
 
-import { slugify } from "./routes/utils";
+import { slugify, titleFromFileName, extractUploadedSlug } from "./routes/utils";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lookup tables
@@ -255,8 +255,34 @@ async function scanPath(
     if (ext === ".m3u") {
       isPlaylist = true;
       try {
-        m3uContent = await fs.readFile(filePath, "utf8");
+        const raw = await fs.readFile(filePath, "utf8");
+        m3uContent = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
       } catch { /* ignore */ }
+
+      // Skip orphaned .m3u files whose referenced disc files do not exist in the directory
+      const refs = (m3uContent ?? "")
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0 && !l.startsWith("#"));
+      const m3uDir = path.dirname(filePath);
+      const siblingFiles = romFiles
+        .filter((f) => path.dirname(f) === m3uDir && path.extname(f).toLowerCase() !== ".m3u")
+        .map((f) => path.basename(f));
+
+      const hasMatchingDisc = refs.some((ref) => {
+        const refBase = path.basename(ref).toLowerCase();
+        const targetSlug = slugify(titleFromFileName(ref));
+        return siblingFiles.some(
+          (sf) =>
+            sf.toLowerCase() === refBase ||
+            (targetSlug && extractUploadedSlug(sf, system) === targetSlug)
+        );
+      });
+
+      if (!hasMatchingDisc) {
+        console.log(`[Scanner] Skipping orphaned M3U playlist with missing disc files: ${fileName}`);
+        continue;
+      }
     } else {
       const discMatch = title.match(/\s*[\(\[](?:disc|disk|cd)\s*(\d+)[\)\]]|\s+(?:disc|disk|cd)\s*(\d+)/i);
       discNumber = discMatch ? parseInt(discMatch[1] ?? discMatch[2], 10) : null;

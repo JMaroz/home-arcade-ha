@@ -307,18 +307,9 @@ export function registerRomRoutes(app: Express) {
       await storage.relinkSaveSlotsByHash(saved.id, romHash);
     }
 
-    // If this is an M3U, link any existing disc records via parentM3uId
+    // If this is an M3U, link any existing disc records via parentM3uId (including slug-renamed CHDs)
     if (isM3u && m3uContent) {
-      const refs = m3uContent
-        .split("\n")
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0 && !l.startsWith("#"));
-      for (const ref of refs) {
-        const existing = await storage.findRomByOriginalName(ref);
-        if (existing && !existing.isPlaylist && !existing.parentM3uId) {
-          await storage.updateUploadedRomFile(existing.id, { parentM3uId: saved.id });
-        }
-      }
+      await storage.resolveM3uDiscs(saved);
       const baseTitle = slugify(title);
       const grouped = await storage.listRomsByDiscGroupNoM3u(`${system}/${baseTitle}`);
       for (const disc of grouped) {
@@ -1008,7 +999,7 @@ export function registerRomRoutes(app: Express) {
     const rom = await storage.getUploadedRom(id);
     if (!rom) return res.status(404).json({ message: "Uploaded ROM not found." });
     if (rom.isPlaylist) {
-      const children = await storage.listChildrenByM3uId(rom.id);
+      const children = await storage.resolveM3uDiscs(rom);
       if (children.length > 0) return res.json(children);
     }
     if (rom.parentM3uId) {
@@ -1102,41 +1093,22 @@ export function registerRomRoutes(app: Express) {
     let gameUrlIsArray = false;
     let externalFiles: Record<string, string> = {};
 
-    if (rom.isPlaylist && rom.m3uContent) {
-      // M3U record — resolve each referenced file to a child disc record
-      const refs = rom.m3uContent.split("\n")
-        .map(l => l.trim())
-        .filter(l => l.length > 0 && !l.startsWith("#"));
-      const children = await storage.listChildrenByM3uId(rom.id);
-      let resolved: Array<{ id: number; label: string; fileName: string; originalName: string }> = [];
+    if (rom.isPlaylist) {
+      // M3U record — resolve each referenced file to a child disc record (including slug-renamed CHDs)
+      const children = await storage.resolveM3uDiscs(rom);
+      const resolved = children.map((s) => ({
+        id: s.id,
+        label: s.discNumber ? `Disc ${s.discNumber}` : s.title,
+        fileName: s.fileName,
+        originalName: s.originalName,
+      }));
 
-      if (children.length > 0) {
-        resolved = children.map(s => ({
-          id: s.id,
-          label: s.discNumber ? `Disc ${s.discNumber}` : s.title,
-          fileName: s.fileName,
-          originalName: s.originalName
-        }));
-      } else if (refs.length > 0) {
-        for (const ref of refs) {
-          const found = await storage.findRomByOriginalName(ref);
-          if (found) {
-            resolved.push({
-              id: found.id,
-              label: found.discNumber ? `Disc ${found.discNumber}` : found.title,
-              fileName: found.fileName,
-              originalName: found.originalName
-            });
-          }
-        }
-      }
-
-      if (resolved.length === 1) {
-        // Single-disc M3U — boot directly the resolved disc image (e.g. Ape Escape.chd)
-        const singleChild = await storage.getUploadedRom(resolved[0].id);
-        if (singleChild) {
-          bootRom = singleChild;
-        }
+      if (resolved.length === 0) {
+        res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+        return res.send(renderBootstrapError(`M3U playlist "${rom.title}" references missing disc files on disk.`));
+      } else if (resolved.length === 1) {
+        // Single-disc M3U — boot directly the resolved disc image (e.g. ps1_ape_escape_mqwatvdb.chd)
+        bootRom = children[0];
       } else if (resolved.length > 1) {
         // Multi-disc M3U: populate externalFiles for EmulatorJS virtual filesystem
         discs = resolved.map(d => ({ id: d.id, label: d.label, fileName: d.fileName }));

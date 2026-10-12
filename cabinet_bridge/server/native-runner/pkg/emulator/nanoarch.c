@@ -36,6 +36,7 @@ typedef struct {
     uint32_t buttons[INPUT_MAX_PORTS];
     int16_t analog[INPUT_MAX_PORTS][4];     // LX, LY, RX, RY
     int16_t triggers[INPUT_MAX_PORTS][2];   // L2, R2
+    uint8_t analog_polled[INPUT_MAX_PORTS];
 
     uint8_t keyboard[INPUT_MAX_KEYS];
     int16_t mouse_x;
@@ -194,7 +195,9 @@ bool core_environment_cgo(unsigned cmd, void *data) {
           return true;
           break;
         case RETRO_ENVIRONMENT_GET_INPUT_BITMASKS:
-          return false;
+        case 51:
+          if (data != NULL) *(bool *)data = true;
+          return true;
         case RETRO_ENVIRONMENT_SHUTDOWN:
           return false;
           break;
@@ -221,12 +224,29 @@ int16_t core_input_state_cgo(unsigned port, unsigned device, unsigned index, uns
     }
 
     switch (device) {
-        case RETRO_DEVICE_JOYPAD:
-            return (int16_t)((input_cache.buttons[port] >> id) & 1);
+        case RETRO_DEVICE_JOYPAD: {
+            uint32_t btns = input_cache.buttons[port];
+            if (!input_cache.analog_polled[port]) {
+                int16_t lx = input_cache.analog[port][0];
+                int16_t ly = input_cache.analog[port][1];
+                if (lx < -0x3000) btns |= (1u << RETRO_DEVICE_ID_JOYPAD_LEFT);
+                if (lx >  0x3000) btns |= (1u << RETRO_DEVICE_ID_JOYPAD_RIGHT);
+                if (ly < -0x3000) btns |= (1u << RETRO_DEVICE_ID_JOYPAD_UP);
+                if (ly >  0x3000) btns |= (1u << RETRO_DEVICE_ID_JOYPAD_DOWN);
+            }
+            if (id == RETRO_DEVICE_ID_JOYPAD_MASK) {
+                return (int16_t)(btns & 0xFFFF);
+            }
+            if (id < 16) {
+                return (int16_t)((btns >> id) & 1);
+            }
+            return 0;
+        }
 
         case RETRO_DEVICE_ANALOG:
             switch (index) {
                 case RETRO_DEVICE_INDEX_ANALOG_LEFT:
+                    input_cache.analog_polled[port] = 1;
                     // id: RETRO_DEVICE_ID_ANALOG_X=0, RETRO_DEVICE_ID_ANALOG_Y=1
                     if (id <= RETRO_DEVICE_ID_ANALOG_Y) {
                         int16_t val = input_cache.analog[port][id];
@@ -245,6 +265,7 @@ int16_t core_input_state_cgo(unsigned port, unsigned device, unsigned index, uns
                     }
                     break;
                 case RETRO_DEVICE_INDEX_ANALOG_RIGHT:
+                    input_cache.analog_polled[port] = 1;
                     // id: RETRO_DEVICE_ID_ANALOG_X=0, RETRO_DEVICE_ID_ANALOG_Y=1
                     if (id <= RETRO_DEVICE_ID_ANALOG_Y) {
                         return input_cache.analog[port][2 + id];
@@ -253,15 +274,16 @@ int16_t core_input_state_cgo(unsigned port, unsigned device, unsigned index, uns
                 case RETRO_DEVICE_INDEX_ANALOG_BUTTON:
                     // Any button can be queried as analog
                     // id = RETRO_DEVICE_ID_JOYPAD_* (0-15)
-                    // For now, only L2/R2 have analog values
                     switch (id) {
                         case RETRO_DEVICE_ID_JOYPAD_L2:
-                            return input_cache.triggers[port][0];
+                            if (input_cache.triggers[port][0] != 0) return input_cache.triggers[port][0];
+                            return ((input_cache.buttons[port] >> RETRO_DEVICE_ID_JOYPAD_L2) & 1) ? 0x7FFF : 0;
                         case RETRO_DEVICE_ID_JOYPAD_R2:
-                            return input_cache.triggers[port][1];
+                            if (input_cache.triggers[port][1] != 0) return input_cache.triggers[port][1];
+                            return ((input_cache.buttons[port] >> RETRO_DEVICE_ID_JOYPAD_R2) & 1) ? 0x7FFF : 0;
                         default:
                             // Other buttons: return digital as 0 or 0x7fff
-                            return ((input_cache.buttons[port] >> id) & 1) ? 0x7FFF : 0;
+                            return (id < 16 && ((input_cache.buttons[port] >> id) & 1)) ? 0x7FFF : 0;
                     }
                     break;
             }
