@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.59.2](https://github.com/JMaroz/home-arcade-ha/compare/v2.59.1...v2.59.2) (2026-10-12)
+
+
+### Bug Fixes
+
+* resolve M3U discs and extend gamepad input ([de75de6](https://github.com/JMaroz/home-arcade-ha/commit/de75de6f2f99c12fa07d100684cb1414f0399793))
+
 ## [2.59.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.59.0...v2.59.1) (2026-10-11)
 
 
