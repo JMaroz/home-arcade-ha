@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.60.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.59.2...v2.60.0) (2026-10-14)
+
+
+### Features
+
+* add Archive downloads and platform support ([df6236f](https://github.com/JMaroz/home-arcade-ha/commit/df6236f46bbc7a9d963cb09cd235a0e4a9d1bb19))
+
 ## [2.59.2](https://github.com/JMaroz/home-arcade-ha/compare/v2.59.1...v2.59.2) (2026-10-12)
 
 
