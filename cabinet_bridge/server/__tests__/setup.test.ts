@@ -102,6 +102,8 @@ describe("Native Streaming & Runner Manager", () => {
     expect(SYSTEM_TO_NATIVE_CORE["snes"]).toBe("snes9x_libretro.so");
     expect(SYSTEM_TO_NATIVE_CORE["genesis"]).toBe("genesis_plus_gx_libretro.so");
     expect(SYSTEM_TO_NATIVE_CORE["arcade"]).toBe("fbneo_libretro.so");
+    expect(SYSTEM_TO_NATIVE_CORE["psp"]).toBe("ppsspp_libretro.so");
+    expect(SYSTEM_TO_NATIVE_CORE["ps2"]).toBe("pcsx2_libretro.so");
   });
 
   it("should reject startSession when ROM does not exist", async () => {

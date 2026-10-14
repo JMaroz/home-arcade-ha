@@ -28,7 +28,7 @@ export const ROM_EXTENSIONS: Record<string, string[]> = {
   gb: [".gb", ".zip", ".7z"],
   gbc: [".gbc", ".zip", ".7z"],
   nds: [".nds", ".zip", ".7z"],
-  psp: [".iso", ".cso", ".pbp", ".zip", ".7z"],
+  psp: [".iso", ".cso", ".pbp", ".chd", ".zip", ".7z"],
 };
 
 export const MAX_UPLOAD_MB = (() => {

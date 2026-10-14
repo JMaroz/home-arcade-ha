@@ -389,8 +389,9 @@ export function registerRomRoutes(app: Express) {
       const safeName = `${slug}${extension}`;
 
       const customDest = req.query.dest ? String(req.query.dest).trim() : "";
-      const systemDir = customDest ? path.resolve(customDest) : path.join(ROM_ROOT, system);
-      const filePath = path.join(systemDir, safeName);
+      const settings = await storage.getIntegrationSettings();
+      const baseDest = settings.defaultRomDirectory ? path.resolve(settings.defaultRomDirectory) : ROM_ROOT;
+      let systemDir = customDest ? path.resolve(customDest) : path.join(baseDest, system);
 
       // Validate custom dest is within allowed browse roots
       if (customDest) {
@@ -402,7 +403,18 @@ export function registerRomRoutes(app: Express) {
         }
       }
 
-      await fs.mkdir(systemDir, { recursive: true });
+      try {
+        await fs.mkdir(systemDir, { recursive: true });
+      } catch (err: any) {
+        // Fallback to internal ROM_ROOT if defaultRomDirectory is not writable (e.g. /share on non-HA systems)
+        if (!customDest && baseDest !== ROM_ROOT && (err.code === "EACCES" || err.code === "EPERM" || err.code === "ENOENT")) {
+          systemDir = path.join(ROM_ROOT, system);
+          await fs.mkdir(systemDir, { recursive: true });
+        } else {
+          throw err;
+        }
+      }
+      const filePath = path.join(systemDir, safeName);
 
       const hash = crypto.createHash("md5");
       let totalSize = 0;
@@ -489,12 +501,24 @@ export function registerRomRoutes(app: Express) {
       }
 
       const customDest = dest ? String(dest).trim() : "";
-      const systemDir = customDest ? path.resolve(customDest) : path.join(ROM_ROOT, system);
+      const settings = await storage.getIntegrationSettings();
+      const baseDest = settings.defaultRomDirectory ? path.resolve(settings.defaultRomDirectory) : ROM_ROOT;
+      let systemDir = customDest ? path.resolve(customDest) : path.join(baseDest, system);
       if (customDest) {
         const { resolveRequestedDirectory } = await import("./filesystem");
         try { resolveRequestedDirectory(customDest); } catch { return res.status(403).json({ message: "Destination directory is not allowed." }); }
       }
-      await fs.mkdir(systemDir, { recursive: true });
+      try {
+        await fs.mkdir(systemDir, { recursive: true });
+      } catch (err: any) {
+        // Fallback to internal ROM_ROOT if defaultRomDirectory is not writable (e.g. /share on non-HA systems)
+        if (!customDest && baseDest !== ROM_ROOT && (err.code === "EACCES" || err.code === "EPERM" || err.code === "ENOENT")) {
+          systemDir = path.join(ROM_ROOT, system);
+          await fs.mkdir(systemDir, { recursive: true });
+        } else {
+          throw err;
+        }
+      }
 
       const uploadId = crypto.randomUUID();
       const sessionDir = path.join(CHUNKS_DIR, uploadId);
@@ -1015,6 +1039,12 @@ export function registerRomRoutes(app: Express) {
     const id = Number(req.params.id);
     const rom = await storage.getUploadedRom(id);
     if (!rom) return res.status(404).send(renderPlayerError("Uploaded ROM not found."));
+    if (rom.system === "ps2") {
+      const ingressMatch = req.originalUrl.match(/^\/api\/(?:hassio_)?ingress\/[^\/]+/);
+      const resolvedBase = ingressMatch ? ingressMatch[0] : "";
+      const qString = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+      return res.redirect(302, `${resolvedBase}/api/roms/${id}/stream-player${qString}`);
+    }
     const core = EMULATORJS_CORES[rom.system];
     if (!core) return res.status(400).send(renderPlayerError(`${rom.system.toUpperCase()} is not configured for browser play yet.`));
     await storage.markUploadedRomPlayed(id);

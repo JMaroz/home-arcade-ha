@@ -229,13 +229,15 @@ export function GameDetailDialog({
   if (!game) return null;
   const system = SYSTEMS.find((s) => s.id === game.system);
   const endpoint = gameLaunchEndpoint(game);
+  const isPs2 = game.system === "ps2";
 
   const launch = async () => {
     const romId = selectedRomId || game.romId;
     if (romId) {
       setLaunching(true);
       const returnTo = encodeURIComponent(window.location.href);
-      const playerPath = engine === "native" ? `/api/roms/${romId}/stream-player` : `/api/roms/${romId}/player`;
+      const effectiveEngine = isPs2 ? "native" : engine;
+      const playerPath = effectiveEngine === "native" ? `/api/roms/${romId}/stream-player` : `/api/roms/${romId}/player`;
       const playerUrl = apiUrl(`${playerPath}?return=${returnTo}&profile=${profileId}`);
       try {
         const probe = await fetch(playerUrl, { method: "HEAD" });
@@ -777,39 +779,53 @@ export function GameDetailDialog({
 
             {/* Emulation Engine Selector */}
             {game.romId ? (
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-1 border-t border-border/40">
-                <span className="text-[11px] font-mono uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
-                  <Cpu className="size-3 text-primary" /> Engine:
-                </span>
-                <div className="inline-flex rounded-lg border border-border/60 bg-muted/30 p-0.5 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => handleSetEngine("wasm")}
-                    className={`px-2.5 py-1 rounded-md font-mono text-[11px] transition-colors flex items-center gap-1.5 ${
-                      engine === "wasm"
-                        ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    data-testid="button-engine-wasm"
-                    title="Runs inside your client web browser via WebAssembly (EmulatorJS) — Recommended & fully stable"
+              isPs2 ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-1 border-t border-border/40">
+                  <span className="text-[11px] font-mono uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
+                    <Cpu className="size-3 text-primary" /> Engine:
+                  </span>
+                  <div 
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono text-[11px] bg-primary/20 text-primary border border-primary/40 font-semibold shadow-sm"
+                    title="PS2 opera esclusivamente via Native WebRTC Streaming per garantire 60 FPS ed evitare limiti WASM."
                   >
-                    <Globe className="size-3" /> WebAssembly (Consigliato)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSetEngine("native")}
-                    className={`px-2.5 py-1 rounded-md font-mono text-[11px] transition-colors flex items-center gap-1.5 ${
-                      engine === "native"
-                        ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    data-testid="button-engine-native"
-                    title="Experimental native WebRTC runner on Raspberry Pi (Beta preview)"
-                  >
-                    <Zap className="size-3 fill-current" /> Native (Beta Preview)
-                  </button>
+                    <Zap className="size-3 fill-current" /> Native WebRTC (60 FPS)
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-1 border-t border-border/40">
+                  <span className="text-[11px] font-mono uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
+                    <Cpu className="size-3 text-primary" /> Engine:
+                  </span>
+                  <div className="inline-flex rounded-lg border border-border/60 bg-muted/30 p-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => handleSetEngine("wasm")}
+                      className={`px-2.5 py-1 rounded-md font-mono text-[11px] transition-colors flex items-center gap-1.5 ${
+                        engine === "wasm"
+                          ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      data-testid="button-engine-wasm"
+                      title="Runs inside your client web browser via WebAssembly (EmulatorJS) — Recommended & fully stable"
+                    >
+                      <Globe className="size-3" /> WebAssembly (Consigliato)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetEngine("native")}
+                      className={`px-2.5 py-1 rounded-md font-mono text-[11px] transition-colors flex items-center gap-1.5 ${
+                        engine === "native"
+                          ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      data-testid="button-engine-native"
+                      title="Experimental native WebRTC runner on Raspberry Pi (Beta preview)"
+                    >
+                      <Zap className="size-3 fill-current" /> Native (Beta Preview)
+                    </button>
+                  </div>
+                </div>
+              )
             ) : null}
 
             {/* Action buttons */}
@@ -824,8 +840,8 @@ export function GameDetailDialog({
                 {launching
                   ? "Launching…"
                   : game.romId
-                  ? engine === "native"
-                    ? "Play (Native Beta)"
+                  ? isPs2 || engine === "native"
+                    ? "Play (Native Stream)"
                     : "Play (WASM)"
                   : "Launch"}
               </Button>

@@ -78,6 +78,23 @@ export async function checkSetupStatus() {
             }
           } catch {}
         }
+        // Fallback check for ps2 if pcsx2 is missing but play_libretro is installed
+        if (c.system === "ps2") {
+          const altPath = path.join(CORES_DIR, "play_libretro.so");
+          try {
+            const stat = await fs.stat(altPath);
+            if (stat.isFile() && stat.size > 0) {
+              return {
+                id: c.id,
+                name: "play_libretro.so",
+                label: c.label,
+                system: c.system,
+                installed: true,
+                size: stat.size,
+              };
+            }
+          } catch {}
+        }
         return {
           id: c.id,
           name: c.name,
@@ -160,6 +177,7 @@ export async function checkSetupStatus() {
     totalBios: downloadableBios.length,
     installedBios: downloadableBios.length - missingDownloadableBios.length,
     watchPaths,
+    defaultRomDirectory: settings.defaultRomDirectory || "/share/roms",
     suggestedLocations,
     progress: currentProgress,
   };
@@ -209,12 +227,14 @@ export function registerSetupRoutes(app: Express) {
 
       await storage.saveIntegrationSettings({
         ...settings,
+        defaultRomDirectory: folderPath,
         libraryWatchPaths: existing.join(", "),
       });
 
       res.json({
         success: true,
         path: folderPath,
+        defaultRomDirectory: folderPath,
         watchPaths: existing,
         message: "ROM folder configured successfully",
       });

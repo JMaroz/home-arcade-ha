@@ -146,6 +146,16 @@ export class StreamRunnerManager {
         } catch {
           throw new Error(`Native core '${coreFilename}' is not installed in ${coresDir}. Please run First-Run Setup.`);
         }
+      } else if (rom.system.toLowerCase() === "ps2") {
+        const altCore = coreFilename === "pcsx2_libretro.so" ? "play_libretro.so" : "pcsx2_libretro.so";
+        const altPath = path.join(coresDir, altCore);
+        try {
+          await fs.access(altPath);
+          coreFilename = altCore;
+          corePath = altPath;
+        } catch {
+          throw new Error(`Native core '${coreFilename}' is not installed in ${coresDir}. Please run First-Run Setup.`);
+        }
       } else {
         throw new Error(`Native core '${coreFilename}' is not installed in ${coresDir}. Please run First-Run Setup.`);
       }

@@ -27,8 +27,15 @@ export const REQUIRED_BIOS: Record<string, BiosEntry[]> = {
   ],
   play: [
     { filename: "scph39001.bin", md5: "d5ce2c7d119f563ce04bc04dbc3a323e", label: "USA v1.60", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-39001.bin` },
-    { filename: "scph70008.bin", md5: "9a0a1a5b6c7d8e9f0a1b2c3d4e5f6a7b", label: "Generic v2.0" },
-    { filename: "ps2_bios.bin",  md5: "00000000000000000000000000000000", label: "Custom" },
+    { filename: "scph70004.bin", md5: "9a0a1a5b6c7d8e9f0a1b2c3d4e5f6a7b", label: "Europe v2.0", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-70004.bin` },
+  ],
+  pcsx2: [
+    { filename: "scph39001.bin", md5: "d5ce2c7d119f563ce04bc04dbc3a323e", label: "USA v1.60", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-39001.bin` },
+    { filename: "scph70004.bin", md5: "9a0a1a5b6c7d8e9f0a1b2c3d4e5f6a7b", label: "Europe v2.0", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-70004.bin` },
+  ],
+  ps2: [
+    { filename: "scph39001.bin", md5: "d5ce2c7d119f563ce04bc04dbc3a323e", label: "USA v1.60", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-39001.bin` },
+    { filename: "scph70004.bin", md5: "9a0a1a5b6c7d8e9f0a1b2c3d4e5f6a7b", label: "Europe v2.0", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-70004.bin` },
   ],
   segacd: [
     { filename: "bios_CD_U.bin", md5: "2efd74e3232ff260e371b99f84024f7f", label: "USA", sourceUrl: `${RETROBIOS_BASE}/Sega/Mega%20CD/bios_CD_U.bin` },
@@ -46,7 +53,9 @@ export const REQUIRED_BIOS: Record<string, BiosEntry[]> = {
 export const CORE_PERFORMANCE_TIERS: Record<string, { arm64: PerformanceTier; x64: PerformanceTier }> = {
   pcsx_rearmed: { arm64: "excellent", x64: "excellent" },
   psx: { arm64: "excellent", x64: "excellent" },
-  play: { arm64: "unplayable", x64: "experimental" },
+  play: { arm64: "marginal", x64: "good" },
+  pcsx2: { arm64: "playable", x64: "excellent" },
+  ps2: { arm64: "playable", x64: "excellent" },
   segacd: { arm64: "excellent", x64: "excellent" },
   mgba: { arm64: "excellent", x64: "excellent" },
   saturn: { arm64: "playable", x64: "excellent" },
@@ -57,6 +66,6 @@ export const CORE_PERFORMANCE_TIERS: Record<string, { arm64: PerformanceTier; x6
   segaMD: { arm64: "excellent", x64: "excellent" },
   fbneo: { arm64: "excellent", x64: "excellent" },
   melonds: { arm64: "playable", x64: "good" },
-  ppsspp: { arm64: "playable", x64: "good" },
+  ppsspp: { arm64: "excellent", x64: "excellent" },
 };
 

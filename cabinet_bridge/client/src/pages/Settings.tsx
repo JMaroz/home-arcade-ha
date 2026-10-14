@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { DisplaySettings } from "./settings/DisplaySettings";
 import { ControlsSettings } from "./settings/ControlsSettings";
-import { LibrarySettings } from "./settings/LibrarySettings";
+import { GamesStorageSettings } from "./settings/GamesStorageSettings";
 import { ServicesSettings } from "./settings/ServicesSettings";
 import { AutomationsSettings } from "./settings/AutomationsSettings";
 import { PlayStats } from "@/components/PlayStats";
@@ -49,7 +49,7 @@ const GROUPS = [
     label: "Library",
     icon: Layers,
     tabs: [
-      { id: "library", label: "Management", icon: Database },
+      { id: "library", label: "Games & Storage", icon: Database },
       { id: "health", label: "Firmware", icon: Activity },
     ]
   },
@@ -212,7 +212,7 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground mt-1 max-w-prose">
                   {activeTab === "display" && "Language, Layout, and Visual Shaders."}
                   {activeTab === "controls" && "Input calibration and key remapping."}
-                  {activeTab === "library" && "ROM scanning, library health, and collection filters."}
+                  {activeTab === "library" && "Cloud sources, ROM storage, disk space, and game management."}
                   {activeTab === "health" && "BIOS firmware status and verification."}
                   {activeTab === "services" && "RetroAchievements, metadata scrapers, and cloud sync."}
                   {activeTab === "netplay" && "Nickname and multiplayer hosting options."}
@@ -226,7 +226,7 @@ export default function Settings() {
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <TabsContent value="display" className="m-0 focus-visible:outline-none"><DisplaySettings /></TabsContent>
                 <TabsContent value="controls" className="m-0 focus-visible:outline-none"><ControlsSettings /></TabsContent>
-                <TabsContent value="library" className="m-0 focus-visible:outline-none"><LibrarySettings /></TabsContent>
+                <TabsContent value="library" className="m-0 focus-visible:outline-none"><GamesStorageSettings /></TabsContent>
                 <TabsContent value="health" className="m-0 focus-visible:outline-none">
                   <Section title={t("settings.sections.health.title")} description={t("settings.sections.health.description")}>
                     <BiosManager />

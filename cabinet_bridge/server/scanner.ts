@@ -54,7 +54,7 @@ export const FOLDER_TO_SYSTEM: Record<string, string> = {
   "nds": "nds", "ds": "nds", "nintendods": "nds",
   "3ds": "3ds", "gamecube": "gamecube", "gc": "gamecube", "wii": "wii",
   "ps1": "ps1", "psx": "ps1", "playstation": "ps1",
-  "ps2": "ps2", "playstation2": "ps2", "psp": "psp",
+  "ps2": "ps2", "playstation2": "ps2", "psp": "psp", "playstationportable": "psp",
   "genesis": "genesis", "megadrive": "genesis",
   "mastersystem": "sms", "sms": "sms",
   "gamegear": "gamegear", "gg": "gamegear",
@@ -74,6 +74,7 @@ export const FOLDER_TO_SYSTEM: Record<string, string> = {
 };
 
 const ROM_EXTENSIONS = new Set(Object.keys(EXT_TO_SYSTEM));
+const MAX_DEPTH = 6;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -124,8 +125,8 @@ export async function computeFileHash(filePath: string): Promise<string> {
 // State
 // ─────────────────────────────────────────────────────────────────────────────
 
-const POLL_INTERVAL_MS = 300_000; // 5 minutes to prevent I/O thrashing on USB/NAS storage
-const MAX_DEPTH = 10; 
+// ponytail: scanner de-prioritizzato a safety net passivo; la scoperta e download primari sono gestiti da archive-downloader
+const POLL_INTERVAL_MS = 3_600_000; // 1 hour passive background check to avoid I/O thrashing 
 
 let _addRomsBulk: AddRomsBulkFn | null = null;
 let _listFilenames: ListFilenamesFn | null = null;

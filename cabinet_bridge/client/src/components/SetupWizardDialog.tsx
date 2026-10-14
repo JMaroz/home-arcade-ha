@@ -45,6 +45,7 @@ interface SetupStatus {
   installedCores: number;
   totalBios: number;
   installedBios: number;
+  defaultRomDirectory?: string;
   watchPaths?: string[];
   suggestedLocations?: SuggestedLocation[];
   cores: Array<{
@@ -128,7 +129,9 @@ export function SetupWizardDialog({ forceOpen, onOpenChange }: SetupWizardDialog
 
   // Populate default path when status is loaded
   useEffect(() => {
-    if (status?.watchPaths && status.watchPaths.length > 0) {
+    if (status?.defaultRomDirectory) {
+      setSelectedRomPath(status.defaultRomDirectory);
+    } else if (status?.watchPaths && status.watchPaths.length > 0) {
       setSelectedRomPath(status.watchPaths[0]);
     } else if (status?.suggestedLocations && status.suggestedLocations.length > 0) {
       setSelectedRomPath(status.suggestedLocations[0].path);

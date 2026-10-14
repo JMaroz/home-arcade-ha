@@ -99,6 +99,16 @@ export interface IntegrationConfig {
   webdavSyncEnabled?: boolean;
   /** WebDAV last sync timestamp */
   webdavLastSync?: number | null;
+  /** Default ROM directory for downloads and library storage */
+  defaultRomDirectory?: string;
+  /** Active archive download source (e.g. nointro-curated, tiny-best-set, myrient, custom) */
+  archiveSource?: string;
+  /** Custom Internet Archive item identifier */
+  archiveCustomId?: string;
+  /** Optional Internet Archive S3 Access Key */
+  archiveAccessKey?: string;
+  /** Optional Internet Archive S3 Secret Key */
+  archiveSecretKey?: string;
 }
 
 export type IntegrationSaveStatus = "idle" | "loading" | "saving" | "saved" | "error";
@@ -161,6 +171,11 @@ const defaultConfig: IntegrationConfig = {
   webdavPassword: "",
   webdavSyncEnabled: false,
   webdavLastSync: null,
+  defaultRomDirectory: "/share/roms",
+  archiveSource: "nointro-curated",
+  archiveCustomId: "",
+  archiveAccessKey: "",
+  archiveSecretKey: "",
 };
 
 const defaultPc: PcStatus = {
@@ -225,6 +240,11 @@ function normalizeConfig(raw: unknown): IntegrationConfig {
     showSystemLabels: typeof source.showSystemLabels === "boolean" ? source.showSystemLabels : true,
     globalAspectRatio: typeof source.globalAspectRatio === "string" ? source.globalAspectRatio : "auto",
     globalShader: typeof source.globalShader === "string" ? source.globalShader : "none",
+    defaultRomDirectory: typeof source.defaultRomDirectory === "string" ? source.defaultRomDirectory : "/share/roms",
+    archiveSource: typeof source.archiveSource === "string" ? source.archiveSource : "nointro-curated",
+    archiveCustomId: typeof source.archiveCustomId === "string" ? source.archiveCustomId : "",
+    archiveAccessKey: typeof source.archiveAccessKey === "string" ? source.archiveAccessKey : "",
+    archiveSecretKey: typeof source.archiveSecretKey === "string" ? source.archiveSecretKey : "",
   };
 }
 

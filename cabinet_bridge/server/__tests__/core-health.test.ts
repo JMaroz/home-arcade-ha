@@ -49,6 +49,8 @@ describe("Core Health & BIOS Validation", () => {
     expect(EMULATORJS_CORES["gb"]).toBe("gb");
     expect(EMULATORJS_CORES["gbc"]).toBe("gbc");
     expect(EMULATORJS_CORES["gba"]).toBe("mgba");
+    expect(EMULATORJS_CORES["psp"]).toBe("ppsspp");
+    expect(REQUIRED_BIOS["psp"]).toBeUndefined();
   });
 
   it("should use the 'play' core for PS2 to match BIOS and core files", () => {

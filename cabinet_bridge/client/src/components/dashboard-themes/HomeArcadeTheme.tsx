@@ -43,6 +43,7 @@ import {
   Search,
   Upload,
   ArrowLeft,
+  CloudDownload,
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import { useTranslation } from "react-i18next";
@@ -55,6 +56,7 @@ import Fuse from "fuse.js";
 import { useLocation } from "wouter";
 import { WarpLinkDialog } from "@/components/WarpLinkDialog";
 import { FilterBar, type SortOption, type FilterStatus } from "@/components/FilterBar";
+import { ArchiveDownloadDialog } from "@/components/ArchiveDownloadDialog";
 
 // ── sub-components ────────────────────────────────────────────────────────────
 
@@ -147,6 +149,7 @@ export default function HomeArcadeTheme() {
   const {
     data: pageData,
     isLoading: isRomsLoading,
+    refetch: refetchRoms,
   } = useQuery<{ roms: UploadedRom[]; total: number; hasMore: boolean }>({
     queryKey: ["/api/roms", { excludeChildren: true }],
     queryFn: async () => {
@@ -158,6 +161,14 @@ export default function HomeArcadeTheme() {
 
   const allRoms = useMemo(() => pageData?.roms ?? [], [pageData?.roms]);
   const totalGames = pageData?.total ?? allRoms.length;
+
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpenArchive = () => setArchiveDialogOpen(true);
+    window.addEventListener("homearcade:open-archive-download", handleOpenArchive);
+    return () => window.removeEventListener("homearcade:open-archive-download", handleOpenArchive);
+  }, []);
 
   const { data: collections = [] } = useQuery<GameCollectionWithItems[]>({ queryKey: ["/api/collections"] });
 
@@ -379,6 +390,15 @@ export default function HomeArcadeTheme() {
             </div>
             
             <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setArchiveDialogOpen(true)}
+                className="h-9 gap-2 rounded-full border-white/10 bg-white/5 hover:bg-white/10 hover:text-primary text-xs font-semibold px-4 transition-all"
+              >
+                <CloudDownload className="size-4 text-primary" />
+                <span className="hidden sm:inline">Scarica Giochi</span>
+              </Button>
               <div className="relative group hidden sm:block">
                 <Search className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors" />
                 <Input
@@ -409,32 +429,49 @@ export default function HomeArcadeTheme() {
             
             {/* 1. PORTALS VIEW (Default Landing) */}
             {view === "portals" && !searchQuery && (
-              <motion.div key="portals" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} transition={{ duration: 0.4, ease: "easeOut" }}
-                className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
-              >
-                {systemsWithGames.map((system, i) => {
-                  const count = allGames.filter(g => g.system === system.id).length;
-                  return (
-                    <motion.button key={system.id} whileHover={{ scale: 1.02, y: -4 }} whileTap={{ scale: 0.98 }} onClick={() => enterPortal(system.id)}
-                      className="group relative aspect-[16/11] rounded-3xl overflow-hidden border border-white/5 text-left transition-all hover:border-white/20 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)]"
-                      style={{ background: `linear-gradient(135deg, hsl(${system.art[0]}) 0%, hsl(${system.art[1]}) 100%)` }}
-                    >
-                      {system.image && (
-                        <img src={system.image.url} alt="" loading="lazy" decoding="async" className="absolute -right-4 -bottom-4 h-4/5 object-contain opacity-40 group-hover:scale-110 group-hover:opacity-70 transition-all duration-700 pointer-events-none" />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                      <div className="absolute inset-0 p-5 flex flex-col justify-between">
-                        <div className="font-black text-xs text-white/40 tracking-[0.2em]">{system.mono}</div>
-                        <div>
-                          <div className="font-display text-lg font-black uppercase leading-tight text-white drop-shadow-lg">{system.shortName}</div>
-                          <div className="text-[10px] font-mono text-white/50 uppercase tracking-widest mt-1 font-bold">{count} Games</div>
+              systemsWithGames.length === 0 ? (
+                <div className="col-span-full py-24 flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-4">
+                  <div className="size-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-lg shadow-primary/10">
+                    <CloudDownload className="size-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-display text-xl font-black uppercase tracking-tight text-foreground">Libreria Giochi Vuota</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Non hai ancora giochi installati. Puoi scaricare singoli titoli o intere collezioni con 1 click direttamente da Internet Archive.
+                    </p>
+                  </div>
+                  <Button onClick={() => setArchiveDialogOpen(true)} className="gap-2 font-bold uppercase tracking-wider text-xs px-6 py-5 rounded-2xl shadow-xl shadow-primary/20">
+                    <CloudDownload className="size-4" /> Sfoglia e Scarica Giochi
+                  </Button>
+                </div>
+              ) : (
+                <motion.div key="portals" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} transition={{ duration: 0.4, ease: "easeOut" }}
+                  className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+                >
+                  {systemsWithGames.map((system, i) => {
+                    const count = allGames.filter(g => g.system === system.id).length;
+                    return (
+                      <motion.button key={system.id} whileHover={{ scale: 1.02, y: -4 }} whileTap={{ scale: 0.98 }} onClick={() => enterPortal(system.id)}
+                        className="group relative aspect-[16/11] rounded-3xl overflow-hidden border border-white/5 text-left transition-all hover:border-white/20 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)]"
+                        style={{ background: `linear-gradient(135deg, hsl(${system.art[0]}) 0%, hsl(${system.art[1]}) 100%)` }}
+                      >
+                        {system.image && (
+                          <img src={system.image.url} alt="" loading="lazy" decoding="async" className="absolute -right-4 -bottom-4 h-4/5 object-contain opacity-40 group-hover:scale-110 group-hover:opacity-70 transition-all duration-700 pointer-events-none" />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                        <div className="absolute inset-0 p-5 flex flex-col justify-between">
+                          <div className="font-black text-xs text-white/40 tracking-[0.2em]">{system.mono}</div>
+                          <div>
+                            <div className="font-display text-lg font-black uppercase leading-tight text-white drop-shadow-lg">{system.shortName}</div>
+                            <div className="text-[10px] font-mono text-white/50 uppercase tracking-widest mt-1 font-bold">{count} Games</div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="absolute inset-0 rounded-3xl border-2 border-white/0 group-hover:border-white/20 transition-colors pointer-events-none" />
-                    </motion.button>
-                  );
-                })}
-              </motion.div>
+                        <div className="absolute inset-0 rounded-3xl border-2 border-white/0 group-hover:border-white/20 transition-colors pointer-events-none" />
+                      </motion.button>
+                    );
+                  })}
+                </motion.div>
+              )
             )}
 
             {/* 2. GAME GRID VIEW (Drill-down or Search) */}
@@ -524,6 +561,14 @@ export default function HomeArcadeTheme() {
       </div>
 
       <WelcomeDialog hasRoms={allRoms.length > 0} />
+
+      <ArchiveDownloadDialog
+        open={archiveDialogOpen}
+        onOpenChange={setArchiveDialogOpen}
+        onDownloadComplete={() => {
+          void refetchRoms();
+        }}
+      />
     </div>
   );
 }

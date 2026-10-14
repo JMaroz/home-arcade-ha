@@ -113,6 +113,15 @@ export async function findLibretroBoxArt(system: string, title: string): Promise
   const playlist = LIBRETRO_PLAYLISTS[system];
   if (!playlist) return { url: null, message: "No Libretro thumbnail playlist configured." };
 
+  const ext = path.extname(title);
+  const isActualExtension = Boolean(ext && /^\.[a-zA-Z0-9]{1,7}$/.test(ext));
+  const romClean = isActualExtension ? title.slice(0, -ext.length).trim() : title.trim();
+  // ponytail: se il titolo è canonico No-Intro con regione, genera la URL deterministica senza scraping HTML
+  if (/\([A-Za-z0-9, ]+\)/.test(romClean)) {
+    const directUrl = `https://thumbnails.libretro.com/${encodeURIComponent(playlist)}/Named_Boxarts/${encodeURIComponent(romClean)}.png`;
+    return { url: directUrl, message: `Direct canonical Libretro Named_Boxarts match: ${romClean}` };
+  }
+
   let entries: string[];
   try {
     entries = await fetchDirectoryListing(playlist);
@@ -123,7 +132,6 @@ export async function findLibretroBoxArt(system: string, title: string): Promise
 
   if (entries.length === 0) return { url: null, message: `No box art found in Libretro for "${playlist}".` };
 
-  const romClean = title.replace(/\.[^.]+$/, "");
   const romBase = stripTags(romClean);
   const romRegions = extractRegions(romClean);
 

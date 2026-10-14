@@ -239,18 +239,24 @@ export function detectSystemFromContent(
   }
 
   if (ext === ".iso") {
-    // Primary volume descriptor at LBA 16 (offset 0x8000) → "CD001"
-    const ps1Match = magicBytes.includes("CD001") ||
-      (magicBytes.length > 0x8001 &&
-       magicBytes.slice(0x8001, 0x8006).toString("ascii") === "CD001");
-    if (ps1Match) {
-      candidates = ["ps1"];
-    }
-    // PS2 ISOs sometimes have "PLAYSTATION" or "PlayStation2" near offset 0
-    const ps2Match = magicBytes.includes("PlayStation2") ||
-      magicBytes.includes("PS2");
-    if (ps2Match && !candidates.includes("ps2")) {
-      candidates.push("ps2");
+    // PSP ISOs contain "PSP_GAME" or "UMD_DATA" in the directory descriptor
+    const pspMatch = magicBytes.includes("PSP_GAME") || magicBytes.includes("UMD_DATA");
+    if (pspMatch) {
+      candidates = ["psp"];
+    } else {
+      // Primary volume descriptor at LBA 16 (offset 0x8000) → "CD001"
+      const ps1Match = magicBytes.includes("CD001") ||
+        (magicBytes.length > 0x8001 &&
+         magicBytes.slice(0x8001, 0x8006).toString("ascii") === "CD001");
+      if (ps1Match) {
+        candidates = ["ps1"];
+      }
+      // PS2 ISOs sometimes have "PLAYSTATION" or "PlayStation2" near offset 0
+      const ps2Match = magicBytes.includes("PlayStation2") ||
+        magicBytes.includes("PS2");
+      if (ps2Match && !candidates.includes("ps2")) {
+        candidates.push("ps2");
+      }
     }
     if (candidates.length > 1) {
       // Keep multiple ISO candidates but deduplicate

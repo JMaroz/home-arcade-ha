@@ -218,6 +218,7 @@ export interface IStorage {
   deleteUnplayedRoms(system?: string): Promise<{ deletedCount: number }>;
   deleteFailedScrapes(): Promise<{ deletedCount: number }>;
   deleteUploadedRomWithFile(id: number): Promise<UploadedRom | undefined>;
+  deleteAllUploadedRomsWithFiles(): Promise<{ deletedCount: number }>;
   getStorageSnapshot(): Promise<StorageSnapshot>;
 }
 
@@ -977,10 +978,22 @@ export class DatabaseStorage implements IStorage {
     }
     if (statErrors > 0) log(`Storage snapshot: ${statErrors} ROMs had no file on disk`, "storage");
 
+    const targetDir = settings.defaultRomDirectory ? path.resolve(settings.defaultRomDirectory) : ROM_ROOT;
+    let targetDisk = null;
+    try {
+      const s = await fs.statfs(targetDir);
+      targetDisk = { freeBytes: s.bavail * s.bsize, totalBytes: s.blocks * s.bsize };
+    } catch {
+      try {
+        const s = await fs.statfs(ROM_ROOT);
+        targetDisk = { freeBytes: s.bavail * s.bsize, totalBytes: s.blocks * s.bsize };
+      } catch { /* statfs not available */ }
+    }
+
     const romStorage: StorageSnapshot["romStorage"] = {
-      path: ROM_ROOT,
+      path: targetDir,
       usedBytes: romStorageSize,
-      disk: null,
+      disk: targetDisk,
     };
 
     const watchPathsSnapshot: StorageSnapshot["watchPaths"] = await Promise.all(
@@ -1164,6 +1177,17 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { deleted, failed };
+  }
+
+  async deleteAllUploadedRomsWithFiles(): Promise<{ deletedCount: number }> {
+    const roms = await this.listUploadedRoms();
+    let deletedCount = 0;
+    for (const rom of roms) {
+      const removed = await this.deleteUploadedRomWithFile(rom.id);
+      if (removed) deletedCount++;
+    }
+    log(`Deleted all uploaded ROMs with files: count=${deletedCount}`, "storage");
+    return { deletedCount };
   }
 }
 

@@ -17,6 +17,8 @@ export const ESSENTIAL_NATIVE_CORES: NativeCoreEntry[] = [
   { id: "gambatte", name: "gambatte_libretro.so", archive: "gambatte_libretro.so.zip", system: "gb", label: "Game Boy / Color" },
   { id: "yabause", name: "yabause_libretro.so", archive: "yabause_libretro.so.zip", system: "saturn", label: "Sega Saturn" },
   { id: "flycast", name: "flycast_libretro.so", archive: "flycast_libretro.so.zip", system: "dreamcast", label: "Sega Dreamcast" },
+  { id: "ppsspp", name: "ppsspp_libretro.so", archive: "ppsspp_libretro.so.zip", system: "psp", label: "PlayStation Portable" },
+  { id: "pcsx2", name: "pcsx2_libretro.so", archive: "pcsx2_libretro.so.zip", system: "ps2", label: "PlayStation 2" },
 ];
 
 export function getLibretroBuildbotUrl(arch: "aarch64" | "x86_64", archiveName: string): string {
@@ -38,4 +40,6 @@ export const SYSTEM_TO_NATIVE_CORE: Record<string, string> = {
   gbc: "gambatte_libretro.so",
   saturn: "yabause_libretro.so",
   dreamcast: "flycast_libretro.so",
+  psp: "ppsspp_libretro.so",
+  ps2: "pcsx2_libretro.so",
 };

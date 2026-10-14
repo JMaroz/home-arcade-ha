@@ -22,9 +22,11 @@ import { registerFilesystemRoutes } from "./filesystem";
 import { registerSystemRoutes as registerHwSystemRoutes } from "./system";
 import { registerSetupRoutes } from "./setup";
 import { registerStreamRoutes } from "./stream";
+import { registerArchiveRoutes } from "./archive";
 
 export async function registerRoutes(_httpServer: Server, app: Express) {
   registerSetupRoutes(app);
+  registerArchiveRoutes(app);
   registerStreamRoutes(app);
   registerHwSystemRoutes(app);
   registerRomRoutes(app);

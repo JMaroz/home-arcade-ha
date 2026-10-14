@@ -6,6 +6,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { ensureDriveFolder, uploadToDrive, downloadFromDrive } from "../google-drive";
+import { dataPath } from "../data-dir";
 import { SAVE_BACKUP_DIR } from "./shared";
 import { getAbsoluteFilePath } from "./utils";
 import { createZip, extractZip, type ZipEntry } from "../zip";
@@ -148,6 +149,45 @@ export function registerVaultRoutes(app: Express) {
 
       log(`Vault delete-system: removed ${deletedCount} entries for system ${system}`, "vault");
       res.json({ success: true, system, deletedCount });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /**
+   * Reset Library: Batch Delete All ROMs
+   * Deletes all uploaded ROM files and database entries without touching saves.
+   */
+  app.post("/api/vault/delete-all-roms", async (_req, res) => {
+    try {
+      const result = await storage.deleteAllUploadedRomsWithFiles();
+      log(`Vault delete-all-roms: removed ${result.deletedCount} ROMs`, "vault");
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      log(`Vault delete-all-roms failed: ${err.message}`, "vault");
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /**
+   * Clear Art Cache
+   * Deletes cached box art and banner images from the art-cache folder.
+   */
+  app.post("/api/vault/clear-art-cache", async (_req, res) => {
+    try {
+      const artCacheDir = dataPath("art-cache");
+      let deletedCount = 0;
+      if (existsSync(artCacheDir)) {
+        const files = await fs.readdir(artCacheDir);
+        for (const f of files) {
+          try {
+            await fs.unlink(path.join(artCacheDir, f));
+            deletedCount++;
+          } catch {}
+        }
+      }
+      log(`Vault clear-art-cache: deleted ${deletedCount} cached images`, "vault");
+      res.json({ success: true, deletedCount });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
