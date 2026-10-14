@@ -61,11 +61,48 @@ export function GamesStorageSettings() {
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isValidatingKeys, setIsValidatingKeys] = useState(false);
 
   // Storage Snapshot Query
   const { data: storageData, isLoading: loadingStorage, refetch: refetchStorage, isRefetching } = useQuery<StorageSnapshot>({
     queryKey: ["/api/vault/storage-snapshot"],
   });
+
+  const handleValidateS3Keys = async () => {
+    if (!config.archiveAccessKey || !config.archiveSecretKey) {
+      toast({
+        title: "Campi Mancanti",
+        description: "Inserisci sia l'Access Key che la Secret Key prima della convalida.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsValidatingKeys(true);
+    try {
+      const res = await apiRequest("POST", "/api/archive/validate-keys", {
+        accessKey: config.archiveAccessKey,
+        secretKey: config.archiveSecretKey,
+        save: true,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        throw new Error(data.message || "Convalida fallita");
+      }
+      toast({
+        title: "Chiavi Valide",
+        description: "Le credenziali S3 sono state convalidate da Internet Archive e memorizzate.",
+      });
+      void queryClient.invalidateQueries({ queryKey: ["/api/archive/keys-status"] });
+    } catch (err: any) {
+      toast({
+        title: "Convalida Fallita",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsValidatingKeys(false);
+    }
+  };
 
   const diskInfo = storageData?.romStorage?.disk;
   const diskPct = diskInfo
@@ -197,19 +234,24 @@ export function GamesStorageSettings() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
           {[
             {
-              id: "nointro-curated",
-              label: "Internet Archive — No-Intro Curated",
-              desc: "Collezione 1G1R senza cloni con denominazione ufficiale e cover art deterministica al 100%.",
+              id: "retro-best",
+              label: "Internet Archive — Retro Roms 'Best' Set",
+              desc: "Consigliato: collezione curata retro-roms-best-set per console retrò con copertine automatiche deterministiche.",
+            },
+            {
+              id: "tiny-best",
+              label: "Internet Archive — Tiny Best Set: GO!",
+              desc: "Celebre selezione compatta tiny-best-set-go per console retrò, arcade e PlayStation.",
             },
             {
               id: "hearto-1g1r",
               label: "Internet Archive — Hearto 1G1R Set",
-              desc: "Archivio ottimizzato con set leggeri compressi ideali per console ed emulatori.",
+              desc: "Archivio completo 1G1R compresso diviso per piattaforma e pronto all'uso.",
             },
             {
-              id: "myrient",
-              label: "Myrient Mirror (No-Intro HTTP)",
-              desc: "Mirror alternativo ad altissima velocità senza restrizioni di traffico o account.",
+              id: "nointro-curated",
+              label: "Internet Archive — No-Intro Curated (CHD/1G1R)",
+              desc: "Immagini disco CHD complete e romset No-Intro curati senza duplicati.",
             },
             {
               id: "custom",
@@ -259,14 +301,14 @@ export function GamesStorageSettings() {
             className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-white transition-colors"
           >
             <Key className="size-3 text-primary" />
-            <span>Credenziali Archive.org S3 (Opzionali per Item Protetti)</span>
+            <span>Credenziali Archive.org S3 (Richieste per Download ROM)</span>
             {showCredentials ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
           </button>
 
           {showCredentials && (
             <div className="mt-3 p-3.5 rounded-lg bg-black/40 border border-white/5 space-y-3">
               <p className="text-[11px] text-muted-foreground">
-                Se scarichi da item con restrizioni di traffico, inserisci le chiavi API generate gratuitamente su{" "}
+                Internet Archive richiede una coppia di chiavi API S3 per autorizzare il download delle ROM. Puoi generarle gratuitamente su{" "}
                 <a
                   href="https://archive.org/account/s3.php"
                   target="_blank"
@@ -297,9 +339,35 @@ export function GamesStorageSettings() {
                   />
                 </div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => toast({ title: "Credenziali Salvate", description: "Le credenziali S3 di Internet Archive sono state memorizzate." })} className="text-xs">
-                Salva Credenziali
-              </Button>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Button
+                  size="sm"
+                  onClick={handleValidateS3Keys}
+                  disabled={isValidatingKeys || !config.archiveAccessKey || !config.archiveSecretKey}
+                  className="text-xs gap-1.5 font-bold"
+                >
+                  {isValidatingKeys ? (
+                    <>
+                      <Loader2 className="size-3 animate-spin" />
+                      Convalida in corso...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="size-3" />
+                      Test e Convalida Chiavi S3
+                    </>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open("https://archive.org/account/s3.php", "_blank", "noopener,noreferrer")}
+                  className="text-xs border-white/10 gap-1 text-muted-foreground hover:text-white"
+                >
+                  <Globe className="size-3" />
+                  Apri Pagina Chiavi
+                </Button>
+              </div>
             </div>
           )}
         </div>

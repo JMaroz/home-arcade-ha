@@ -119,10 +119,51 @@ describe("Internet Archive ROM Management & Deterministic Box Art", () => {
       expect(body.message).toContain("Missing required fields");
     });
 
+    it("GET /api/archive/keys-status returns keys status", async () => {
+      const { status, body } = await api("GET", "/api/archive/keys-status");
+      expect(status).toBe(200);
+      expect(typeof body.hasKeys).toBe("boolean");
+      expect(body.archiveSource).toBeDefined();
+    });
+
+    it("POST /api/archive/validate-keys validates presence of credentials", async () => {
+      const { status, body } = await api("POST", "/api/archive/validate-keys", {
+        accessKey: "",
+        secretKey: "",
+      });
+      expect(status).toBe(400);
+      expect(body.valid).toBe(false);
+      expect(body.message).toContain("Inserisci sia l'Access Key che la Secret Key");
+    });
+
     it("GET /api/archive/downloads returns active download jobs list", async () => {
       const { status, body } = await api("GET", "/api/archive/downloads");
       expect(status).toBe(200);
       expect(Array.isArray(body)).toBe(true);
+    });
+  });
+
+  describe("Platform File Filtering and Curated Sets", () => {
+    it("filters files strictly per system so platforms do not bleed into each other", async () => {
+      const { isPlatformFile } = await import("../archive-client");
+      const emptyExts = new Set<string>();
+
+      // retro-roms-best-set tests
+      expect(isPlatformFile("Nintendo - NES.zip", "nes", "retro-roms-best-set", emptyExts)).toBe(true);
+      expect(isPlatformFile("Nintendo - SNES.zip", "nes", "retro-roms-best-set", emptyExts)).toBe(false);
+      expect(isPlatformFile("Nintendo - NES.zip", "snes", "retro-roms-best-set", emptyExts)).toBe(false);
+      expect(isPlatformFile("Nintendo - SNES.zip", "snes", "retro-roms-best-set", emptyExts)).toBe(true);
+
+      // Game Boy discrimination
+      expect(isPlatformFile("Nintendo - Game Boy.zip", "gb", "retro-roms-best-set", emptyExts)).toBe(true);
+      expect(isPlatformFile("Nintendo - Game Boy Color.zip", "gb", "retro-roms-best-set", emptyExts)).toBe(false);
+      expect(isPlatformFile("Nintendo - Game Boy Advance.zip", "gb", "retro-roms-best-set", emptyExts)).toBe(false);
+      expect(isPlatformFile("Nintendo - Game Boy Color.zip", "gbc", "retro-roms-best-set", emptyExts)).toBe(true);
+      expect(isPlatformFile("Nintendo - Game Boy Advance.zip", "gba", "retro-roms-best-set", emptyExts)).toBe(true);
+
+      // Metadata exclusion
+      expect(isPlatformFile("retro-roms-best-set_files.xml", "nes", "retro-roms-best-set", emptyExts)).toBe(false);
+      expect(isPlatformFile("retro-roms-best-set_archive.torrent", "nes", "retro-roms-best-set", emptyExts)).toBe(false);
     });
   });
 });

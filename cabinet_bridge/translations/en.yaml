@@ -1,11 +1,5 @@
 ---
 configuration:
-  data_dir:
-    name: "Data directory"
-    description: "Directory for HomeArcade database, cache, and ROM storage (default: /data)."
-  rom_watch_dir:
-    name: "ROM watch directory"
-    description: "Optional folder path to monitor for automatic ROM imports."
   max_upload_mb:
     name: "Maximum upload size (MB)"
     description: "Per-file ROM upload limit in megabytes (16 to 16384 MB)."

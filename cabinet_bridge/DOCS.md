@@ -22,8 +22,6 @@ The premium retro gaming frontend designed specifically for Home Assistant. Mana
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `data_dir` | string | `/data` | Base directory for persistent SQLite database, cache, and ROM files. |
-| `rom_watch_dir` | string | `""` | Optional filesystem path to monitor for auto-importing ROMs. |
 | `max_upload_mb` | integer | `8192` | Maximum upload ceiling per ROM file in megabytes (16 to 16384 MB). |
 | `steamgriddb_api_key` | string | `""` | Optional API key for scraping artwork, logos, and hero covers from SteamGridDB. |
 

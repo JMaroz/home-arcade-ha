@@ -110,11 +110,14 @@ export type ListWatchRomsFn = () => Promise<Array<{ id: number; title: string; f
 export type DeleteRomFn = (id: number) => Promise<boolean>;
 export type UpdateRomHashFn = (id: number, hash: string) => Promise<void>;
 
-/** Compute MD5 hash using standard streaming pipeline */
-export async function computeFileHash(filePath: string): Promise<string> {
+/** Compute MD5 hash using standard streaming pipeline (optional maxBytes for large files) */
+export async function computeFileHash(filePath: string, maxBytes?: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const hash = crypto.createHash("md5");
-    const stream = fsSync.createReadStream(filePath, { highWaterMark: 1024 * 1024 });
+    const stream = fsSync.createReadStream(filePath, {
+      highWaterMark: 1024 * 1024,
+      end: maxBytes ? maxBytes - 1 : undefined,
+    });
     stream.on("data", (chunk) => hash.update(chunk));
     stream.on("end", () => resolve(hash.digest("hex")));
     stream.on("error", (err) => reject(err));
@@ -295,7 +298,9 @@ async function scanPath(
 
     try {
       const stat = await fs.stat(filePath);
-      const romHash = await computeFileHash(filePath).catch(() => null);
+      const romHash = stat.size > 32 * 1024 * 1024
+        ? await computeFileHash(filePath, 2 * 1024 * 1024).catch(() => null)
+        : await computeFileHash(filePath).catch(() => null);
 
       newRoms.push({
         title, system, slug,
@@ -353,6 +358,13 @@ async function doScan(): Promise<void> {
       if (allPaths.length === 0) {
         _status.watchPaths = [];
         _status.watchDir = null;
+        emitEvent({
+          type: "complete",
+          totalFound: 0,
+          totalImported: 0,
+          totalPruned: 0,
+          durationMs: Date.now() - startTime,
+        });
         return;
       }
 
@@ -383,7 +395,10 @@ async function doScan(): Promise<void> {
             } else if (isWatched && _updateRomHash && !r.romHash && fsSync.existsSync(r.filePath)) {
               // Backfill hash if missing
               try {
-                const h = await computeFileHash(r.filePath);
+                const s = fsSync.statSync(r.filePath);
+                const h = s.size > 32 * 1024 * 1024
+                  ? await computeFileHash(r.filePath, 2 * 1024 * 1024)
+                  : await computeFileHash(r.filePath);
                 await _updateRomHash(r.id, h);
               } catch { /* ignore */ }
             }

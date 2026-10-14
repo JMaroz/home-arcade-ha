@@ -121,22 +121,54 @@ export async function startArchiveDownload(options: {
 
     try {
       job.status = "downloading";
-      const headers: Record<string, string> = {
-        "User-Agent": "HomeArcade/1.0 (+https://github.com/home-arcade-ha)",
-      };
-
-      if (settings.archiveAccessKey && settings.archiveSecretKey) {
-        headers["Authorization"] = `LOW ${settings.archiveAccessKey}:${settings.archiveSecretKey}`;
-      }
-
       log(`[ArchiveDownloader] Starting download for "${options.title}" from ${options.downloadUrl}`, "archive");
 
-      const res = await fetch(options.downloadUrl, {
-        headers,
-        signal: abortController.signal,
-      });
+      let currentUrl = options.downloadUrl;
+      let res!: Response;
+      let redirectCount = 0;
+      const MAX_REDIRECTS = 8;
+
+      while (true) {
+        const requestHeaders: Record<string, string> = {
+          "User-Agent": "HomeArcade/1.0 (+https://github.com/home-arcade-ha)",
+        };
+
+        const parsedUrl = new URL(currentUrl);
+        if (
+          settings.archiveAccessKey &&
+          settings.archiveSecretKey &&
+          (parsedUrl.hostname === "archive.org" || parsedUrl.hostname.endsWith(".archive.org"))
+        ) {
+          requestHeaders["Authorization"] = `LOW ${settings.archiveAccessKey.trim()}:${settings.archiveSecretKey.trim()}`;
+        }
+
+        res = await fetch(currentUrl, {
+          headers: requestHeaders,
+          signal: abortController.signal,
+          redirect: "manual",
+        });
+
+        if (res.status >= 300 && res.status < 400) {
+          const location = res.headers.get("location");
+          if (!location) {
+            throw new Error(`HTTP ${res.status} redirect without Location header`);
+          }
+          if (++redirectCount > MAX_REDIRECTS) {
+            throw new Error(`Troppi redirect HTTP (${redirectCount})`);
+          }
+          currentUrl = new URL(location, currentUrl).toString();
+          continue;
+        }
+
+        break;
+      }
 
       if (!res.ok || !res.body) {
+        if (res.status === 401 || res.status === 403) {
+          throw new Error(
+            "Internet Archive richiede credenziali S3 valide (Access Key / Secret Key) per il download di questa collezione (HTTP 401/403)."
+          );
+        }
         throw new Error(`HTTP error ${res.status}: ${res.statusText}`);
       }
 

@@ -13,11 +13,91 @@ import {
 } from "../archive-downloader";
 
 export function registerArchiveRoutes(app: Express) {
+  // GET /api/archive/keys-status
+  // Returns whether S3 credentials are configured and a masked key preview
+  app.get("/api/archive/keys-status", async (_req, res) => {
+    try {
+      const settings = await storage.getIntegrationSettings();
+      const hasKeys = Boolean(settings.archiveAccessKey && settings.archiveSecretKey);
+      const masked = hasKeys && settings.archiveAccessKey
+        ? `${settings.archiveAccessKey.slice(0, 4)}...${settings.archiveAccessKey.slice(-3)}`
+        : undefined;
+
+      res.json({
+        hasKeys,
+        accessKeyMasked: masked,
+        archiveSource: settings.archiveSource || "retro-best",
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to get keys status", error: err?.message });
+    }
+  });
+
+  // POST /api/archive/validate-keys
+  // Validates S3 keys against Internet Archive tasks service and saves them on success
+  app.post("/api/archive/validate-keys", express.json(), async (req, res) => {
+    try {
+      const { accessKey, secretKey, save = true } = req.body ?? {};
+      const settings = await storage.getIntegrationSettings();
+      const finalAccess = (accessKey ?? settings.archiveAccessKey ?? "").trim();
+      const finalSecret = (secretKey ?? settings.archiveSecretKey ?? "").trim();
+
+      if (!finalAccess || !finalSecret) {
+        return res.status(400).json({
+          valid: false,
+          message: "Inserisci sia l'Access Key che la Secret Key per la convalida.",
+        });
+      }
+
+      const testRes = await fetch("https://archive.org/services/tasks.php", {
+        headers: {
+          "Authorization": `LOW ${finalAccess}:${finalSecret}`,
+          "User-Agent": "HomeArcade/1.0 (+https://github.com/home-arcade-ha)",
+        },
+        signal: AbortSignal.timeout(12_000),
+      }).catch((fetchErr: any) => {
+        throw new Error(`Connessione a archive.org fallita: ${fetchErr?.message || fetchErr}`);
+      });
+
+      if (testRes.status === 200) {
+        if (save) {
+          await storage.saveIntegrationSettings({
+            ...settings,
+            archiveAccessKey: finalAccess,
+            archiveSecretKey: finalSecret,
+          });
+        }
+        return res.json({
+          valid: true,
+          message: "Credenziali S3 Internet Archive convalidate con successo!",
+        });
+      }
+
+      if (testRes.status === 401 || testRes.status === 403) {
+        return res.status(401).json({
+          valid: false,
+          message: "Credenziali S3 non valide o rifiutate da Internet Archive (HTTP 401 Unauthorized).",
+        });
+      }
+
+      return res.status(502).json({
+        valid: false,
+        message: `Internet Archive ha risposto con codice HTTP ${testRes.status}.`,
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        valid: false,
+        message: err?.message || "Errore durante la convalida delle credenziali S3",
+      });
+    }
+  });
+
   // GET /api/archive/systems
   // Returns overview of all available systems with full-set sizes, HW badges, and BIOS status
   app.get("/api/archive/systems", async (_req, res) => {
     try {
-      const systems = await listAllSystemMetas();
+      const settings = await storage.getIntegrationSettings();
+      const systems = await listAllSystemMetas(settings.archiveSource, settings.archiveCustomId);
       res.json(systems);
     } catch (err: any) {
       res.status(500).json({ message: "Failed to list archive systems", error: err?.message });
@@ -27,7 +107,8 @@ export function registerArchiveRoutes(app: Express) {
   // GET /api/archive/systems/:system
   app.get("/api/archive/systems/:system", async (req, res) => {
     try {
-      const meta = await getSystemCatalogMeta(req.params.system);
+      const settings = await storage.getIntegrationSettings();
+      const meta = await getSystemCatalogMeta(req.params.system, settings.archiveSource, settings.archiveCustomId);
       if (!meta) return res.status(404).json({ message: "System not supported in archive catalog" });
       res.json(meta);
     } catch (err: any) {
@@ -49,7 +130,12 @@ export function registerArchiveRoutes(app: Express) {
         ? { accessKey: settings.archiveAccessKey, secretKey: settings.archiveSecretKey }
         : undefined;
 
-      const games = await fetchPlatformGames(system, credentials);
+      const games = await fetchPlatformGames(
+        system, 
+        credentials, 
+        settings.archiveSource, 
+        settings.archiveCustomId
+      );
       res.json(games);
     } catch (err: any) {
       res.status(500).json({ message: "Failed to fetch catalog from Internet Archive", error: err?.message });

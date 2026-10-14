@@ -35,17 +35,143 @@ export interface ArchivePlatformMeta {
   isFullSetRecommended: boolean;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Default Verified Repositories (1G1R No-Intro / Hearto Collection)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const ARCHIVE_PLATFORMS: Record<string, {
+export interface PlatformArchiveConfig {
   name: string;
   archiveZipFile: string;
   fullSetBytes: number;
   identifier: string;
   mirrors?: string[];
-}> = {
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Verified Repositories (Retro Best, Hearto 1G1R, Tiny Best Set: GO!)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const RETRO_BEST_PLATFORMS: Record<string, PlatformArchiveConfig> = {
+  nes: {
+    name: "Nintendo Entertainment System",
+    archiveZipFile: "Nintendo - NES.zip",
+    fullSetBytes: 37_586_409,
+    identifier: "retro-roms-best-set",
+  },
+  snes: {
+    name: "Super Nintendo",
+    archiveZipFile: "Nintendo - SNES.zip",
+    fullSetBytes: 358_430_770,
+    identifier: "retro-roms-best-set",
+  },
+  gb: {
+    name: "Game Boy",
+    archiveZipFile: "Nintendo - Game Boy.zip",
+    fullSetBytes: 17_930_965,
+    identifier: "retro-roms-best-set",
+  },
+  gbc: {
+    name: "Game Boy Color",
+    archiveZipFile: "Nintendo - Game Boy Color.zip",
+    fullSetBytes: 70_119_545,
+    identifier: "retro-roms-best-set",
+  },
+  gba: {
+    name: "Game Boy Advance",
+    archiveZipFile: "Nintendo - Game Boy Advance.zip",
+    fullSetBytes: 755_555_700,
+    identifier: "retro-roms-best-set",
+  },
+  n64: {
+    name: "Nintendo 64",
+    archiveZipFile: "Nintendo - N64.zip",
+    fullSetBytes: 1_542_179_454,
+    identifier: "retro-roms-best-set",
+  },
+  genesis: {
+    name: "Sega Genesis / Mega Drive",
+    archiveZipFile: "Sega - Genesis.zip",
+    fullSetBytes: 126_266_376,
+    identifier: "retro-roms-best-set",
+  },
+  sms: {
+    name: "Sega Master System",
+    archiveZipFile: "Sega - Master System.zip",
+    fullSetBytes: 7_776_753,
+    identifier: "retro-roms-best-set",
+  },
+  gamegear: {
+    name: "Sega Game Gear",
+    archiveZipFile: "Sega - Game Gear.zip",
+    fullSetBytes: 7_776_920,
+    identifier: "retro-roms-best-set",
+  },
+  atari2600: {
+    name: "Atari 2600",
+    archiveZipFile: "Atari - 2600.zip",
+    fullSetBytes: 244_718,
+    identifier: "retro-roms-best-set",
+  },
+  pce: {
+    name: "PC Engine / TurboGrafx-16",
+    archiveZipFile: "NEC - TurboGrafx-16.zip",
+    fullSetBytes: 19_541_713,
+    identifier: "retro-roms-best-set",
+  },
+  nds: {
+    name: "Nintendo DS",
+    archiveZipFile: "Nintendo - DS.zip",
+    fullSetBytes: 5_862_619_752,
+    identifier: "retro-roms-best-set",
+  },
+  arcade: {
+    name: "Arcade (Mame 2003 Plus)",
+    archiveZipFile: "Arcade - Mame 2003 Plus.zip",
+    fullSetBytes: 1_231_249_870,
+    identifier: "retro-roms-best-set",
+  },
+  neogeo: {
+    name: "SNK Neo Geo",
+    archiveZipFile: "SNK - NEO GEO.zip",
+    fullSetBytes: 2_492_129_927,
+    identifier: "retro-roms-best-set",
+  },
+  ps1: {
+    name: "Sony PlayStation",
+    archiveZipFile: "Sony - PS1 (A-L).zip",
+    fullSetBytes: 36_347_206_461,
+    identifier: "retro-roms-best-set",
+  },
+  psp: {
+    name: "PlayStation Portable",
+    archiveZipFile: "Sony - PSP (A-G).zip",
+    fullSetBytes: 27_718_719_571,
+    identifier: "retro-roms-best-set",
+  },
+  dreamcast: {
+    name: "Sega Dreamcast",
+    archiveZipFile: "Sega - Dreamcast.zip",
+    fullSetBytes: 40_768_515_668,
+    identifier: "retro-roms-best-set",
+  },
+  saturn: {
+    name: "Sega Saturn",
+    archiveZipFile: "Sega - Saturn.zip",
+    fullSetBytes: 18_229_042_021,
+    identifier: "retro-roms-best-set",
+  },
+};
+
+export const TINY_BEST_PLATFORMS: Record<string, PlatformArchiveConfig> = {
+  nes: { name: "Nintendo Entertainment System", archiveZipFile: "tiny-best-set-go-games.zip", fullSetBytes: 5_661_993_084, identifier: "tiny-best-set-go" },
+  snes: { name: "Super Nintendo", archiveZipFile: "tiny-best-set-go-games.zip", fullSetBytes: 5_661_993_084, identifier: "tiny-best-set-go" },
+  gb: { name: "Game Boy", archiveZipFile: "tiny-best-set-go-games.zip", fullSetBytes: 5_661_993_084, identifier: "tiny-best-set-go" },
+  gbc: { name: "Game Boy Color", archiveZipFile: "tiny-best-set-go-games.zip", fullSetBytes: 5_661_993_084, identifier: "tiny-best-set-go" },
+  gba: { name: "Game Boy Advance", archiveZipFile: "tiny-best-set-go-games.zip", fullSetBytes: 5_661_993_084, identifier: "tiny-best-set-go" },
+  genesis: { name: "Sega Genesis / Mega Drive", archiveZipFile: "tiny-best-set-go-games.zip", fullSetBytes: 5_661_993_084, identifier: "tiny-best-set-go" },
+  arcade: { name: "Arcade", archiveZipFile: "tiny-best-set-go-games.zip", fullSetBytes: 5_661_993_084, identifier: "tiny-best-set-go" },
+  neogeo: { name: "SNK Neo Geo", archiveZipFile: "tiny-best-set-go-games.zip", fullSetBytes: 5_661_993_084, identifier: "tiny-best-set-go" },
+  pce: { name: "PC Engine / TurboGrafx-16", archiveZipFile: "tiny-best-set-go-games.zip", fullSetBytes: 5_661_993_084, identifier: "tiny-best-set-go" },
+  ps1: { name: "Sony PlayStation", archiveZipFile: "tiny-best-set-go-expansion-64-games.zip", fullSetBytes: 50_672_120_295, identifier: "tiny-best-set-go" },
+};
+
+export const ARCHIVE_PLATFORMS: Record<string, PlatformArchiveConfig> = {
   nes: {
     name: "Nintendo Entertainment System",
     archiveZipFile: "hearto_1g1r_collection/Nintendo - Nintendo Entertainment System.zip",
@@ -108,7 +234,7 @@ export const ARCHIVE_PLATFORMS: Record<string, {
   },
   pce: {
     name: "PC Engine / TurboGrafx-16",
-    archiveZipFile: "hearto_1g1r_collection/NEC - PC Engine - TurboGrafx 16.zip",
+    archiveZipFile: "NEC - PC Engine - TurboGrafx 16.zip",
     fullSetBytes: 72_351_744, // ~69 MB
     identifier: "hearto-1g1r-collection",
   },
@@ -121,7 +247,7 @@ export const ARCHIVE_PLATFORMS: Record<string, {
   ps1: {
     name: "Sony PlayStation",
     archiveZipFile: "",
-    fullSetBytes: 300_000_000_000, // Multi-CD disc sets (only single games recommended)
+    fullSetBytes: 300_000_000_000,
     identifier: "chd_psx",
   },
   ps2: {
@@ -137,6 +263,29 @@ export const ARCHIVE_PLATFORMS: Record<string, {
     identifier: "chd_psp",
   },
 };
+
+export function resolvePlatformConfig(
+  system: string,
+  source: string = "retro-best",
+  customId?: string
+): PlatformArchiveConfig | null {
+  if (source === "tiny-best") {
+    return TINY_BEST_PLATFORMS[system] || RETRO_BEST_PLATFORMS[system] || ARCHIVE_PLATFORMS[system] || null;
+  }
+  if (source === "hearto-1g1r" || source === "nointro-curated") {
+    return ARCHIVE_PLATFORMS[system] || RETRO_BEST_PLATFORMS[system] || null;
+  }
+  if (source === "custom") {
+    const base = RETRO_BEST_PLATFORMS[system] || ARCHIVE_PLATFORMS[system];
+    if (!base) return null;
+    return {
+      ...base,
+      identifier: customId?.trim() || "retro-roms-best-set",
+      archiveZipFile: "",
+    };
+  }
+  return RETRO_BEST_PLATFORMS[system] || ARCHIVE_PLATFORMS[system] || null;
+}
 
 // Simple in-memory cache with TTL 1 hour
 interface CachedCatalog {
@@ -208,8 +357,12 @@ export function getSystemHwBadge(system: string): {
   };
 }
 
-export async function getSystemCatalogMeta(system: string): Promise<ArchivePlatformMeta | null> {
-  const config = ARCHIVE_PLATFORMS[system];
+export async function getSystemCatalogMeta(
+  system: string,
+  source: string = "retro-best",
+  customId?: string
+): Promise<ArchivePlatformMeta | null> {
+  const config = resolvePlatformConfig(system, source, customId);
   if (!config) return null;
 
   const bios = await checkSystemBiosStatus(system);
@@ -238,23 +391,121 @@ export async function getSystemCatalogMeta(system: string): Promise<ArchivePlatf
   };
 }
 
-export async function listAllSystemMetas(): Promise<ArchivePlatformMeta[]> {
+export async function listAllSystemMetas(
+  source: string = "retro-best",
+  customId?: string
+): Promise<ArchivePlatformMeta[]> {
+  const systemMap = source === "tiny-best"
+    ? TINY_BEST_PLATFORMS
+    : source === "hearto-1g1r"
+      ? ARCHIVE_PLATFORMS
+      : RETRO_BEST_PLATFORMS;
+
   const metas: ArchivePlatformMeta[] = [];
-  for (const sys of Object.keys(ARCHIVE_PLATFORMS)) {
-    const meta = await getSystemCatalogMeta(sys);
+  for (const sys of Object.keys(systemMap)) {
+    const meta = await getSystemCatalogMeta(sys, source, customId);
     if (meta) metas.push(meta);
   }
   return metas;
 }
 
+export function isPlatformFile(
+  fileName: string,
+  system: string,
+  identifier: string,
+  allowedExts: Set<string>
+): boolean {
+  const lower = fileName.toLowerCase();
+  const ext = path.extname(lower);
+
+  // Exclude non-game files and auxiliary IA files
+  if (
+    lower.endsWith("_meta.xml") ||
+    lower.endsWith("_files.xml") ||
+    lower.endsWith(".torrent") ||
+    lower.endsWith("_meta.sqlite") ||
+    lower.endsWith("_reviews.xml") ||
+    lower.endsWith(".png") ||
+    lower.endsWith(".jpg") ||
+    lower.endsWith(".jpeg") ||
+    lower.endsWith(".html") ||
+    lower.endsWith(".txt")
+  ) {
+    return false;
+  }
+
+  // If this is a zip pack collection (e.g. retro-roms-best-set or hearto-1g1r-collection)
+  if (identifier === "retro-roms-best-set" || identifier === "hearto-1g1r-collection") {
+    if (ext !== ".zip" && ext !== ".7z") return false;
+
+    switch (system) {
+      case "nes":
+        return (/(?:^|[^a-z])nes(?:[^a-z]|$)/.test(lower) || lower.includes("nintendo entertainment system")) && !lower.includes("snes");
+      case "snes":
+        return /(?:^|[^a-z])snes(?:[^a-z]|$)/.test(lower) || lower.includes("super nintendo");
+      case "gb":
+        return lower.includes("game boy") && !lower.includes("color") && !lower.includes("advance");
+      case "gbc":
+        return lower.includes("game boy color");
+      case "gba":
+        return lower.includes("game boy advance");
+      case "n64":
+        return /(?:^|[^a-z])n64(?:[^a-z]|$)/.test(lower) || lower.includes("nintendo 64");
+      case "genesis":
+        return lower.includes("genesis") || lower.includes("mega drive");
+      case "sms":
+        return lower.includes("master system");
+      case "gamegear":
+        return lower.includes("game gear");
+      case "atari2600":
+        return lower.includes("2600");
+      case "atari7800":
+        return lower.includes("7800");
+      case "pce":
+        return lower.includes("turbografx") || lower.includes("pc engine");
+      case "nds":
+        return lower.includes("nintendo - ds") || lower.includes("nintendo ds");
+      case "arcade":
+        return lower.includes("mame") || lower.includes("arcade");
+      case "neogeo":
+        return lower.includes("neo geo");
+      case "ps1":
+        return lower.includes("ps1") || (lower.includes("playstation") && !lower.includes("portable") && !lower.includes("psp"));
+      case "psp":
+        return lower.includes("psp");
+      case "dreamcast":
+        return lower.includes("dreamcast");
+      case "saturn":
+        return lower.includes("saturn");
+      default:
+        return false;
+    }
+  }
+
+  if (identifier === "tiny-best-set-go") {
+    if (ext === ".zip" || ext === ".7z") {
+      if (system === "ps1") {
+        return lower.includes("expansion-64") || lower.includes("expansion-128");
+      }
+      return lower.includes("tiny-best-set-go-games");
+    }
+    return allowedExts.has(ext);
+  }
+
+  // For individual ROM / disc collections (e.g. chd_psx, chd_ps2, custom)
+  return allowedExts.has(ext) || ext === ".zip" || ext === ".7z";
+}
+
 export async function fetchPlatformGames(
   system: string,
-  credentials?: { accessKey?: string; secretKey?: string }
+  credentials?: { accessKey?: string; secretKey?: string },
+  source: string = "retro-best",
+  customId?: string
 ): Promise<ArchiveGameItem[]> {
-  const config = ARCHIVE_PLATFORMS[system];
+  const config = resolvePlatformConfig(system, source, customId);
   if (!config) return [];
 
-  const cacheKey = `${system}:${config.identifier}`;
+  const cacheKey = `${source}:${system}:${config.identifier}`;
   const cached = catalogCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return cached.games;
@@ -266,7 +517,7 @@ export async function fetchPlatformGames(
   };
 
   if (credentials?.accessKey && credentials?.secretKey) {
-    headers["Authorization"] = `LOW ${credentials.accessKey}:${credentials.secretKey}`;
+    headers["Authorization"] = `LOW ${credentials.accessKey.trim()}:${credentials.secretKey.trim()}`;
   }
 
   const url = `https://archive.org/metadata/${config.identifier}`;
@@ -281,13 +532,7 @@ export async function fetchPlatformGames(
 
   for (const file of rawFiles) {
     const fileName = String(file.name ?? "");
-    const ext = path.extname(fileName).toLowerCase();
-
-    // Check if it's a ROM file directly or part of platform directory
-    if (!allowedExts.has(ext) && ext !== ".zip" && ext !== ".7z") continue;
-
-    // Filter out internal metadata or torrent files
-    if (fileName.endsWith("_meta.xml") || fileName.endsWith("_files.xml") || fileName.endsWith(".torrent")) {
+    if (!isPlatformFile(fileName, system, config.identifier, allowedExts)) {
       continue;
     }
 

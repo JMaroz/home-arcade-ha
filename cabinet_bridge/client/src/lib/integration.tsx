@@ -172,7 +172,7 @@ const defaultConfig: IntegrationConfig = {
   webdavSyncEnabled: false,
   webdavLastSync: null,
   defaultRomDirectory: "/share/roms",
-  archiveSource: "nointro-curated",
+  archiveSource: "retro-best",
   archiveCustomId: "",
   archiveAccessKey: "",
   archiveSecretKey: "",
@@ -241,7 +241,7 @@ function normalizeConfig(raw: unknown): IntegrationConfig {
     globalAspectRatio: typeof source.globalAspectRatio === "string" ? source.globalAspectRatio : "auto",
     globalShader: typeof source.globalShader === "string" ? source.globalShader : "none",
     defaultRomDirectory: typeof source.defaultRomDirectory === "string" ? source.defaultRomDirectory : "/share/roms",
-    archiveSource: typeof source.archiveSource === "string" ? source.archiveSource : "nointro-curated",
+    archiveSource: typeof source.archiveSource === "string" ? source.archiveSource : "retro-best",
     archiveCustomId: typeof source.archiveCustomId === "string" ? source.archiveCustomId : "",
     archiveAccessKey: typeof source.archiveAccessKey === "string" ? source.archiveAccessKey : "",
     archiveSecretKey: typeof source.archiveSecretKey === "string" ? source.archiveSecretKey : "",
@@ -286,9 +286,10 @@ export function IntegrationProvider({ children }: { children: React.ReactNode })
   }, []);
 
   useEffect(() => {
-    if (saveStatus === "loading") return;
+    // Skip if initial config is not yet loaded from server
+    if (!lastPersistedRef.current) return;
     const last = lastPersistedRef.current;
-    if (last && configsEqual(last, config)) return;
+    if (configsEqual(last, config)) return;
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
@@ -310,7 +311,7 @@ export function IntegrationProvider({ children }: { children: React.ReactNode })
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [config, saveStatus]);
+  }, [config]);
 
   useEffect(() => {
     if (!config.liveMode || !config.haBaseUrl) return;

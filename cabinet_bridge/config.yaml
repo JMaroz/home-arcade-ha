@@ -24,12 +24,8 @@ panel_icon: mdi:gamepad-variant
 panel_title: HomeArcade
 hassio_api: true
 options:
-  data_dir: /data
-  rom_watch_dir: ''
   max_upload_mb: 8192
   steamgriddb_api_key: ''
 schema:
-  data_dir: str?
-  rom_watch_dir: str?
   max_upload_mb: int(16,16384)
   steamgriddb_api_key: str?
