@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.61.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.60.0...v2.61.0) (2026-10-14)
+
+
+### Features
+
+* add Archive S3 auth and curated sources ([3b47516](https://github.com/JMaroz/home-arcade-ha/commit/3b475165d6865dbc422b44d850b1622aa058c06b))
+
 ## [2.60.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.59.2...v2.60.0) (2026-10-14)
 
 
