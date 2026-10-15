@@ -301,12 +301,34 @@ export function GameDetailDialog({
   return (
     <Dialog open={!!game} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
-        className="sm:max-w-2xl max-h-[92dvh] p-0 overflow-y-auto bg-card border-card-border shadow-2xl"
+        className="sm:max-w-2xl max-h-[92dvh] p-0 overflow-y-auto bg-card border-card-border shadow-2xl max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:w-full max-sm:h-full max-sm:max-h-full max-sm:rounded-none max-sm:border-none"
         data-testid="dialog-game-detail"
       >
+        {/* Mobile top navigation header */}
+        <div className="sm:hidden sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-card/95 backdrop-blur border-b border-border">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground active:scale-95 transition-transform"
+          >
+            <ChevronDown className="size-4 rotate-90" /> Back
+          </button>
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground truncate max-w-[180px]">
+            {system?.shortName}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded-full text-muted-foreground hover:text-foreground"
+            aria-label="Close"
+          >
+            <span className="text-lg font-bold leading-none">&times;</span>
+          </button>
+        </div>
+
         <div className="grid sm:grid-cols-[220px_1fr]">
           {/* Left panel — box art / video preview */}
-          <div className="relative sm:h-auto h-48 group">
+          <div className="relative sm:h-auto h-56 group">
             {videoPlaying && game.romId ? (
               <div className="absolute inset-0 bg-black flex items-center justify-center">
                 <video
@@ -829,11 +851,11 @@ export function GameDetailDialog({
             ) : null}
 
             {/* Action buttons */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
+            <div className="flex flex-wrap items-center gap-2 pt-2 pb-28 sm:pb-2">
               <Button
                 size="lg"
                 onClick={launch}
-                className="font-mono uppercase tracking-wider gap-2"
+                className="flex-1 sm:flex-none h-12 min-w-[140px] font-mono uppercase tracking-wider gap-2 text-sm font-bold shadow-lg active:scale-95 transition-transform"
                 data-testid="button-detail-launch"
               >
                 <Play className="size-4 fill-current" />{" "}
@@ -841,7 +863,7 @@ export function GameDetailDialog({
                   ? "Launching…"
                   : game.romId
                   ? isPs2 || engine === "native"
-                    ? "Play (Native Stream)"
+                    ? "Play (Native)"
                     : "Play (WASM)"
                   : "Launch"}
               </Button>
@@ -850,7 +872,7 @@ export function GameDetailDialog({
                   size="lg"
                   variant="secondary"
                   onClick={launch}
-                  className="font-mono uppercase tracking-wider gap-2 border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary"
+                  className="h-12 font-mono uppercase tracking-wider gap-2 border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary font-bold"
                   data-testid="button-detail-resume"
                 >
                   <Zap className="size-4 fill-current" /> Resume
@@ -860,7 +882,7 @@ export function GameDetailDialog({
                 size="lg"
                 variant="outline"
                 onClick={() => setShowWarp(true)}
-                className="font-mono uppercase tracking-wider gap-2"
+                className="h-12 font-mono uppercase tracking-wider gap-2"
                 data-testid="button-detail-warp"
               >
                 <QrCode className="size-4" /> Warp
@@ -870,7 +892,7 @@ export function GameDetailDialog({
                   size="lg"
                   variant="outline"
                   onClick={() => setNetplayOpen(true)}
-                  className="font-mono uppercase tracking-wider gap-2"
+                  className="h-12 font-mono uppercase tracking-wider gap-2"
                   data-testid="button-detail-netplay"
                 >
                   <Wifi className="size-4" /> Netplay
@@ -880,6 +902,7 @@ export function GameDetailDialog({
                 size="lg"
                 variant="outline"
                 onClick={() => onToggleFav(game)}
+                className="h-12"
                 data-testid="button-detail-fav"
                 aria-pressed={!!game.favorite}
               >
@@ -888,9 +911,9 @@ export function GameDetailDialog({
                     game.favorite ? "fill-primary text-primary" : ""
                   }`}
                 />
-                {game.favorite ? "Favorited" : "Favorite"}
+                <span className="hidden sm:inline">{game.favorite ? "Favorited" : "Favorite"}</span>
               </Button>
-              <Button size="lg" variant="ghost" onClick={onClose} data-testid="button-detail-close">
+              <Button size="lg" variant="ghost" onClick={onClose} className="h-12 hidden sm:inline-flex" data-testid="button-detail-close">
                 Close
               </Button>
             </div>

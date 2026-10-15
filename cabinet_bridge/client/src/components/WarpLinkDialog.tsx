@@ -49,7 +49,7 @@ export function WarpLinkDialog({
 
   return (
     <Dialog open={!!game} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md p-8 bg-[#0c0c0c] border-white/10 text-white">
+      <DialogContent className="sm:max-w-md p-6 sm:p-8 bg-[#0c0c0c] border-white/10 text-white max-h-[92dvh] overflow-y-auto">
         <div className="flex flex-col items-center text-center gap-6">
           <div className="size-16 rounded-3xl bg-primary/10 flex items-center justify-center">
             <QrCode className="size-8 text-primary" />
