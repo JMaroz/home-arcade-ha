@@ -109,6 +109,8 @@ export interface IntegrationConfig {
   archiveAccessKey?: string;
   /** Optional Internet Archive S3 Secret Key */
   archiveSecretKey?: string;
+  /** Preferred source for game metadata and artwork */
+  metadataSource?: string;
 }
 
 export type IntegrationSaveStatus = "idle" | "loading" | "saving" | "saved" | "error";
@@ -245,6 +247,7 @@ function normalizeConfig(raw: unknown): IntegrationConfig {
     archiveCustomId: typeof source.archiveCustomId === "string" ? source.archiveCustomId : "",
     archiveAccessKey: typeof source.archiveAccessKey === "string" ? source.archiveAccessKey : "",
     archiveSecretKey: typeof source.archiveSecretKey === "string" ? source.archiveSecretKey : "",
+    metadataSource: typeof source.metadataSource === "string" ? source.metadataSource : "auto",
   };
 }
 

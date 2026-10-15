@@ -40,7 +40,7 @@ export function GameArt({
        * Demo/seeded games use /api/art?url=<encoded_artUrl>.
        * On error the img is hidden so the gradient fallback shows.
        */}
-      {game.romId ? (
+      {game.romId && game.artUrl ? (
         <img
           src={apiUrl(`/api/roms/${game.romId}/art`)}
           alt=""
@@ -50,7 +50,8 @@ export function GameArt({
           decoding="async"
           data-testid={`img-art-${game.id}`}
           onError={(e) => {
-            (e.target as HTMLImageElement).style.display = "none";
+            const el = e.target as HTMLImageElement;
+            el.style.display = "none";
           }}
         />
       ) : game.artUrl ? (
@@ -63,7 +64,8 @@ export function GameArt({
           decoding="async"
           data-testid={`img-art-${game.id}`}
           onError={(e) => {
-            (e.target as HTMLImageElement).style.display = "none";
+            const el = e.target as HTMLImageElement;
+            el.style.display = "none";
           }}
         />
       ) : null}

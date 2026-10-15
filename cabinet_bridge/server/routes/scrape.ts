@@ -1,6 +1,7 @@
 import { Express } from "express";
 import { storage } from "../storage";
 import { LIBRETRO_PLAYLISTS } from "./shared";
+import { fetchGameMetadata } from "../metadata-fetcher";
 import { dataPath } from "../data-dir";
 import path from "node:path";
 import fs from "node:fs/promises";
@@ -217,13 +218,10 @@ export function registerScrapeRoutes(app: Express) {
     const rom = await storage.getUploadedRom(id);
     if (!rom) return res.status(404).json({ message: "ROM not found." });
 
-    const settings = await storage.getIntegrationSettings();
-    if (!settings.raUsername || !settings.raToken) {
-      return res.status(400).json({ message: "RetroAchievements not configured." });
+    const meta = await fetchGameMetadata(rom.system, rom.title, rom.raGameId);
+    if (!meta || meta.scrapeStatus === "failed") {
+      return res.json({ success: false, message: meta?.scrapeMessage || "No metadata found." });
     }
-
-    const meta = await scrapeRaMetadata(rom);
-    if (!meta) return res.json({ success: false, message: "No metadata found." });
 
     const updated = await storage.updateUploadedRomMetadata(id, meta);
     res.json({ success: true, ...updated });
