@@ -116,7 +116,7 @@ export function registerArchiveRoutes(app: Express) {
     }
   });
 
-  // GET /api/archive/catalog?system=nes
+  // GET /api/archive/catalog?system=nes&source=all
   // Returns the list of games available for download for a given system
   app.get("/api/archive/catalog", async (req, res) => {
     try {
@@ -130,10 +130,12 @@ export function registerArchiveRoutes(app: Express) {
         ? { accessKey: settings.archiveAccessKey, secretKey: settings.archiveSecretKey }
         : undefined;
 
+      const catalogSource = String(req.query.source ?? settings.archiveSource ?? "all");
+
       const games = await fetchPlatformGames(
         system, 
         credentials, 
-        settings.archiveSource, 
+        catalogSource,
         settings.archiveCustomId
       );
       res.json(games);
