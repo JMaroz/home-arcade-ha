@@ -104,17 +104,17 @@ export function DirectoryPickerDialog({
         className="sm:max-w-2xl bg-[#0c0c0c] border-white/10 text-white max-h-[92dvh] overflow-y-auto"
       >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl font-black uppercase tracking-tight">
-            <FolderOpen className="size-5 text-accent" />
-            {title}
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-black uppercase tracking-tight pr-10 min-w-0">
+            <FolderOpen className="size-5 text-accent shrink-0" />
+            <span className="truncate min-w-0">{title}</span>
           </DialogTitle>
-          <DialogDescription className="text-white/45">
+          <DialogDescription className="text-white/45 pr-8 text-xs sm:text-sm">
             {description}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex overflow-x-auto pb-1 pr-2 gap-2 scrollbar-none">
             {allRoots.map((root) => (
               <Button
                 key={root.id}
@@ -123,31 +123,31 @@ export function DirectoryPickerDialog({
                 size="sm"
                 disabled={!root.available || loading}
                 onClick={() => setCurrentPath(root.path)}
-                className="gap-1.5 text-[10px] font-black uppercase tracking-wider"
+                className="gap-1.5 text-[10px] font-black uppercase tracking-wider shrink-0"
                 title={root.path}
               >
                 <HardDrive className="size-3.5" />
-                {root.label}
+                <span className="whitespace-nowrap">{root.label}</span>
               </Button>
             ))}
           </div>
 
           <div className="rounded-xl border border-white/10 bg-white/[0.03]">
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 p-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 p-3">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Current directory</p>
-                <p className="truncate font-mono text-xs text-foreground" title={browseData?.currentPath}>
+                <p className="break-all sm:truncate font-mono text-xs text-foreground" title={browseData?.currentPath}>
                   {browseData?.currentPath ?? "Loading..."}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   disabled={!browseData?.parentPath || loading}
                   onClick={() => browseData?.parentPath && setCurrentPath(browseData.parentPath)}
-                  className="gap-1.5"
+                  className="gap-1.5 flex-1 sm:flex-initial h-9 sm:h-8"
                 >
                   <ChevronLeft className="size-3.5" />
                   Up
@@ -161,7 +161,7 @@ export function DirectoryPickerDialog({
                     onSelect(browseData.currentPath);
                     onOpenChange(false);
                   }}
-                  className="gap-1.5"
+                  className="gap-1.5 flex-1 sm:flex-initial h-9 sm:h-8 font-bold"
                 >
                   <Plus className="size-3.5" />
                   Use this
