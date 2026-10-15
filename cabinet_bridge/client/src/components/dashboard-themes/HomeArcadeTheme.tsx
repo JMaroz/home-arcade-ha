@@ -209,8 +209,23 @@ export default function HomeArcadeTheme() {
     return [...uploaded, ...GAMES];
   }, [allRoms]);
 
-  const systemsWithGames = useMemo(() => {
-    return SYSTEMS.filter(s => allGames.some(g => g.system === s.id));
+  const [downloadDialogSystem, setDownloadDialogSystem] = useState<string>("nes");
+
+  const openArchiveForSystem = useCallback((sysId: string) => {
+    setDownloadDialogSystem(sysId);
+    setArchiveDialogOpen(true);
+  }, []);
+
+  const sortedSystems = useMemo(() => {
+    return [...SYSTEMS].map((system) => {
+      const count = allGames.filter((g) => g.system === system.id).length;
+      return { ...system, installedCount: count };
+    }).sort((a, b) => {
+      if (a.installedCount > 0 && b.installedCount === 0) return -1;
+      if (a.installedCount === 0 && b.installedCount > 0) return 1;
+      if (a.installedCount !== b.installedCount) return b.installedCount - a.installedCount;
+      return a.shortName.localeCompare(b.shortName);
+    });
   }, [allGames]);
 
   const filteredGames = useMemo(() => {
@@ -294,15 +309,15 @@ export default function HomeArcadeTheme() {
   // Grid Navigation
   const gridRef = useRef<HTMLDivElement>(null);
   const { focusedIndex, setFocusedIndex } = useGridNav({
-    count: view === "system" || searchQuery ? filteredGames.length : systemsWithGames.length,
+    count: view === "system" || searchQuery ? filteredGames.length : sortedSystems.length,
     gridRef,
     disabled: !!dialogGame,
     mapping: config.uiGamepadMapping,
     onActivate: (idx) => {
       if (view === "portals" && !searchQuery) {
-        const sys = systemsWithGames[idx];
+        const sys = sortedSystems[idx];
         if (sys) {
-          setActiveSystemId(sys.id);
+          setActiveSystemId(sys.id as SystemId);
           setView("system");
           setActiveGameIdx(0);
         }
@@ -429,49 +444,50 @@ export default function HomeArcadeTheme() {
             
             {/* 1. PORTALS VIEW (Default Landing) */}
             {view === "portals" && !searchQuery && (
-              systemsWithGames.length === 0 ? (
-                <div className="col-span-full py-24 flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-4">
-                  <div className="size-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-lg shadow-primary/10">
-                    <CloudDownload className="size-8" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-display text-xl font-black uppercase tracking-tight text-foreground">Libreria Giochi Vuota</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Non hai ancora giochi installati. Puoi scaricare singoli titoli o intere collezioni con 1 click direttamente da Internet Archive.
-                    </p>
-                  </div>
-                  <Button onClick={() => setArchiveDialogOpen(true)} className="gap-2 font-bold uppercase tracking-wider text-xs px-6 py-5 rounded-2xl shadow-xl shadow-primary/20">
-                    <CloudDownload className="size-4" /> Sfoglia e Scarica Giochi
-                  </Button>
-                </div>
-              ) : (
-                <motion.div key="portals" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} transition={{ duration: 0.4, ease: "easeOut" }}
-                  className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
-                >
-                  {systemsWithGames.map((system, i) => {
-                    const count = allGames.filter(g => g.system === system.id).length;
-                    return (
-                      <motion.button key={system.id} whileHover={{ scale: 1.02, y: -4 }} whileTap={{ scale: 0.98 }} onClick={() => enterPortal(system.id)}
-                        className="group relative aspect-[16/11] rounded-3xl overflow-hidden border border-white/5 text-left transition-all hover:border-white/20 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)]"
-                        style={{ background: `linear-gradient(135deg, hsl(${system.art[0]}) 0%, hsl(${system.art[1]}) 100%)` }}
-                      >
-                        {system.image && (
-                          <img src={system.image.url} alt="" loading="lazy" decoding="async" className="absolute -right-4 -bottom-4 h-4/5 object-contain opacity-40 group-hover:scale-110 group-hover:opacity-70 transition-all duration-700 pointer-events-none" />
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                        <div className="absolute inset-0 p-5 flex flex-col justify-between">
+              <motion.div key="portals" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} transition={{ duration: 0.4, ease: "easeOut" }}
+                className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+              >
+                {sortedSystems.map((system) => {
+                  const count = system.installedCount;
+                  return (
+                    <motion.div key={system.id} whileHover={{ scale: 1.02, y: -4 }} whileTap={{ scale: 0.98 }} onClick={() => enterPortal(system.id as SystemId)}
+                      className="group relative aspect-[16/11] rounded-3xl overflow-hidden border border-white/5 text-left transition-all hover:border-white/20 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] cursor-pointer"
+                      style={{ background: `linear-gradient(135deg, hsl(${system.art[0]}) 0%, hsl(${system.art[1]}) 100%)` }}
+                    >
+                      {system.image && (
+                        <img src={system.image.url} alt="" loading="lazy" decoding="async" className="absolute -right-4 -bottom-4 h-4/5 object-contain opacity-40 group-hover:scale-110 group-hover:opacity-70 transition-all duration-700 pointer-events-none" />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                      <div className="absolute inset-0 p-5 flex flex-col justify-between">
+                        <div className="flex items-center justify-between">
                           <div className="font-black text-xs text-white/40 tracking-[0.2em]">{system.mono}</div>
-                          <div>
-                            <div className="font-display text-lg font-black uppercase leading-tight text-white drop-shadow-lg">{system.shortName}</div>
-                            <div className="text-[10px] font-mono text-white/50 uppercase tracking-widest mt-1 font-bold">{count} Games</div>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openArchiveForSystem(system.id);
+                            }}
+                            className="h-7 px-2.5 bg-black/40 hover:bg-primary hover:text-black text-[10px] font-bold tracking-wide rounded-full backdrop-blur-sm border border-white/10 flex items-center gap-1.5 transition-all"
+                          >
+                            <CloudDownload className="size-3" />
+                            <span>Scarica ROM</span>
+                          </Button>
+                        </div>
+                        <div>
+                          <div className="font-display text-lg font-black uppercase leading-tight text-white drop-shadow-lg">{system.shortName}</div>
+                          <div className="text-[10px] font-mono uppercase tracking-widest mt-1 font-bold flex items-center gap-1.5 text-white/70">
+                            <span className={count > 0 ? "text-emerald-400 font-bold" : "text-white/40"}>
+                              {count} {count === 1 ? "Game" : "Games"}
+                            </span>
                           </div>
                         </div>
-                        <div className="absolute inset-0 rounded-3xl border-2 border-white/0 group-hover:border-white/20 transition-colors pointer-events-none" />
-                      </motion.button>
-                    );
-                  })}
-                </motion.div>
-              )
+                      </div>
+                      <div className="absolute inset-0 rounded-3xl border-2 border-white/0 group-hover:border-white/20 transition-colors pointer-events-none" />
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
             )}
 
             {/* 2. GAME GRID VIEW (Drill-down or Search) */}
@@ -479,13 +495,57 @@ export default function HomeArcadeTheme() {
               <motion.div key="grid" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}
                 className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8"
               >
+                {view === "system" && activeSystemId && (
+                  <div className="col-span-full mb-3 p-4 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-wrap items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-black text-white">{SYSTEMS.find(s => s.id === activeSystemId)?.name}</span>
+                        <span className="text-xs font-mono text-emerald-400 font-bold">({filteredGames.length} installati)</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Sfoglia i titoli installati o scarica nuove ROM per questa console direttamente da Internet Archive.
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => openArchiveForSystem(activeSystemId)}
+                      className="gap-2 font-bold text-xs rounded-xl shadow-lg shadow-primary/20"
+                    >
+                      <CloudDownload className="size-4" />
+                      Scarica ROM per {SYSTEMS.find(s => s.id === activeSystemId)?.shortName}
+                    </Button>
+                  </div>
+                )}
+
                 {isRomsLoading ? (
                   <GameCardSkeleton count={18} />
                 ) : filteredGames.length === 0 ? (
-                  <div className="col-span-full h-64 flex flex-col items-center justify-center text-white/20">
-                    <Search className="size-12 mb-4 opacity-50" />
-                    <div className="font-display text-sm font-black uppercase tracking-widest">No matching games</div>
-                    <Button variant="ghost" onClick={() => setSearchQuery("")} className="mt-4 text-xs">Clear Search</Button>
+                  <div className="col-span-full py-16 flex flex-col items-center justify-center text-center space-y-4">
+                    <div className="size-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                      <CloudDownload className="size-8" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="font-display text-lg font-black uppercase text-foreground">
+                        {searchQuery ? "Nessun gioco trovato" : `Nessun gioco per ${SYSTEMS.find(s => s.id === activeSystemId)?.name}`}
+                      </h3>
+                      <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
+                        {searchQuery
+                          ? "Nessun titolo corrisponde alla tua ricerca."
+                          : "Non hai ancora giochi installati per questa console. Clicca sul pulsante in basso per scaricare singoli giochi o l'intera collezione."}
+                      </p>
+                    </div>
+                    {activeSystemId && !searchQuery ? (
+                      <Button
+                        onClick={() => openArchiveForSystem(activeSystemId)}
+                        className="gap-2 text-xs font-bold uppercase rounded-xl px-5 py-2.5 shadow-lg shadow-primary/20"
+                      >
+                        <CloudDownload className="size-4" /> Scarica ROM per {SYSTEMS.find(s => s.id === activeSystemId)?.shortName}
+                      </Button>
+                    ) : (
+                      <Button variant="ghost" onClick={() => setSearchQuery("")} className="mt-2 text-xs">
+                        Pulisci Ricerca
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   displayedGames.map((game, i) => {
@@ -565,6 +625,7 @@ export default function HomeArcadeTheme() {
       <ArchiveDownloadDialog
         open={archiveDialogOpen}
         onOpenChange={setArchiveDialogOpen}
+        initialSystem={downloadDialogSystem}
         onDownloadComplete={() => {
           void refetchRoms();
         }}
