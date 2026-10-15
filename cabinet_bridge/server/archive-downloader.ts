@@ -207,22 +207,42 @@ export async function startArchiveDownload(options: {
 
       const md5Hash = hash.digest("hex");
 
-      // 3. Extraction or final rename
-      if (job.isFullSet && options.fileName.toLowerCase().endsWith(".zip")) {
+      // 3. Decompression or final rename
+      const isZip = options.fileName.toLowerCase().endsWith(".zip");
+      const isArcadeSingle = !job.isFullSet && (options.system === "arcade" || options.system === "neogeo");
+      const shouldDecompress = isZip && (job.isFullSet || !isArcadeSingle);
+
+      if (shouldDecompress) {
         job.status = "extracting";
         job.progress = 99;
-        log(`[ArchiveDownloader] Extracting full-set zip ${options.fileName}...`, "archive");
+        log(`[ArchiveDownloader] Extracting zip ${options.fileName}...`, "archive");
 
         const zipData = await fs.readFile(partFilePath);
         const entries = await extractZip(zipData);
 
         job.status = "indexing";
+        let importedCount = 0;
+
         for (const entry of entries) {
-          const entryDest = path.join(systemDir, path.basename(entry.name));
+          const entryBase = path.basename(entry.name);
+          const lowerBase = entryBase.toLowerCase();
+
+          // Skip MacOS metadata, hidden files, and auxiliary IA metadata files
+          if (
+            entryBase.startsWith(".") ||
+            lowerBase.endsWith("_meta.xml") ||
+            lowerBase.endsWith("_files.xml") ||
+            lowerBase.endsWith(".torrent") ||
+            lowerBase.endsWith("_meta.sqlite") ||
+            lowerBase.endsWith("_reviews.xml")
+          ) {
+            continue;
+          }
+
+          const entryDest = path.join(systemDir, entryBase);
           await fs.writeFile(entryDest, entry.data);
 
-          const entryBase = path.basename(entry.name);
-          const entryExt = path.extname(entryBase).toLowerCase();
+          const entryMd5 = crypto.createHash("md5").update(entry.data).digest("hex");
           const cleanTitle = titleFromFileName(entryBase);
           const slug = slugify(cleanTitle) + "-" + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 4);
 
@@ -236,16 +256,26 @@ export async function startArchiveDownload(options: {
             size: entry.data.length,
             mimeType: "application/octet-stream",
             artUrl: getDeterministicBoxArtUrl(options.system, cleanTitle),
+            romHash: entryMd5,
             scrapeStatus: "matched",
             favorite: false,
             createdAt: Date.now(),
           }).catch((err) => {
-            log(`[ArchiveDownloader] Bulk item import warn: ${err.message}`, "archive");
+            log(`[ArchiveDownloader] Item import warn: ${err.message}`, "archive");
           });
+
+          importedCount++;
         }
 
         // Clean part file after successful extraction
         await fs.unlink(partFilePath).catch(() => {});
+        if (fsSync.existsSync(finalFilePath)) {
+          await fs.unlink(finalFilePath).catch(() => {});
+        }
+
+        if (importedCount === 0) {
+          log(`[ArchiveDownloader] Warning: No valid entries extracted from ${options.fileName}`, "archive");
+        }
       } else {
         // Atomic rename from .part to final destination
         await fs.rename(partFilePath, finalFilePath);
