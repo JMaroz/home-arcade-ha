@@ -405,15 +405,6 @@ export default function HomeArcadeTheme() {
             </div>
             
             <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setArchiveDialogOpen(true)}
-                className="h-9 gap-2 rounded-full border-white/10 bg-white/5 hover:bg-white/10 hover:text-primary text-xs font-semibold px-4 transition-all"
-              >
-                <CloudDownload className="size-4 text-primary" />
-                <span className="hidden sm:inline">Scarica Giochi</span>
-              </Button>
               <div className="relative group hidden sm:block">
                 <Search className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors" />
                 <Input
@@ -459,21 +450,7 @@ export default function HomeArcadeTheme() {
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       <div className="absolute inset-0 p-5 flex flex-col justify-between">
-                        <div className="flex items-center justify-between">
-                          <div className="font-black text-xs text-white/40 tracking-[0.2em]">{system.mono}</div>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openArchiveForSystem(system.id);
-                            }}
-                            className="h-7 px-2.5 bg-black/40 hover:bg-primary hover:text-black text-[10px] font-bold tracking-wide rounded-full backdrop-blur-sm border border-white/10 flex items-center gap-1.5 transition-all"
-                          >
-                            <CloudDownload className="size-3" />
-                            <span>Scarica ROM</span>
-                          </Button>
-                        </div>
+                        <div className="font-black text-xs text-white/40 tracking-[0.2em]">{system.mono}</div>
                         <div>
                           <div className="font-display text-lg font-black uppercase leading-tight text-white drop-shadow-lg">{system.shortName}</div>
                           <div className="text-[10px] font-mono uppercase tracking-widest mt-1 font-bold flex items-center gap-1.5 text-white/70">

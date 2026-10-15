@@ -96,6 +96,7 @@ export function ArchiveDownloadDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedSystem, setSelectedSystem] = useState(initialSystem);
+  const [catalogSource, setCatalogSource] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   React.useEffect(() => {
@@ -132,9 +133,9 @@ export function ArchiveDownloadDialog({
 
   // Fetch games for selected system (only if keys are configured)
   const { data: games = [], isLoading: loadingGames, error: gamesError } = useQuery<ArchiveGameItem[]>({
-    queryKey: ["/api/archive/catalog", selectedSystem],
+    queryKey: ["/api/archive/catalog", selectedSystem, catalogSource],
     queryFn: async () => {
-      const res = await fetch(apiUrl(`/api/archive/catalog?system=${selectedSystem}`));
+      const res = await fetch(apiUrl(`/api/archive/catalog?system=${selectedSystem}&source=${catalogSource}`));
       if (!res.ok) throw new Error("Impossibile caricare il catalogo per questo sistema");
       return res.json();
     },
@@ -496,15 +497,53 @@ export function ArchiveDownloadDialog({
               </div>
             )}
 
-            {/* Search Input */}
-            <div className="relative my-1 shrink-0">
-              <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={`Cerca tra i giochi disponibili per ${activeMeta?.name ?? selectedSystem}...`}
-                className="pl-9 bg-white/5 border-white/10 text-xs font-sans h-9 text-white placeholder:text-muted-foreground/50"
-              />
+            {/* Search Input & Source Selector */}
+            <div className="my-1 flex flex-col sm:flex-row items-center gap-2 shrink-0">
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={`Cerca tra i giochi disponibili per ${activeMeta?.name ?? selectedSystem}...`}
+                  className="pl-9 bg-white/5 border-white/10 text-xs font-sans h-9 text-white placeholder:text-muted-foreground/50"
+                />
+              </div>
+
+              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg border border-white/10 text-[11px] font-medium shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setCatalogSource("all")}
+                  className={`px-2.5 py-1 rounded-md transition-all ${
+                    catalogSource === "all"
+                      ? "bg-primary text-black font-bold"
+                      : "text-muted-foreground hover:text-white"
+                  }`}
+                >
+                  Tutti Uniti
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCatalogSource("retro-best")}
+                  className={`px-2.5 py-1 rounded-md transition-all ${
+                    catalogSource === "retro-best"
+                      ? "bg-primary text-black font-bold"
+                      : "text-muted-foreground hover:text-white"
+                  }`}
+                >
+                  Best Set
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCatalogSource("hearto-1g1r")}
+                  className={`px-2.5 py-1 rounded-md transition-all ${
+                    catalogSource === "hearto-1g1r"
+                      ? "bg-primary text-black font-bold"
+                      : "text-muted-foreground hover:text-white"
+                  }`}
+                >
+                  Full 1G1R
+                </button>
+              </div>
             </div>
 
             {/* Game List Area */}

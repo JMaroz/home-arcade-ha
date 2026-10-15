@@ -496,7 +496,7 @@ export function isPlatformFile(
   return allowedExts.has(ext) || ext === ".zip" || ext === ".7z";
 }
 
-export async function fetchPlatformGames(
+export async function fetchPlatformGamesSingleSource(
   system: string,
   credentials?: { accessKey?: string; secretKey?: string },
   source: string = "retro-best",
@@ -559,4 +559,35 @@ export async function fetchPlatformGames(
 
   catalogCache.set(cacheKey, { fetchedAt: Date.now(), games });
   return games;
+}
+
+export async function fetchPlatformGames(
+  system: string,
+  credentials?: { accessKey?: string; secretKey?: string },
+  source: string = "all",
+  customId?: string
+): Promise<ArchiveGameItem[]> {
+  if (source === "all" || source === "merged") {
+    const sourcesToQuery = ["retro-best", "hearto-1g1r", "tiny-best"];
+    const results = await Promise.allSettled(
+      sourcesToQuery.map((src) => fetchPlatformGamesSingleSource(system, credentials, src, customId))
+    );
+
+    const mergedMap = new Map<string, ArchiveGameItem>();
+
+    for (const res of results) {
+      if (res.status === "fulfilled") {
+        for (const item of res.value) {
+          const key = item.title.toLowerCase().trim();
+          if (!mergedMap.has(key)) {
+            mergedMap.set(key, item);
+          }
+        }
+      }
+    }
+
+    return Array.from(mergedMap.values());
+  }
+
+  return fetchPlatformGamesSingleSource(system, credentials, source, customId);
 }
