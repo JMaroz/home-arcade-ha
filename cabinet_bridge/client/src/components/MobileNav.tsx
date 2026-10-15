@@ -17,7 +17,7 @@ export function AppBottomNav() {
   ];
 
   return (
-    <div className="fixed bottom-6 left-0 right-0 z-50 pointer-events-none px-6">
+    <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-6 left-0 right-0 z-50 pointer-events-none px-4 sm:px-6">
       <div className="max-w-md mx-auto pointer-events-auto">
         <div 
           className={cn(

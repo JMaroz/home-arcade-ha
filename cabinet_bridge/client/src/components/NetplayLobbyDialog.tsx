@@ -133,7 +133,7 @@ export function NetplayLobbyDialog({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
-        className="sm:max-w-md bg-card border-card-border"
+        className="sm:max-w-md bg-card border-card-border max-h-[92dvh] overflow-y-auto"
         data-testid="dialog-netplay-lobby"
       >
         <DialogTitle className="flex items-center gap-3 font-display text-xl text-white pb-2 border-b border-white/10">
