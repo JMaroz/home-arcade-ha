@@ -2,6 +2,16 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.63.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.62.0...v2.63.0) (2026-10-15)
+
+
+### Features
+
+* add ROM curation utility and multi-source metadata engine ([d31d269](https://github.com/JMaroz/home-arcade-ha/commit/d31d269f99d3e411c6b412ab9caa0b473962fc16))
+* add ROM curation utility and multi-source metadata engine ([09993a3](https://github.com/JMaroz/home-arcade-ha/commit/09993a3fcd640729e59ff8e02a13e11088618fe9))
+* improve download resilience and platform selection UI ([be42075](https://github.com/JMaroz/home-arcade-ha/commit/be42075d0bfbfe57dfcfb9c1276f4f3a285d51a1))
+* improve download resilience and platform selection UI ([3da748d](https://github.com/JMaroz/home-arcade-ha/commit/3da748d2c8b20383b1a5dc3b6755eaa9a04b16b4))
+
 ## [2.62.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.61.0...v2.62.0) (2026-10-15)
 
 
