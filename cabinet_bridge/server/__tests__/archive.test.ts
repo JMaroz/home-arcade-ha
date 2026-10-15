@@ -166,4 +166,123 @@ describe("Internet Archive ROM Management & Deterministic Box Art", () => {
       expect(isPlatformFile("retro-roms-best-set_archive.torrent", "nes", "retro-roms-best-set", emptyExts)).toBe(false);
     });
   });
+
+  describe("Archive Downloader Decompression & Database Indexing", () => {
+    let mockServer: Server;
+    let mockPort: number;
+    let zipContentBuffer: Buffer;
+
+    beforeAll(async () => {
+      const { createZip } = await import("../zip");
+      zipContentBuffer = await createZip([
+        { name: "Pokemon Emerald Version (USA).gba", data: Buffer.from("GBA_ROM_HEADER_DATA_MOCK") },
+      ]);
+
+      const app = express();
+      app.use((_req, res, next) => {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "*");
+        next();
+      });
+      app.get("/download/pokemon.zip", (_req, res) => {
+        res.setHeader("Content-Type", "application/zip");
+        res.setHeader("Content-Length", zipContentBuffer.length);
+        res.send(zipContentBuffer);
+      });
+      app.get("/download/mamegame.zip", (_req, res) => {
+        res.setHeader("Content-Type", "application/zip");
+        res.setHeader("Content-Length", zipContentBuffer.length);
+        res.send(zipContentBuffer);
+      });
+
+      mockServer = createServer(app);
+      await new Promise<void>((resolve) => {
+        mockServer.listen(0, "127.0.0.1", () => resolve());
+      });
+      mockPort = (mockServer.address() as { port: number }).port;
+    });
+
+    afterAll(async () => {
+      if (mockServer) {
+        await new Promise<void>((resolve) => mockServer.close(() => resolve()));
+      }
+    });
+
+    it("decompresses single game GBA zip archive into .gba file and adds it to database", async () => {
+      const { startArchiveDownload, getActiveDownloadJobs } = await import("../archive-downloader");
+      const { storage } = await import("../storage");
+      const fs = await import("node:fs/promises");
+      const existsSync = (await import("node:fs")).existsSync;
+
+      const job = await startArchiveDownload({
+        system: "gba",
+        title: "Pokemon Emerald Version (USA)",
+        fileName: "Pokemon Emerald Version (USA).zip",
+        downloadUrl: `http://127.0.0.1:${mockPort}/download/pokemon.zip`,
+        expectedSize: zipContentBuffer.length,
+        isFullSet: false,
+      });
+
+      // Wait for download & decompression background task
+      let status = job.status;
+      for (let i = 0; i < 50; i++) {
+        await new Promise((r) => setTimeout(r, 100));
+        const active = getActiveDownloadJobs().find((j) => j.id === job.id);
+        if (active && (active.status === "completed" || active.status === "error")) {
+          status = active.status;
+          break;
+        }
+      }
+
+      expect(status).toBe("completed");
+
+      const roms = await storage.listUploadedRoms();
+      const importedGba = roms.find((r) => r.system === "gba" && r.fileName === "Pokemon Emerald Version (USA).gba");
+      expect(importedGba).toBeDefined();
+      expect(importedGba?.title).toBe("Pokemon Emerald Version");
+      expect(importedGba?.romHash).toBeDefined();
+
+      // Check extracted file exists
+      expect(existsSync(importedGba!.filePath)).toBe(true);
+
+      // Verify wrapper zip archive was cleaned up
+      const settings = await storage.getIntegrationSettings();
+      const zipPath = `${importedGba!.filePath.replace(/\.gba$/, ".zip")}`;
+      expect(existsSync(zipPath)).toBe(false);
+      expect(existsSync(`${zipPath}.part`)).toBe(false);
+    });
+
+    it("preserves single game Arcade zip archive without decompressing", async () => {
+      const { startArchiveDownload, getActiveDownloadJobs } = await import("../archive-downloader");
+      const { storage } = await import("../storage");
+      const existsSync = (await import("node:fs")).existsSync;
+
+      const job = await startArchiveDownload({
+        system: "arcade",
+        title: "Street Fighter II",
+        fileName: "sf2.zip",
+        downloadUrl: `http://127.0.0.1:${mockPort}/download/mamegame.zip`,
+        expectedSize: zipContentBuffer.length,
+        isFullSet: false,
+      });
+
+      let status = job.status;
+      for (let i = 0; i < 50; i++) {
+        await new Promise((r) => setTimeout(r, 100));
+        const active = getActiveDownloadJobs().find((j) => j.id === job.id);
+        if (active && (active.status === "completed" || active.status === "error")) {
+          status = active.status;
+          break;
+        }
+      }
+
+      expect(status).toBe("completed");
+
+      const roms = await storage.listUploadedRoms();
+      const importedArcade = roms.find((r) => r.system === "arcade" && r.fileName === "sf2.zip");
+      expect(importedArcade).toBeDefined();
+      expect(existsSync(importedArcade!.filePath)).toBe(true);
+    });
+  });
 });
