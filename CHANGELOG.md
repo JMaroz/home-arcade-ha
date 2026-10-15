@@ -2,6 +2,23 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.62.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.61.0...v2.62.0) (2026-10-15)
+
+
+### Features
+
+* optimize layout and workflows for smartphone and small devices ([9385c8f](https://github.com/JMaroz/home-arcade-ha/commit/9385c8f5aeaa28f128e89ba1aaf5d3d735352628))
+* optimize layout and workflows for smartphone and small devices ([8c3e19b](https://github.com/JMaroz/home-arcade-ha/commit/8c3e19b60a477fefcf54690c4cc0283acda2f8b6))
+* optimize mobile ui layout and game detail workflow ([040b294](https://github.com/JMaroz/home-arcade-ha/commit/040b294a6841b52d20644ce74db108d99b0b7311))
+
+
+### Bug Fixes
+
+* decompress downloaded ROM archives and index extracted files ([fbe3db3](https://github.com/JMaroz/home-arcade-ha/commit/fbe3db3d5c08bf4d3070eeb68cd4072999ddfdaf))
+* decompress downloaded ROM archives and index extracted files ([05e58ce](https://github.com/JMaroz/home-arcade-ha/commit/05e58cea68c11b234aaf820edd84078901ee6425))
+* decompress downloaded ROM archives and index extracted files ([b6a6bec](https://github.com/JMaroz/home-arcade-ha/commit/b6a6bece2cf2885b7b493847ee631bdd1bafa5d8))
+* decompress downloaded ROM archives and index extracted files ([14e39fb](https://github.com/JMaroz/home-arcade-ha/commit/14e39fb753e2467a4163a1cb5ae2ac6d06eb4bde))
+
 ## [2.61.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.60.0...v2.61.0) (2026-10-14)
 
 
