@@ -242,55 +242,32 @@ export function registerScrapeRoutes(app: Express) {
 
     let artMatched = 0;
     let artFailed = 0;
-    let count = 0;
-
-    const needArt = targetRoms.filter((r) => !r.artUrl);
-    send({ type: "start", phase: "art", total: needArt.length });
-
-    for (const rom of needArt) {
-      count++;
-      send({ type: "progress", phase: "art", current: count, total: needArt.length, title: rom.title });
-
-      const libretro = await findLibretroBoxArt(rom.system, rom.title);
-      if (libretro.url) {
-        await storage.updateUploadedRomMetadata(rom.id, {
-          artUrl: libretro.url,
-          scrapeStatus: "matched",
-          scrapeMessage: libretro.message,
-        });
-        artMatched++;
-        send({ type: "result", phase: "art", id: rom.id, title: rom.title, status: "success" });
-      } else {
-        await storage.updateUploadedRomArt(rom.id, { artUrl: null, scrapeStatus: "failed", scrapeMessage: libretro.message });
-        artFailed++;
-        send({ type: "result", phase: "art", id: rom.id, title: rom.title, status: "failed" });
-      }
-    }
-
-    const settings = await storage.getIntegrationSettings();
-    const raConfigured = !!(settings.raUsername && settings.raToken);
     let metaMatched = 0;
     let metaFailed = 0;
+    let count = 0;
 
-    if (raConfigured) {
-      const needsMeta = targetRoms.filter((r) => r.raGameId && !r.description);
-      if (needsMeta.length > 0) {
-        send({ type: "phase_change", phase: "meta", total: needsMeta.length });
-        count = 0;
-        for (const rom of needsMeta) {
-          count++;
-          send({ type: "progress", phase: "meta", current: count, total: needsMeta.length, title: rom.title });
+    send({ type: "start", phase: "meta", total: targetRoms.length });
 
-          const meta = await scrapeRaMetadata(rom);
-          if (meta) {
-            await storage.updateUploadedRomMetadata(rom.id, meta);
-            metaMatched++;
-            send({ type: "result", phase: "meta", id: rom.id, title: rom.title, status: "success" });
-          } else {
-            metaFailed++;
-            send({ type: "result", phase: "meta", id: rom.id, title: rom.title, status: "failed" });
-          }
+    for (const rom of targetRoms) {
+      count++;
+      send({ type: "progress", phase: "meta", current: count, total: targetRoms.length, title: rom.title });
+
+      try {
+        const meta = await fetchGameMetadata(rom.system, rom.title, rom.raGameId);
+        if (meta.artUrl || meta.description || meta.releaseYear) {
+          await storage.updateUploadedRomMetadata(rom.id, meta);
+          if (meta.artUrl) artMatched++;
+          if (meta.description || meta.releaseYear) metaMatched++;
+          send({ type: "result", phase: "meta", id: rom.id, title: rom.title, status: "success" });
+        } else {
+          artFailed++;
+          metaFailed++;
+          send({ type: "result", phase: "meta", id: rom.id, title: rom.title, status: "failed" });
         }
+      } catch {
+        artFailed++;
+        metaFailed++;
+        send({ type: "result", phase: "meta", id: rom.id, title: rom.title, status: "failed" });
       }
     }
 
@@ -300,17 +277,40 @@ export function registerScrapeRoutes(app: Express) {
 
   app.post("/api/roms/scrape-all", async (req, res) => {
     const roms = await storage.listUploadedRoms();
-    const unscraped = roms.filter((r) => r.scrapeStatus === "not_scraped" || r.scrapeStatus === "failed");
-    if (unscraped.length === 0) return res.json({ message: "All ROMs already scraped." });
+    if (roms.length === 0) return res.json({ message: "Libreria vuota." });
 
-    await streamScrapeRoms(unscraped, res);
+    if (req.headers.accept?.includes("text/event-stream")) {
+      await streamScrapeRoms(roms, res);
+    } else {
+      let count = 0;
+      for (const rom of roms) {
+        const meta = await fetchGameMetadata(rom.system, rom.title, rom.raGameId).catch(() => null);
+        if (meta && (meta.artUrl || meta.description || meta.releaseYear)) {
+          await storage.updateUploadedRomMetadata(rom.id, meta);
+          count++;
+        }
+      }
+      res.json({ success: true, count, message: `Aggiornati metadati e copertine per ${count} giochi.` });
+    }
   });
 
   app.post("/api/roms/scrape-missing", async (req, res) => {
     const roms = await storage.listUploadedRoms();
     const missing = roms.filter((r) => !r.artUrl || !r.description);
-    if (missing.length === 0) return res.json({ message: "No ROMs are missing metadata or artwork." });
+    if (missing.length === 0) return res.json({ message: "Nessun gioco ha metadati o copertine mancanti." });
 
-    await streamScrapeRoms(missing, res);
+    if (req.headers.accept?.includes("text/event-stream")) {
+      await streamScrapeRoms(missing, res);
+    } else {
+      let count = 0;
+      for (const rom of missing) {
+        const meta = await fetchGameMetadata(rom.system, rom.title, rom.raGameId).catch(() => null);
+        if (meta && (meta.artUrl || meta.description || meta.releaseYear)) {
+          await storage.updateUploadedRomMetadata(rom.id, meta);
+          count++;
+        }
+      }
+      res.json({ success: true, count, message: `Recuperati metadati e copertine per ${count} giochi.` });
+    }
   });
 }

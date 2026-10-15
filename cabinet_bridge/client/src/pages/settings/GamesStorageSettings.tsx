@@ -67,6 +67,44 @@ export function GamesStorageSettings() {
   const [curationReport, setCurationReport] = useState<any | null>(null);
   const [isDeduplicating, setIsDeduplicating] = useState(false);
 
+  const [isScraping, setIsScraping] = useState(false);
+
+  const handleScrapeAll = async () => {
+    setIsScraping(true);
+    try {
+      const res = await apiRequest("POST", "/api/roms/scrape-all");
+      const data = await res.json().catch(() => ({}));
+      toast({
+        title: "Aggiornamento Completato",
+        description: data.message || "Tutti i metadati e le copertine sono stati aggiornati.",
+      });
+      void queryClient.invalidateQueries({ queryKey: ["/api/roms"] });
+      void refetchStorage();
+    } catch (err: any) {
+      toast({ title: "Errore Scansione", description: err.message, variant: "destructive" });
+    } finally {
+      setIsScraping(false);
+    }
+  };
+
+  const handleScrapeMissing = async () => {
+    setIsScraping(true);
+    try {
+      const res = await apiRequest("POST", "/api/roms/scrape-missing");
+      const data = await res.json().catch(() => ({}));
+      toast({
+        title: "Recupero Completato",
+        description: data.message || "Recupero metadati e copertine mancanti completato.",
+      });
+      void queryClient.invalidateQueries({ queryKey: ["/api/roms"] });
+      void refetchStorage();
+    } catch (err: any) {
+      toast({ title: "Errore Scansione", description: err.message, variant: "destructive" });
+    } finally {
+      setIsScraping(false);
+    }
+  };
+
   const handleRunCurationAnalysis = async () => {
     setAnalyzingCuration(true);
     try {
@@ -470,6 +508,30 @@ export function GamesStorageSettings() {
             value={config.defaultRomDirectory || "/share/roms"}
             className="font-mono text-xs bg-white/5 border-white/10 text-white flex-1"
           />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleScrapeMissing}
+            disabled={isScraping}
+            className="text-xs gap-1.5"
+          >
+            {isScraping ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3 text-primary" />}
+            Recupera Metadati Mancanti
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleScrapeAll}
+            disabled={isScraping}
+            className="text-xs gap-1.5"
+          >
+            {isScraping ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3 text-primary" />}
+            Aggiorna Tutti i Metadati & Copertine
+          </Button>
+
           <Button
             type="button"
             variant="outline"
