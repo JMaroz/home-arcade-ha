@@ -11,8 +11,39 @@ import { SAVE_BACKUP_DIR } from "./shared";
 import { getAbsoluteFilePath } from "./utils";
 import { createZip, extractZip, type ZipEntry } from "../zip";
 import { WebDavClient } from "../webdav";
+import { analyzeLibraryCuration, executeDeduplication } from "../rom-curator";
 
 export function registerVaultRoutes(app: Express) {
+  /**
+   * Curation Analysis Report
+   * Analyzes installed ROMs for duplicate region/language versions and missing platform titles.
+   */
+  app.get("/api/vault/curation-analysis", async (_req, res) => {
+    try {
+      const report = await analyzeLibraryCuration();
+      res.json(report);
+    } catch (err: any) {
+      log(`Vault curation analysis failed: ${err.message}`, "vault");
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /**
+   * Language-Aware 1G1R Auto-Deduplication
+   * Deletes redundant duplicate ROMs while preserving user language preference.
+   */
+  app.post("/api/vault/deduplicate", express.json(), async (req, res) => {
+    try {
+      const targetRomIds = req.body?.targetRomIds ? (req.body.targetRomIds as number[]) : undefined;
+      const result = await executeDeduplication({ targetRomIds });
+      log(`Vault deduplicate: removed ${result.deletedCount} redundant ROMs, freed ${Math.round(result.freedBytes / 1024 / 1024)} MB`, "vault");
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      log(`Vault deduplicate failed: ${err.message}`, "vault");
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   /**
    * Library Health Summary
    * Returns counts of games missing specific metadata.

@@ -509,6 +509,9 @@ export default function HomeArcadeTheme() {
                               alt=""
                               loading="lazy"
                               decoding="async"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
                             />
                           ) : (
                             <span className="text-[10px] font-black uppercase text-white/20 px-2 text-center leading-tight">

@@ -8,6 +8,7 @@ import { storage } from "./storage";
 import { extractZip } from "./zip";
 import { log } from "./log";
 import { getDeterministicBoxArtUrl } from "./archive-client";
+import { fetchGameMetadata, type UnifiedGameMetadata } from "./metadata-fetcher";
 import { titleFromFileName, slugify } from "./routes/utils";
 import { ROM_ROOT } from "./routes/shared";
 
@@ -246,6 +247,11 @@ export async function startArchiveDownload(options: {
           const cleanTitle = titleFromFileName(entryBase);
           const slug = slugify(cleanTitle) + "-" + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 4);
 
+          const meta: UnifiedGameMetadata = await fetchGameMetadata(options.system, cleanTitle).catch(() => ({
+            artUrl: getDeterministicBoxArtUrl(options.system, cleanTitle),
+            scrapeStatus: "matched" as const,
+          }));
+
           await storage.createUploadedRom({
             title: cleanTitle,
             system: options.system,
@@ -255,9 +261,16 @@ export async function startArchiveDownload(options: {
             filePath: entryDest,
             size: entry.data.length,
             mimeType: "application/octet-stream",
-            artUrl: getDeterministicBoxArtUrl(options.system, cleanTitle),
+            artUrl: meta.artUrl || getDeterministicBoxArtUrl(options.system, cleanTitle),
+            description: meta.description,
+            releaseYear: meta.releaseYear,
+            developer: meta.developer,
+            publisher: meta.publisher,
+            genre: meta.genre,
+            players: meta.players,
             romHash: entryMd5,
-            scrapeStatus: "matched",
+            scrapeStatus: meta.scrapeStatus || "matched",
+            scrapeMessage: meta.scrapeMessage,
             favorite: false,
             createdAt: Date.now(),
           }).catch((err) => {
@@ -283,12 +296,17 @@ export async function startArchiveDownload(options: {
         job.status = "indexing";
         job.progress = 100;
 
-        const baseSlug = slugify(options.title || titleFromFileName(options.fileName));
+        const gameTitle = options.title || titleFromFileName(options.fileName);
+        const baseSlug = slugify(gameTitle);
         const slug = `${options.system}_${baseSlug}_${Date.now().toString(36)}`;
-        const artUrl = getDeterministicBoxArtUrl(options.system, options.fileName);
+
+        const meta: UnifiedGameMetadata = await fetchGameMetadata(options.system, gameTitle).catch(() => ({
+          artUrl: getDeterministicBoxArtUrl(options.system, options.fileName),
+          scrapeStatus: "matched" as const,
+        }));
 
         await storage.createUploadedRom({
-          title: options.title || titleFromFileName(options.fileName),
+          title: gameTitle,
           system: options.system,
           slug,
           originalName: options.fileName,
@@ -296,9 +314,16 @@ export async function startArchiveDownload(options: {
           filePath: finalFilePath,
           size: job.downloadedBytes,
           mimeType: "application/octet-stream",
-          artUrl,
+          artUrl: meta.artUrl || getDeterministicBoxArtUrl(options.system, options.fileName),
+          description: meta.description,
+          releaseYear: meta.releaseYear,
+          developer: meta.developer,
+          publisher: meta.publisher,
+          genre: meta.genre,
+          players: meta.players,
           romHash: md5Hash,
-          scrapeStatus: "matched",
+          scrapeStatus: meta.scrapeStatus || "matched",
+          scrapeMessage: meta.scrapeMessage,
           favorite: false,
           createdAt: Date.now(),
         });

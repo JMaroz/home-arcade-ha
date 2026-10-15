@@ -63,6 +63,49 @@ export function GamesStorageSettings() {
   const [isScanning, setIsScanning] = useState(false);
   const [isValidatingKeys, setIsValidatingKeys] = useState(false);
 
+  const [analyzingCuration, setAnalyzingCuration] = useState(false);
+  const [curationReport, setCurationReport] = useState<any | null>(null);
+  const [isDeduplicating, setIsDeduplicating] = useState(false);
+
+  const handleRunCurationAnalysis = async () => {
+    setAnalyzingCuration(true);
+    try {
+      const res = await apiRequest("GET", "/api/vault/curation-analysis");
+      const data = await res.json();
+      setCurationReport(data);
+      toast({
+        title: "Analisi Curation Completata",
+        description: `Trovati ${data.duplicateGroupCount} gruppi di duplicati e ${data.redundantRomsCount} ROM ridondanti.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Errore Analisi", description: err.message, variant: "destructive" });
+    } finally {
+      setAnalyzingCuration(false);
+    }
+  };
+
+  const handleExecuteDeduplication = async () => {
+    if (!confirm(`Vuoi procedere con l'eliminazione automatica 1G1R dei duplicati ridondanti? Verrà conservata la versione migliore per lingua (${config.language?.toUpperCase() ?? "EN"}).`)) {
+      return;
+    }
+    setIsDeduplicating(true);
+    try {
+      const res = await apiRequest("POST", "/api/vault/deduplicate");
+      const data = await res.json();
+      toast({
+        title: "Deduplicazione Completata",
+        description: `Rimossi ${data.deletedCount} duplicati, liberati ${fmtBytes(data.freedBytes)}.`,
+      });
+      setCurationReport(null);
+      void queryClient.invalidateQueries({ queryKey: ["/api/roms"] });
+      void refetchStorage();
+    } catch (err: any) {
+      toast({ title: "Errore Deduplicazione", description: err.message, variant: "destructive" });
+    } finally {
+      setIsDeduplicating(false);
+    }
+  };
+
   // Storage Snapshot Query
   const { data: storageData, isLoading: loadingStorage, refetch: refetchStorage, isRefetching } = useQuery<StorageSnapshot>({
     queryKey: ["/api/vault/storage-snapshot"],
@@ -292,6 +335,34 @@ export function GamesStorageSettings() {
             />
           </div>
         )}
+
+        {/* Metadata Source Option */}
+        <div className="pt-3 border-t border-white/5 space-y-2">
+          <label className="text-xs font-bold text-white flex items-center gap-2">
+            <Sparkles className="size-3.5 text-primary" />
+            Sorgente Preferita Metadati e Copertine:
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {[
+              { id: "auto", label: "Auto (Multi-Source)" },
+              { id: "libretro", label: "Libretro CDN" },
+              { id: "archive", label: "Internet Archive" },
+              { id: "retroachievements", label: "RetroAchievements" },
+              { id: "openvgdb", label: "OpenVGDB / Built-in" },
+            ].map((m) => (
+              <Button
+                key={m.id}
+                type="button"
+                variant={config.metadataSource === m.id ? "default" : "outline"}
+                size="sm"
+                onClick={() => setConfig({ metadataSource: m.id as any })}
+                className="text-xs h-8 justify-start"
+              >
+                {m.label}
+              </Button>
+            ))}
+          </div>
+        </div>
 
         {/* Optional S3 Credentials Toggle */}
         <div className="pt-2 border-t border-white/5">
@@ -524,6 +595,90 @@ export function GamesStorageSettings() {
               ))}
             </div>
           </ScrollArea>
+        )}
+      </div>
+
+      {/* ── CARD 5: ROM CURATION & DEDUPLICAZIONE 1G1R (LANGUAGE-AWARE) ─────── */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Layers className="size-4 text-primary" />
+              Curation Libreria & Deduplicazione 1G1R (Lingua: {config.language?.toUpperCase() ?? "EN"})
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Analizza la tua collezione per individuare copie doppie regionali o di versione (1 Game 1 Region) e scoprire quali titoli mancano per ogni console.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            onClick={handleRunCurationAnalysis}
+            disabled={analyzingCuration}
+            className="text-xs gap-1.5 font-bold"
+          >
+            {analyzingCuration ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+            Esegui Analisi Curation
+          </Button>
+        </div>
+
+        {curationReport && (
+          <div className="p-4 rounded-lg bg-black/40 border border-white/10 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-3">
+              <div className="text-xs font-mono space-x-3 text-muted-foreground">
+                <span>Scansionati: <b className="text-white">{curationReport.scannedRomsCount}</b></span>
+                <span>Gruppi Duplicati: <b className="text-amber-400">{curationReport.duplicateGroupCount}</b></span>
+                <span>Ridondanti: <b className="text-rose-400">{curationReport.redundantRomsCount}</b></span>
+                <span>Spazio Recuperabile: <b className="text-emerald-400">{fmtBytes(curationReport.totalSpaceReclaimableBytes)}</b></span>
+              </div>
+              {curationReport.redundantRomsCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleExecuteDeduplication}
+                  disabled={isDeduplicating}
+                  className="text-xs gap-1 font-bold"
+                >
+                  {isDeduplicating ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
+                  Auto-Pulizia 1G1R ({curationReport.redundantRomsCount} Duplicati)
+                </Button>
+              )}
+            </div>
+
+            {curationReport.duplicateGroups.length === 0 ? (
+              <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+                <CheckCircle2 className="size-4" /> Nessun duplicato trovato! La tua libreria è già curata in modalità 1G1R.
+              </p>
+            ) : (
+              <ScrollArea className="max-h-60 pr-2">
+                <div className="space-y-2">
+                  {curationReport.duplicateGroups.map((grp: any, idx: number) => (
+                    <div key={idx} className="p-3 rounded-lg bg-white/[0.02] border border-white/5 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs font-bold text-white">
+                        <span>{grp.baseTitle} ({systemLabel(grp.system)})</span>
+                        <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400">
+                          {grp.roms.length} Versioni
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">{grp.reason}</p>
+                      <div className="text-[10px] font-mono space-y-0.5 pt-1">
+                        {grp.roms.map((r: any) => (
+                          <div
+                            key={r.id}
+                            className={`flex items-center justify-between px-2 py-1 rounded ${
+                              r.id === grp.recommendedRomId ? "bg-emerald-950/40 text-emerald-300 font-bold" : "text-muted-foreground"
+                            }`}
+                          >
+                            <span>{r.id === grp.recommendedRomId ? "✓ [1G1R Kept] " : "✗ [Redundant] "}{r.title}</span>
+                            <span>{fmtBytes(r.size)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
         )}
       </div>
 
