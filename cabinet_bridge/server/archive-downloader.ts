@@ -26,6 +26,11 @@ export interface DownloadJob {
   totalBytes: number;
   speedBytesPerSec: number;
   error?: string;
+  extractionProgress?: {
+    current: number;
+    total: number;
+    currentFileName?: string;
+  };
   startedAt: number;
   completedAt?: number;
 }
@@ -123,15 +128,29 @@ export async function startArchiveDownload(options: {
       job.status = "downloading";
       log(`[ArchiveDownloader] Starting download for "${options.title}" from ${options.downloadUrl}`, "archive");
 
+      // Check existing partial file for resumable download (HTTP Range)
+      let existingBytes = 0;
+      try {
+        const stat = await fs.stat(partFilePath);
+        existingBytes = stat.size;
+      } catch {
+        existingBytes = 0;
+      }
+
       let currentUrl = options.downloadUrl;
       let res!: Response;
       let redirectCount = 0;
       const MAX_REDIRECTS = 8;
+      let isPartial = false;
 
       while (true) {
         const requestHeaders: Record<string, string> = {
           "User-Agent": "HomeArcade/1.0 (+https://github.com/home-arcade-ha)",
         };
+
+        if (existingBytes > 0) {
+          requestHeaders["Range"] = `bytes=${existingBytes}-`;
+        }
 
         const parsedUrl = new URL(currentUrl);
         if (
@@ -163,7 +182,27 @@ export async function startArchiveDownload(options: {
         break;
       }
 
-      if (!res.ok || !res.body) {
+      if (res.status === 206) {
+        isPartial = true;
+        job.downloadedBytes = existingBytes;
+        const contentRange = res.headers.get("content-range");
+        if (contentRange) {
+          const match = contentRange.match(/\/(\d+)/);
+          if (match) {
+            job.totalBytes = parseInt(match[1], 10);
+          }
+        }
+        if (!job.totalBytes && res.headers.get("content-length")) {
+          job.totalBytes = existingBytes + parseInt(res.headers.get("content-length")!, 10);
+        }
+        log(`[ArchiveDownloader] Resuming download for "${options.title}" from byte ${existingBytes}`, "archive");
+      } else if (res.ok) {
+        job.downloadedBytes = 0;
+        const contentLength = res.headers.get("content-length");
+        if (contentLength) {
+          job.totalBytes = parseInt(contentLength, 10);
+        }
+      } else {
         if (res.status === 401 || res.status === 403) {
           throw new Error(
             "Internet Archive richiede credenziali S3 valide (Access Key / Secret Key) per il download di questa collezione (HTTP 401/403)."
@@ -172,12 +211,11 @@ export async function startArchiveDownload(options: {
         throw new Error(`HTTP error ${res.status}: ${res.statusText}`);
       }
 
-      const contentLength = res.headers.get("content-length");
-      if (contentLength) {
-        job.totalBytes = parseInt(contentLength, 10);
+      if (!res.body) {
+        throw new Error("No response body received from server");
       }
 
-      let lastBytes = 0;
+      let lastBytes = job.downloadedBytes;
       let lastTime = Date.now();
       const hash = crypto.createHash("md5");
 
@@ -201,7 +239,7 @@ export async function startArchiveDownload(options: {
         },
       });
 
-      const writeStream = fsSync.createWriteStream(partFilePath);
+      const writeStream = fsSync.createWriteStream(partFilePath, { flags: isPartial ? "a" : "w" });
       // @ts-expect-error Node.js web readable stream compatibility
       await pipeline(res.body, progressTransform, writeStream);
 
@@ -214,11 +252,14 @@ export async function startArchiveDownload(options: {
 
       if (shouldDecompress) {
         job.status = "extracting";
-        job.progress = 99;
+        job.progress = 0;
         log(`[ArchiveDownloader] Extracting zip ${options.fileName}...`, "archive");
 
         const zipData = await fs.readFile(partFilePath);
-        const entries = await extractZip(zipData);
+        const entries = await extractZip(zipData, (current, total, entryName) => {
+          job.extractionProgress = { current, total, currentFileName: entryName };
+          job.progress = Math.min(99, Math.round((current / total) * 100));
+        });
 
         job.status = "indexing";
         let importedCount = 0;

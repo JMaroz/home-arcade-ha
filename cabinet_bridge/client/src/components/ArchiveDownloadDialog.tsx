@@ -65,6 +65,11 @@ interface DownloadJob {
   downloadedBytes: number;
   totalBytes: number;
   error?: string;
+  extractionProgress?: {
+    current: number;
+    total: number;
+    currentFileName?: string;
+  };
 }
 
 function fmtBytes(bytes: number): string {
@@ -92,6 +97,12 @@ export function ArchiveDownloadDialog({
   const queryClient = useQueryClient();
   const [selectedSystem, setSelectedSystem] = useState(initialSystem);
   const [searchQuery, setSearchQuery] = useState("");
+
+  React.useEffect(() => {
+    if (initialSystem) {
+      setSelectedSystem(initialSystem);
+    }
+  }, [initialSystem, open]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   // S3 Credentials Gatekeeper state
@@ -475,7 +486,7 @@ export function ArchiveDownloadDialog({
                       <div className="flex items-center justify-between text-xs font-mono">
                         <span className="truncate max-w-[280px] text-white flex items-center gap-1.5">
                           <Loader2 className="size-3 animate-spin text-primary" />
-                          {j.title} ({j.status})
+                          {j.title} ({j.status === "extracting" && j.extractionProgress ? `Estrazione ${j.extractionProgress.current}/${j.extractionProgress.total}` : j.status})
                         </span>
                         <span className="text-primary font-bold">{j.progress}%</span>
                       </div>

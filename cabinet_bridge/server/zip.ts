@@ -89,11 +89,29 @@ export async function createZip(entries: ZipEntry[]): Promise<Buffer> {
 
 /**
  * Extracts entries from a ZIP buffer safely, preventing path traversal / zip-slip.
+ * Supports progress callback for large archives.
  */
-export async function extractZip(zipBuffer: Buffer): Promise<ZipEntry[]> {
+export async function extractZip(
+  zipBuffer: Buffer,
+  onProgress?: (current: number, total: number, entryName: string) => void
+): Promise<ZipEntry[]> {
   const entries: ZipEntry[] = [];
   let offset = 0;
 
+  // First pass: scan headers to determine total entries count
+  let totalEntries = 0;
+  let scanOffset = 0;
+  while (scanOffset + 30 <= zipBuffer.length) {
+    const sig = zipBuffer.readUInt32LE(scanOffset);
+    if (sig !== 0x04034b50) break;
+    const compressedSize = zipBuffer.readUInt32LE(scanOffset + 18);
+    const fileNameLength = zipBuffer.readUInt16LE(scanOffset + 26);
+    const extraLength = zipBuffer.readUInt16LE(scanOffset + 28);
+    scanOffset += 30 + fileNameLength + extraLength + compressedSize;
+    totalEntries++;
+  }
+
+  let processedCount = 0;
   while (offset + 30 <= zipBuffer.length) {
     const sig = zipBuffer.readUInt32LE(offset);
     if (sig !== 0x04034b50) break; // End of local files / start of central dir
@@ -130,6 +148,11 @@ export async function extractZip(zipBuffer: Buffer): Promise<ZipEntry[]> {
         continue;
       }
       entries.push({ name: normalized, data });
+    }
+
+    processedCount++;
+    if (onProgress && totalEntries > 0) {
+      onProgress(processedCount, totalEntries, normalized);
     }
 
     offset = dataEnd;

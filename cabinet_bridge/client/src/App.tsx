@@ -17,6 +17,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WarpScanner } from "@/components/dashboard-themes/HomeArcadeTheme";
 import { SetupWizardDialog } from "@/components/SetupWizardDialog";
+import { GlobalDownloadBanner } from "@/components/GlobalDownloadBanner";
 
 /**
  * Ensures scroll position is reset or restore correctly on navigation.
@@ -155,6 +156,7 @@ function App() {
                   <NowPlayingBar />
                   <AppBottomNav />
                   <SetupWizardDialog />
+                  <GlobalDownloadBanner />
 
                   {showScanner && (
                     <WarpScanner
