@@ -2,6 +2,36 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.65.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.64.1...v2.65.0) (2026-10-16)
+
+
+### Features
+
+* configure engine and restore native audio ([7067006](https://github.com/JMaroz/home-arcade-ha/commit/706700640500e97bd95181b7a9c6da93eeeaee7b))
+* **stream:** add save states and cloud sync ([88f052e](https://github.com/JMaroz/home-arcade-ha/commit/88f052e11a979f5f8c00964596c257b69656a216))
+
+
+### Bug Fixes
+
+* **import:** handle string/buffer request body and support backslash paths ([2a29ba1](https://github.com/JMaroz/home-arcade-ha/commit/2a29ba1313dbdb9b73e6df00f68d31420457d343))
+
+
+### Performance
+
+* batch update ROM metadata during LaunchBox and EmulationStation XML import ([9bd7474](https://github.com/JMaroz/home-arcade-ha/commit/9bd74743f1683e9f51fb3826540035ab4d082e5e))
+* batch update ROM metadata during LaunchBox and EmulationStation XML import ([a412638](https://github.com/JMaroz/home-arcade-ha/commit/a412638172d4185fd0e64bfc8c24f65de79c92a9))
+* optimize generateM3uForAllDiscGroups N+1 query ([1c6fa46](https://github.com/JMaroz/home-arcade-ha/commit/1c6fa46811854c9072df75cc4dd292c8df98f5b4))
+* optimize generateM3uForAllDiscGroups N+1 query ([826f53e](https://github.com/JMaroz/home-arcade-ha/commit/826f53eb7cff8f385ff652a1fc8c0145091ea684))
+* replace sync file I/O with async read in system route ([b2a18ec](https://github.com/JMaroz/home-arcade-ha/commit/b2a18ecbb454f3dcf0849812f018b7d85dc371e2))
+* replace sync file I/O with async read in system route ([7dd6198](https://github.com/JMaroz/home-arcade-ha/commit/7dd61986190aa23ae6b1be26694981987902c729))
+* **server:** replace sync file I/O with async promises in debug endpoint ([58a4b4f](https://github.com/JMaroz/home-arcade-ha/commit/58a4b4f5964eda7f76bb524a41f83ddb226d17c2))
+* **server:** replace sync file I/O with async promises in debug endpoint ([4566482](https://github.com/JMaroz/home-arcade-ha/commit/45664820774b0b85bbef8f80c10af48a60751d94))
+
+
+### Code Refactoring
+
+* **import:** deduplicate batchUpdateRomMetadata helper and fix test import ([1b481a2](https://github.com/JMaroz/home-arcade-ha/commit/1b481a2753f2411531fd4fa58d8882424e5c08fb))
+
 ## [2.64.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.64.0...v2.64.1) (2026-10-16)
 
 
