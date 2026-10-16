@@ -82,8 +82,12 @@ export function renderStreamPlayerPage({
         image-rendering: pixelated; image-rendering: crisp-edges;
       }
       .hud-overlay {
-        position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-        background: rgba(5, 5, 10, 0.92); z-index: 1000; padding: 24px; text-align: center;
+        position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+        background: rgba(5, 5, 10, 0.92); z-index: 1000;
+        padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+        box-sizing: border-box;
+        overflow-y: auto; -webkit-overflow-scrolling: touch;
+        text-align: center;
         transition: opacity 300ms ease, visibility 300ms ease;
       }
       .hud-overlay.is-hidden {
@@ -91,8 +95,13 @@ export function renderStreamPlayerPage({
       }
       .hud-card {
         max-width: 440px; width: 100%; background: rgba(18, 18, 28, 0.95);
-        border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 20px; padding: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 20px; padding: 24px;
         box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+        margin: auto 0;
+        max-height: calc(100dvh - 32px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        box-sizing: border-box;
       }
       .hud-title {
         font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;
@@ -116,6 +125,16 @@ export function renderStreamPlayerPage({
       .btn-primary:hover { background: #db2777; transform: translateY(-1px); }
       .btn-secondary { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.15); }
       .btn-secondary:hover { background: rgba(255, 255, 255, 0.18); }
+      .btn-xs { padding: 6px 12px; font-size: 10px; border-radius: 8px; margin: 0; }
+      .slot-row {
+        display: flex; align-items: center; justify-content: space-between;
+        background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px; padding: 10px 14px; gap: 8px;
+      }
+      .slot-info { display: flex; flex-direction: column; text-align: left; flex: 1; }
+      .slot-title { font-size: 12px; font-weight: 800; color: #fff; }
+      .slot-time { font-size: 10px; color: rgba(255, 255, 255, 0.5); margin-top: 2px; }
+      .slot-actions { display: flex; gap: 6px; }
       .menu-btn {
         position: fixed; z-index: 999; top: max(12px, env(safe-area-inset-top));
         background: rgba(10, 10, 18, 0.75); border: 1px solid rgba(255, 255, 255, 0.2);
@@ -125,12 +144,6 @@ export function renderStreamPlayerPage({
       }
       .menu-btn:hover { background: rgba(236, 72, 153, 0.4); border-color: #ec4899; }
       #menu-trigger { left: max(12px, env(safe-area-inset-left)); }
-      #pad-trigger { left: max(88px, calc(env(safe-area-inset-left) + 76px)); border-color: rgba(236, 72, 153, 0.4); }
-      #pad-trigger:hover { background: rgba(236, 72, 153, 0.3); border-color: #ec4899; }
-      #coop-trigger { left: max(168px, calc(env(safe-area-inset-left) + 156px)); border-color: rgba(56, 189, 248, 0.4); }
-      #coop-trigger:hover { background: rgba(56, 189, 248, 0.3); border-color: #38bdf8; }
-      #hud-trigger { left: max(256px, calc(env(safe-area-inset-left) + 244px)); border-color: rgba(16, 185, 129, 0.4); }
-      #hud-trigger:hover { background: rgba(16, 185, 129, 0.3); border-color: #10b981; }
 
       /* Touch & On-Screen Gamepad Overlay */
       .virtual-controller {
@@ -339,9 +352,6 @@ export function renderStreamPlayerPage({
     </div>
 
     <button id="menu-trigger" class="menu-btn">Menu</button>
-    <button id="pad-trigger" class="menu-btn" title="Toggle On-Screen Gamepad">🎮 Pad</button>
-    <button id="coop-trigger" class="menu-btn">👥 Co-Op</button>
-    <button id="hud-trigger" class="menu-btn">📊 Stats</button>
     <div id="stats" class="stats-badge" title="Click or press 'H' / Select+Start to toggle HUD">STREAM · 60 FPS</div>
     <div id="gamepad-toast" style="display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 2000; background: rgba(16, 185, 129, 0.92); color: #fff; font-weight: 700; font-size: 12px; padding: 8px 18px; border-radius: 9999px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); pointer-events: none; backdrop-filter: blur(8px); transition: opacity 0.3s ease;"></div>
 
@@ -401,6 +411,20 @@ export function renderStreamPlayerPage({
       </div>
     </div>
 
+    <!-- Save & Load Slots Modal -->
+    <div id="slots-overlay" class="hud-overlay is-hidden">
+      <div class="hud-card" style="max-width: 480px;">
+        <div class="hud-title" style="color: #ec4899;">💾 Slot di Salvataggio</div>
+        <div class="hud-subtitle">Salvataggi nativi Libretro salvati in HA (/share) e sincronizzabili su Cloud</div>
+        <div id="slots-list" style="display: flex; flex-direction: column; gap: 8px; margin: 16px 0; text-align: left;">
+          <div style="color: rgba(255,255,255,0.6); font-size: 12px; padding: 12px;">Caricamento slot in corso...</div>
+        </div>
+        <button id="btn-close-slots" class="btn btn-secondary" style="width: 100%;">
+          Chiudi
+        </button>
+      </div>
+    </div>
+
     <!-- Real-Time Telemetry Modal -->
     <div id="telemetry-overlay" class="hud-overlay is-hidden">
       <div class="hud-card" style="max-width: 480px;">
@@ -444,6 +468,17 @@ export function renderStreamPlayerPage({
         <div class="hud-title">${safeTitle}</div>
         <div class="hud-subtitle">Native Low-Latency Stream · ${safeSystem.toUpperCase()}</div>
         <div style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- Save & Load Controls -->
+          <div id="save-load-section" style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <button id="btn-quick-save" class="btn btn-primary" style="background: #ec4899; margin: 0;">💾 Salva Rapido</button>
+              <button id="btn-quick-load" class="btn btn-secondary" style="border-color: #ec4899; color: #f472b6; margin: 0;">📂 Carica Rapido</button>
+            </div>
+            <button id="btn-open-slots-menu" class="btn btn-secondary" style="border-color: rgba(236, 72, 153, 0.4);">
+              🗃️ Gestione Slot (0 - 4)...
+            </button>
+          </div>
+
           <button id="btn-unmute" class="btn btn-secondary">🔊 Unmute Audio</button>
           <button id="btn-fullscreen" class="btn btn-secondary">⛶ Toggle Fullscreen</button>
           <button id="btn-aspect" class="btn btn-secondary" style="border-color: rgba(234, 179, 8, 0.4);">
@@ -454,6 +489,9 @@ export function renderStreamPlayerPage({
           </button>
           <button id="btn-open-coop-menu" class="btn btn-secondary" style="border-color: rgba(56, 189, 248, 0.4);">
             👥 Invite Player 2 (Co-Op)
+          </button>
+          <button id="btn-open-telemetry-menu" class="btn btn-secondary" style="border-color: rgba(16, 185, 129, 0.4);">
+            📊 Statistiche & Telemetria
           </button>
           ${wasmMode !== "disabled" ? `
           <a href="${wasmPlayerUrl}" class="btn btn-secondary wasm-fallback-link">
@@ -491,10 +529,15 @@ export function renderStreamPlayerPage({
         const menuOverlay = document.getElementById("menu-overlay");
         const coopOverlay = document.getElementById("coop-overlay");
         const telemetryOverlay = document.getElementById("telemetry-overlay");
+        const slotsOverlay = document.getElementById("slots-overlay");
+        const slotsList = document.getElementById("slots-list");
+        const btnCloseSlots = document.getElementById("btn-close-slots");
+        const btnOpenSlotsMenu = document.getElementById("btn-open-slots-menu");
+        const btnQuickSave = document.getElementById("btn-quick-save");
+        const btnQuickLoad = document.getElementById("btn-quick-load");
+        const saveLoadSection = document.getElementById("save-load-section");
+        const btnOpenTelemetryMenu = document.getElementById("btn-open-telemetry-menu");
         const menuBtn = document.getElementById("menu-trigger");
-        const padTrigger = document.getElementById("pad-trigger");
-        const coopBtn = document.getElementById("coop-trigger");
-        const hudBtn = document.getElementById("hud-trigger");
         const virtualController = document.getElementById("virtual-controller");
         const btnTogglePad = document.getElementById("btn-toggle-pad");
         const retryBtn = document.getElementById("retry-btn");
@@ -624,7 +667,7 @@ export function renderStreamPlayerPage({
         const myPlayerSlot = isGuest ? 1 : 0;
 
         if (isGuest) {
-          coopBtn.style.display = "none";
+          if (saveLoadSection) saveLoadSection.style.display = "none";
           if (btnOpenCoopMenu) btnOpenCoopMenu.style.display = "none";
           statsBadge.textContent = "P2 · GUEST · 60 FPS";
           telSlot.textContent = "Player 2 (Guest)";
@@ -865,10 +908,8 @@ export function renderStreamPlayerPage({
           if (!virtualController) return;
           if (visible) {
             virtualController.classList.remove("is-hidden");
-            if (padTrigger) padTrigger.style.borderColor = "#ec4899";
           } else {
             virtualController.classList.add("is-hidden");
-            if (padTrigger) padTrigger.style.borderColor = "";
           }
           try {
             localStorage.setItem("ha_arcade_touch_controller", visible ? "1" : "0");
@@ -1213,21 +1254,129 @@ export function renderStreamPlayerPage({
           } catch (_) {}
         }, 3000);
 
+        // ── Save & Load State Management ──
+        async function saveSlot(slot) {
+          if (!sessionId) return;
+          try {
+            showGamepadToast("💾 Salvataggio in corso...");
+            const res = await fetch(ingressBase + "/api/stream/" + sessionId + "/save/" + slot, {
+              method: "POST"
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.message || err.error || "Errore salvataggio");
+            }
+            showGamepadToast("💾 " + (slot === 0 ? "Salvataggio Rapido" : "Slot " + slot) + " completato!");
+          } catch (e) {
+            showGamepadToast("❌ Errore: " + (e.message || String(e)));
+          }
+        }
+
+        async function loadSlot(slot) {
+          if (!sessionId) return;
+          try {
+            showGamepadToast("📂 Caricamento in corso...");
+            const res = await fetch(ingressBase + "/api/stream/" + sessionId + "/load/" + slot, {
+              method: "POST"
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.message || err.error || "Errore caricamento");
+            }
+            showGamepadToast("📂 " + (slot === 0 ? "Salvataggio Rapido" : "Slot " + slot) + " caricato!");
+            menuOverlay.classList.add("is-hidden");
+            if (slotsOverlay) slotsOverlay.classList.add("is-hidden");
+          } catch (e) {
+            showGamepadToast("❌ " + (e.message || String(e)));
+          }
+        }
+
+        async function refreshSlotsModal() {
+          if (!sessionId || !slotsList) return;
+          slotsList.innerHTML = '<div style="color: rgba(255,255,255,0.6); font-size: 12px; padding: 12px; text-align: center;">Caricamento slot...</div>';
+          try {
+            const res = await fetch(ingressBase + "/api/stream/" + sessionId + "/slots");
+            const savedSlots = res.ok ? await res.json() : [];
+            const slotMap = new Map();
+            if (Array.isArray(savedSlots)) {
+              savedSlots.forEach(s => slotMap.set(s.slot, s));
+            }
+
+            slotsList.innerHTML = "";
+            for (let i = 0; i <= 4; i++) {
+              const info = slotMap.get(i);
+              const hasSave = !!info;
+              const title = i === 0 ? "Slot 0 (Rapido)" : "Slot " + i;
+              const dateStr = hasSave ? new Date(info.updatedAt).toLocaleString() : "Nessun dato salvato";
+
+              const row = document.createElement("div");
+              row.className = "slot-row";
+              row.innerHTML = \`
+                <div class="slot-info">
+                  <div class="slot-title">\${title}</div>
+                  <div class="slot-time">\${dateStr}</div>
+                </div>
+                <div class="slot-actions">
+                  <button class="btn btn-primary btn-xs btn-save-slot" data-slot="\${i}">Salva</button>
+                  <button class="btn btn-secondary btn-xs btn-load-slot" data-slot="\${i}" \${hasSave ? "" : "disabled style='opacity: 0.35; cursor: not-allowed;'"}>Carica</button>
+                </div>
+              \`;
+
+              const saveBtn = row.querySelector(".btn-save-slot");
+              if (saveBtn) {
+                saveBtn.addEventListener("click", async () => {
+                  await saveSlot(i);
+                  refreshSlotsModal();
+                });
+              }
+
+              const loadBtn = row.querySelector(".btn-load-slot");
+              if (loadBtn && hasSave) {
+                loadBtn.addEventListener("click", () => {
+                  loadSlot(i);
+                });
+              }
+
+              slotsList.appendChild(row);
+            }
+          } catch (e) {
+            slotsList.innerHTML = '<div style="color: #ef4444; font-size: 12px; padding: 12px;">Impossibile recuperare gli slot</div>';
+          }
+        }
+
         // UI Event Listeners
         menuBtn.addEventListener("click", () => menuOverlay.classList.remove("is-hidden"));
-        if (padTrigger) {
-          padTrigger.addEventListener("click", () => toggleVirtualPad());
+
+        if (btnQuickSave) {
+          btnQuickSave.addEventListener("click", async () => {
+            await saveSlot(0);
+          });
         }
+        if (btnQuickLoad) {
+          btnQuickLoad.addEventListener("click", async () => {
+            await loadSlot(0);
+          });
+        }
+        if (btnOpenSlotsMenu) {
+          btnOpenSlotsMenu.addEventListener("click", () => {
+            menuOverlay.classList.add("is-hidden");
+            refreshSlotsModal();
+            if (slotsOverlay) slotsOverlay.classList.remove("is-hidden");
+          });
+        }
+        if (btnCloseSlots) {
+          btnCloseSlots.addEventListener("click", () => {
+            if (slotsOverlay) slotsOverlay.classList.add("is-hidden");
+            menuOverlay.classList.remove("is-hidden");
+          });
+        }
+
         if (btnTogglePad) {
           btnTogglePad.addEventListener("click", () => {
             toggleVirtualPad();
             menuOverlay.classList.add("is-hidden");
           });
         }
-        coopBtn.addEventListener("click", () => {
-          updateCoopInvite();
-          coopOverlay.classList.remove("is-hidden");
-        });
         if (btnOpenCoopMenu) {
           btnOpenCoopMenu.addEventListener("click", () => {
             menuOverlay.classList.add("is-hidden");
@@ -1235,7 +1384,12 @@ export function renderStreamPlayerPage({
             coopOverlay.classList.remove("is-hidden");
           });
         }
-        hudBtn.addEventListener("click", () => telemetryOverlay.classList.remove("is-hidden"));
+        if (btnOpenTelemetryMenu) {
+          btnOpenTelemetryMenu.addEventListener("click", () => {
+            menuOverlay.classList.add("is-hidden");
+            telemetryOverlay.classList.remove("is-hidden");
+          });
+        }
         statsBadge.addEventListener("click", () => telemetryOverlay.classList.toggle("is-hidden"));
 
         btnResume.addEventListener("click", () => menuOverlay.classList.add("is-hidden"));

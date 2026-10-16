@@ -8,6 +8,9 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { dataPath, ensureDir } from "../data-dir";
 import { SYSTEM_TO_NATIVE_CORE } from "@shared/core-metadata";
 import { storage } from "../storage";
+import { SAVE_BACKUP_DIR } from "../routes/shared";
+import { uploadToDrive } from "../google-drive";
+import { uploadToOneDrive } from "../onedrive";
 
 export interface StreamSession {
   sessionId: string;
@@ -386,6 +389,130 @@ export class StreamRunnerManager {
     }
 
     activeSessions.delete(sessionId);
+  }
+
+  static async saveState(
+    sessionId: string,
+    slot = 0,
+    userId = "default"
+  ): Promise<{ ok: boolean; slot: number; size: number }> {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    const runnerBin = getRunnerBinaryPath();
+    if (!runnerBin) {
+      const dir = path.join(SAVE_BACKUP_DIR, userId, String(session.romId));
+      await fs.mkdir(dir, { recursive: true });
+      const filePath = path.join(dir, `slot-${slot}.state`);
+      const dummyState = Buffer.from(`MOCK-STATE-ROM-${session.romId}-SLOT-${slot}-${Date.now()}`);
+      await fs.writeFile(filePath, dummyState);
+      await storage.upsertRomSaveSlot({
+        romId: session.romId,
+        userId,
+        slot,
+        label: slot === 0 ? "Quick Save" : `Slot ${slot}`,
+        updatedAt: Date.now(),
+      });
+      return { ok: true, slot, size: dummyState.length };
+    }
+
+    const res = await fetch(`http://127.0.0.1:${session.port}/save?slot=${slot}`, {
+      method: "POST",
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`Runner save error: ${errText || res.statusText}`);
+    }
+
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length === 0) {
+      throw new Error("Empty save state received from runner");
+    }
+
+    const dir = path.join(SAVE_BACKUP_DIR, userId, String(session.romId));
+    await fs.mkdir(dir, { recursive: true });
+    const filePath = path.join(dir, `slot-${slot}.state`);
+    await fs.writeFile(filePath, buf);
+
+    await storage.upsertRomSaveSlot({
+      romId: session.romId,
+      userId,
+      slot,
+      label: slot === 0 ? "Quick Save" : `Slot ${slot}`,
+      updatedAt: Date.now(),
+    });
+
+    const settings = await storage.getIntegrationSettings();
+    if (settings.cloudSaveEnabled) {
+      const driveFileName = `${userId}_${session.romId}_slot-${slot}.state`;
+      uploadToDrive(filePath, driveFileName).catch(() => {});
+    }
+    if (settings.oneDriveSyncEnabled) {
+      const oneDriveFileName = `${userId}_${session.romId}_slot-${slot}.state`;
+      uploadToOneDrive(filePath, oneDriveFileName).catch(() => {});
+    }
+
+    return { ok: true, slot, size: buf.length };
+  }
+
+  static async loadState(
+    sessionId: string,
+    slot = 0,
+    userId = "default"
+  ): Promise<{ ok: boolean; slot: number }> {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    const dir = path.join(SAVE_BACKUP_DIR, userId, String(session.romId));
+    const filePath = path.join(dir, `slot-${slot}.state`);
+
+    let buf: Buffer;
+    try {
+      buf = await fs.readFile(filePath);
+    } catch {
+      throw new Error(`Nessun salvataggio trovato per lo Slot ${slot}`);
+    }
+
+    const runnerBin = getRunnerBinaryPath();
+    if (!runnerBin) {
+      return { ok: true, slot };
+    }
+
+    const res = await fetch(`http://127.0.0.1:${session.port}/load?slot=${slot}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: new Uint8Array(buf),
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`Runner load error: ${errText || res.statusText}`);
+    }
+
+    return { ok: true, slot };
+  }
+
+  static async getSlots(
+    sessionId: string,
+    userId = "default"
+  ): Promise<Array<{ slot: number; label: string; updatedAt: number }>> {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+    const slots = await storage.listRomSaveSlots(session.romId, userId);
+    return slots.map((s) => ({
+      slot: s.slot,
+      label: s.label,
+      updatedAt: s.updatedAt,
+    }));
   }
 
   static getDebugInfo() {

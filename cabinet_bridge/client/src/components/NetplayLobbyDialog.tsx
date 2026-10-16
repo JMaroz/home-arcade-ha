@@ -149,6 +149,31 @@ export function NetplayLobbyDialog({
         {/* ── Lobby ─────────────────────────────────────────────── */}
         {view === "lobby" && (
           <div className="space-y-6 pt-4">
+            {/* WebRTC Stream Co-Op Recommended Banner */}
+            <div className="p-3.5 rounded-xl border border-sky-500/30 bg-sky-500/10 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="font-display text-xs font-bold text-sky-300 uppercase tracking-wide flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-sky-400 animate-pulse" />
+                  WebRTC Stream Co-Op (Consigliato)
+                </span>
+                <span className="text-[9px] font-mono font-bold text-sky-400/80 uppercase">Zero Desync</span>
+              </div>
+              <p className="text-[11px] text-sky-100/70 leading-relaxed">
+                Condividi lo schermo a 60 FPS con un amico sul cellulare o PC tramite codice QR. Nessun download di ROM per il secondo giocatore.
+              </p>
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (!game.romId) return;
+                  const returnTo = encodeURIComponent(window.location.href);
+                  window.location.href = apiUrl(`/api/roms/${game.romId}/stream-player?return=${returnTo}&profile=${profileId}`);
+                }}
+                className="w-full h-9 bg-sky-600 hover:bg-sky-500 text-white font-mono text-xs font-bold uppercase tracking-wider gap-2 mt-1"
+              >
+                Avvia Stream Co-Op (Host)
+              </Button>
+            </div>
+
             {/* Open rooms */}
             <div className="relative">
               <div className="flex items-center justify-between mb-3">

@@ -11,6 +11,7 @@ import { SAVE_BACKUP_DIR } from "./shared";
 import { getAbsoluteFilePath } from "./utils";
 import { createZip, extractZip, type ZipEntry } from "../zip";
 import { WebDavClient } from "../webdav";
+import { testOneDriveConnection, syncOneDriveSaves } from "../onedrive";
 import { analyzeLibraryCuration, executeDeduplication } from "../rom-curator";
 
 export function registerVaultRoutes(app: Express) {
@@ -341,6 +342,35 @@ export function registerVaultRoutes(app: Express) {
 
       res.json({ success: true, uploaded: uploadCount, downloaded: downloadCount });
     } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /**
+   * Test Microsoft OneDrive Connection
+   */
+  app.get("/api/vault/onedrive-test", async (_req, res) => {
+    try {
+      const result = await testOneDriveConnection();
+      if (!result.success) {
+        return res.status(400).json({ ok: false, message: result.message });
+      }
+      res.json({ ok: true, message: `Connesso a OneDrive con successo (${result.user})`, user: result.user });
+    } catch (err: any) {
+      log(`OneDrive test failed: ${err.message}`, "onedrive");
+      res.status(500).json({ ok: false, message: err.message });
+    }
+  });
+
+  /**
+   * Sync Saves to Microsoft OneDrive
+   */
+  app.post("/api/vault/onedrive-sync", async (_req, res) => {
+    try {
+      const result = await syncOneDriveSaves(SAVE_BACKUP_DIR);
+      res.json(result);
+    } catch (err: any) {
+      log(`OneDrive sync failed: ${err.message}`, "onedrive");
       res.status(500).json({ message: err.message });
     }
   });

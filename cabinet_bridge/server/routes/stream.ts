@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { StreamRunnerManager } from "../stream/runner-manager";
+import { getUserFromRequest } from "./shared";
 
 export function registerStreamRoutes(app: Express) {
   // POST /api/stream/start/:romId
@@ -114,6 +115,62 @@ export function registerStreamRoutes(app: Express) {
   app.post("/api/stream/stop/:sessionId", (req, res) => {
     StreamRunnerManager.stopSession(req.params.sessionId);
     res.json({ success: true });
+  });
+
+  // POST /api/stream/:sessionId/save and /api/stream/:sessionId/save/:slot
+  const handleSave = async (req: any, res: any) => {
+    try {
+      const sessionId = req.params.sessionId;
+      const rawSlot = req.params.slot;
+      const slot = rawSlot !== undefined ? Number(rawSlot) : 0;
+      const { userId } = getUserFromRequest(req);
+      const result = await StreamRunnerManager.saveState(sessionId, Number.isNaN(slot) ? 0 : slot, userId);
+      res.json(result);
+    } catch (err: unknown) {
+      console.error(`[stream] Save state error for session ${req.params.sessionId}:`, err);
+      res.status(500).json({
+        message: "Failed to save state",
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+  app.post("/api/stream/:sessionId/save", handleSave);
+  app.post("/api/stream/:sessionId/save/:slot", handleSave);
+
+  // POST /api/stream/:sessionId/load and /api/stream/:sessionId/load/:slot
+  const handleLoad = async (req: any, res: any) => {
+    try {
+      const sessionId = req.params.sessionId;
+      const rawSlot = req.params.slot;
+      const slot = rawSlot !== undefined ? Number(rawSlot) : 0;
+      const { userId } = getUserFromRequest(req);
+      const result = await StreamRunnerManager.loadState(sessionId, Number.isNaN(slot) ? 0 : slot, userId);
+      res.json(result);
+    } catch (err: unknown) {
+      console.error(`[stream] Load state error for session ${req.params.sessionId}:`, err);
+      res.status(500).json({
+        message: "Failed to load state",
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+  app.post("/api/stream/:sessionId/load", handleLoad);
+  app.post("/api/stream/:sessionId/load/:slot", handleLoad);
+
+  // GET /api/stream/:sessionId/slots
+  app.get("/api/stream/:sessionId/slots", async (req, res) => {
+    try {
+      const sessionId = req.params.sessionId;
+      const { userId } = getUserFromRequest(req);
+      const slots = await StreamRunnerManager.getSlots(sessionId, userId);
+      res.json(slots);
+    } catch (err: unknown) {
+      console.error(`[stream] Get slots error for session ${req.params.sessionId}:`, err);
+      res.status(500).json({
+        message: "Failed to get save slots",
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   });
 
   // GET /api/stream/debug

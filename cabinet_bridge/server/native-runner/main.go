@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -104,9 +105,11 @@ var (
 	videoTrack  *webrtc.TrackLocalStaticSample
 	audioTrack  *webrtc.TrackLocalStaticSample
 	inputMgr    = &InputManager{}
-	loopMu      sync.Mutex
-	loopRunning bool
-	peerSeq     uint64
+	loopMu           sync.Mutex
+	loopRunning      bool
+	peerSeq          uint64
+	emuSessionMu     sync.RWMutex
+	activeEmuSession emulator.EmulatorSession
 )
 
 func main() {
@@ -199,6 +202,8 @@ func main() {
 	mux.HandleFunc("/peers", handlePeers)
 	mux.HandleFunc("/offer", handleOffer)
 	mux.HandleFunc("/candidate", handleCandidate)
+	mux.HandleFunc("/save", handleSave)
+	mux.HandleFunc("/load", handleLoad)
 	mux.HandleFunc("/stop", handleStop)
 
 	server := &http.Server{
@@ -509,6 +514,63 @@ func handleCandidate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
+func handleSave(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	emuSessionMu.RLock()
+	sess := activeEmuSession
+	emuSessionMu.RUnlock()
+
+	if sess == nil {
+		http.Error(w, "No active emulation session", http.StatusNotFound)
+		return
+	}
+
+	stateBytes, err := sess.Serialize()
+	if err != nil {
+		log.Printf("[runner] Serialize error: %v\n", err)
+		http.Error(w, fmt.Sprintf("Serialize failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Length", strconv.Itoa(len(stateBytes)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(stateBytes)
+}
+
+func handleLoad(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	data, err := io.ReadAll(r.Body)
+	if err != nil || len(data) == 0 {
+		http.Error(w, "Missing state payload", http.StatusBadRequest)
+		return
+	}
+
+	emuSessionMu.RLock()
+	sess := activeEmuSession
+	emuSessionMu.RUnlock()
+
+	if sess == nil {
+		http.Error(w, "No active emulation session", http.StatusNotFound)
+		return
+	}
+
+	if err := sess.Unserialize(data); err != nil {
+		log.Printf("[runner] Unserialize error: %v\n", err)
+		http.Error(w, fmt.Sprintf("Unserialize failed: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "size": len(data)})
+}
+
 func handleStop(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"stopped": true})
@@ -558,7 +620,15 @@ func runMediaStreamLoop() {
 	defer ticker.Stop()
 
 	emuSession := emulator.CreateActiveSession(config.Width, config.Height, fps, 44100, config.RomPath, config.CorePath)
-	defer emuSession.Close()
+	emuSessionMu.Lock()
+	activeEmuSession = emuSession
+	emuSessionMu.Unlock()
+	defer func() {
+		emuSessionMu.Lock()
+		activeEmuSession = nil
+		emuSessionMu.Unlock()
+		emuSession.Close()
+	}()
 
 	videoEncoder := encoder.NewActiveVideoEncoder(config.Width, config.Height, fps)
 	defer videoEncoder.Close()

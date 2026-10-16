@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { dataPath } from "../data-dir";
 
@@ -101,7 +102,20 @@ export const EMULATORJS_CORES: Record<string, string> = {
 };
 
 export const ROM_ROOT = path.resolve(dataPath("rom-storage"));
-export const SAVE_BACKUP_DIR = path.resolve(dataPath("save-backups"));
+
+function resolveSaveBackupDir(): string {
+  const haShare = "/share/homearcade/saves";
+  try {
+    if (fs.existsSync("/share")) {
+      fs.accessSync("/share", fs.constants.W_OK);
+      fs.mkdirSync(haShare, { recursive: true });
+      return haShare;
+    }
+  } catch {}
+  return path.resolve(dataPath("save-backups"));
+}
+
+export const SAVE_BACKUP_DIR = resolveSaveBackupDir();
 export const SYSTEM_IMAGE_CACHE_DIR = path.resolve(dataPath("system-image-cache"));
 export const SYSTEM_LOGO_CACHE_DIR  = path.resolve(dataPath("system-logo-cache"));
 

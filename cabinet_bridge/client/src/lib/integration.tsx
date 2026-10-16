@@ -91,6 +91,16 @@ export interface IntegrationConfig {
   googleDriveRefreshToken?: string;
   /** Google Drive folder ID for saves */
   googleDriveFolderId?: string;
+  /** Enable OneDrive Save sync */
+  oneDriveSyncEnabled?: boolean;
+  /** OneDrive OAuth client ID */
+  oneDriveClientId?: string;
+  /** OneDrive OAuth client secret */
+  oneDriveClientSecret?: string;
+  /** OneDrive refresh token */
+  oneDriveRefreshToken?: string;
+  /** OneDrive last sync timestamp */
+  oneDriveLastSync?: number | null;
   /** WebDAV Server URL */
   webdavUrl?: string;
   /** WebDAV Username */
@@ -171,6 +181,16 @@ const defaultConfig: IntegrationConfig = {
   netplayNickname: "HomeArcadePlayer",
   netplayPort: 55435,
   netplaySyncMode: "rollback",
+  cloudSaveEnabled: false,
+  googleDriveClientId: "",
+  googleDriveClientSecret: "",
+  googleDriveRefreshToken: "",
+  googleDriveFolderId: "",
+  oneDriveSyncEnabled: false,
+  oneDriveClientId: "",
+  oneDriveClientSecret: "",
+  oneDriveRefreshToken: "",
+  oneDriveLastSync: null,
   webdavUrl: "",
   webdavUsername: "",
   webdavPassword: "",
@@ -245,6 +265,21 @@ function normalizeConfig(raw: unknown): IntegrationConfig {
     showSystemLabels: typeof source.showSystemLabels === "boolean" ? source.showSystemLabels : true,
     globalAspectRatio: typeof source.globalAspectRatio === "string" ? source.globalAspectRatio : "auto",
     globalShader: typeof source.globalShader === "string" ? source.globalShader : "none",
+    cloudSaveEnabled: typeof source.cloudSaveEnabled === "boolean" ? source.cloudSaveEnabled : false,
+    googleDriveClientId: typeof source.googleDriveClientId === "string" ? source.googleDriveClientId : "",
+    googleDriveClientSecret: typeof source.googleDriveClientSecret === "string" ? source.googleDriveClientSecret : "",
+    googleDriveRefreshToken: typeof source.googleDriveRefreshToken === "string" ? source.googleDriveRefreshToken : "",
+    googleDriveFolderId: typeof source.googleDriveFolderId === "string" ? source.googleDriveFolderId : "",
+    oneDriveSyncEnabled: typeof source.oneDriveSyncEnabled === "boolean" ? source.oneDriveSyncEnabled : false,
+    oneDriveClientId: typeof source.oneDriveClientId === "string" ? source.oneDriveClientId : "",
+    oneDriveClientSecret: typeof source.oneDriveClientSecret === "string" ? source.oneDriveClientSecret : "",
+    oneDriveRefreshToken: typeof source.oneDriveRefreshToken === "string" ? source.oneDriveRefreshToken : "",
+    oneDriveLastSync: typeof source.oneDriveLastSync === "number" ? source.oneDriveLastSync : null,
+    webdavUrl: typeof source.webdavUrl === "string" ? source.webdavUrl : "",
+    webdavUsername: typeof source.webdavUsername === "string" ? source.webdavUsername : "",
+    webdavPassword: typeof source.webdavPassword === "string" ? source.webdavPassword : "",
+    webdavSyncEnabled: typeof source.webdavSyncEnabled === "boolean" ? source.webdavSyncEnabled : false,
+    webdavLastSync: typeof source.webdavLastSync === "number" ? source.webdavLastSync : null,
     defaultRomDirectory: typeof source.defaultRomDirectory === "string" ? source.defaultRomDirectory : "/share/roms",
     archiveSource: typeof source.archiveSource === "string" ? source.archiveSource : "retro-best",
     archiveCustomId: typeof source.archiveCustomId === "string" ? source.archiveCustomId : "",

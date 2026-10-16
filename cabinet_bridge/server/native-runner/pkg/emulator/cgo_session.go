@@ -24,6 +24,16 @@ import (
 #include "libretro.h"
 #include "nanoarch.h"
 #include <stdlib.h>
+
+static inline bool core_serialize(void *f, void *data, size_t size) {
+    if (f == NULL || data == NULL || size == 0) return false;
+    return bridge_retro_serialize(f, data, size);
+}
+
+static inline bool core_unserialize(void *f, void *data, size_t size) {
+    if (f == NULL || data == NULL || size == 0) return false;
+    return bridge_retro_unserialize(f, data, size);
+}
 */
 import "C"
 
@@ -45,9 +55,12 @@ type CgoLibretroSession struct {
 	frameBuffer   []byte
 	audioBuffer   []int16
 	cleanup       func()
-	fnRetroRun    unsafe.Pointer
-	fnRetroDeinit unsafe.Pointer
-	fnRetroUnload unsafe.Pointer
+	fnRetroRun           unsafe.Pointer
+	fnRetroDeinit        unsafe.Pointer
+	fnRetroUnload        unsafe.Pointer
+	fnRetroSerializeSize unsafe.Pointer
+	fnRetroSerialize     unsafe.Pointer
+	fnRetroUnserialize   unsafe.Pointer
 }
 
 func NewCgoLibretroSession(width, height, fps, sampleRate int) EmulatorSession {
@@ -362,6 +375,16 @@ func (s *CgoLibretroSession) Load(romPath, corePath string) error {
 	fnUnloadGame, _ := dlib.load("retro_unload_game")
 	s.fnRetroUnload = fnUnloadGame
 
+	if fn, err := dlib.load("retro_serialize_size"); err == nil {
+		s.fnRetroSerializeSize = fn
+	}
+	if fn, err := dlib.load("retro_serialize"); err == nil {
+		s.fnRetroSerialize = fn
+	}
+	if fn, err := dlib.load("retro_unserialize"); err == nil {
+		s.fnRetroUnserialize = fn
+	}
+
 	fnSetEnv, _ := dlib.load("retro_set_environment")
 	fnSetVideo, _ := dlib.load("retro_set_video_refresh")
 	fnSetAudioSample, _ := dlib.load("retro_set_audio_sample")
@@ -560,10 +583,49 @@ func (s *CgoLibretroSession) SetInput(player int, state RetroInputState) {
 }
 
 func (s *CgoLibretroSession) Serialize() ([]byte, error) {
-	return []byte(fmt.Sprintf("CGO-STATE-%d", time.Now().Unix())), nil
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+
+	if !s.isRunning || s.fnRetroSerializeSize == nil || s.fnRetroSerialize == nil {
+		return nil, fmt.Errorf("serialize not supported or core not running")
+	}
+
+	size := C.bridge_retro_serialize_size(s.fnRetroSerializeSize)
+	if size == 0 {
+		return nil, fmt.Errorf("core reported zero serialize size")
+	}
+
+	buf := make([]byte, int(size))
+	cBuf := C.CBytes(buf)
+	defer C.free(cBuf)
+
+	ok := C.core_serialize(s.fnRetroSerialize, cBuf, size)
+	if !bool(ok) {
+		return nil, fmt.Errorf("retro_serialize failed")
+	}
+
+	copy(buf, C.GoBytes(cBuf, C.int(size)))
+	return buf, nil
 }
 
 func (s *CgoLibretroSession) Unserialize(data []byte) error {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+
+	if !s.isRunning || s.fnRetroUnserialize == nil {
+		return fmt.Errorf("unserialize not supported or core not running")
+	}
+	if len(data) == 0 {
+		return fmt.Errorf("empty save state data")
+	}
+
+	cData := C.CBytes(data)
+	defer C.free(cData)
+
+	ok := C.core_unserialize(s.fnRetroUnserialize, cData, C.size_t(len(data)))
+	if !bool(ok) {
+		return fmt.Errorf("retro_unserialize failed (state incompatible or invalid)")
+	}
 	return nil
 }
 

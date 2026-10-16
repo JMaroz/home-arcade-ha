@@ -30,7 +30,7 @@ describe("Native Stream & Co-Op Routes", () => {
   });
 
   async function api(method: string, path: string, body?: unknown) {
-    return new Promise<{ status: number; body: any }>((resolve) => {
+    return new Promise<{ status: number; body: any }>((resolve, reject) => {
       const options = {
         hostname: "127.0.0.1",
         port,
@@ -50,15 +50,15 @@ describe("Native Stream & Co-Op Routes", () => {
           data += chunk;
         });
         res.on("end", () => {
-          let json = null;
           try {
-            json = JSON.parse(data);
-          } catch {}
-          resolve({ status: res.statusCode || 500, body: json });
+            resolve({ status: res.statusCode || 500, body: JSON.parse(data) });
+          } catch {
+            resolve({ status: res.statusCode || 500, body: data });
+          }
         });
       });
 
-      req.on("error", () => resolve({ status: 500, body: null }));
+      req.on("error", reject);
 
       if (body) {
         req.write(JSON.stringify(body));
@@ -138,6 +138,54 @@ describe("Native Stream & Co-Op Routes", () => {
     });
     expect(htmlFallback).toContain("wasm-fallback-link");
     expect(htmlFallback).toContain("const wasmAutoFallback = true;");
+  });
+
+  it("renderStreamPlayerPage removes redundant top-bar triggers and includes scrollable overlays with save/load controls", async () => {
+    const { renderStreamPlayerPage } = await import("../routes/streamPlayer");
+    const html = renderStreamPlayerPage({
+      title: "Metal Slug",
+      returnTo: "/",
+      romId: 10,
+      system: "arcade",
+    });
+
+    // Top-bar buttons are cleaned (pad, coop, hud triggers removed from top bar)
+    expect(html).not.toContain('id="pad-trigger"');
+    expect(html).not.toContain('id="coop-trigger"');
+    expect(html).not.toContain('id="hud-trigger"');
+
+    // Menu button and FPS stats badge remain
+    expect(html).toContain('id="menu-trigger"');
+    expect(html).toContain('id="stats"');
+
+    // Save and load slots modal and menu options are present
+    expect(html).toContain('id="slots-overlay"');
+    expect(html).toContain('id="btn-quick-save"');
+    expect(html).toContain('id="btn-quick-load"');
+    expect(html).toContain('id="btn-open-slots-menu"');
+    expect(html).toContain('id="btn-open-telemetry-menu"');
+
+    // Mobile scrollability styling is present
+    expect(html).toContain("overflow-y: auto; -webkit-overflow-scrolling: touch;");
+    expect(html).toContain("overscroll-behavior: contain;");
+  });
+
+  it("POST /api/stream/:sessionId/save/:slot returns error when session does not exist", async () => {
+    const { status, body } = await api("POST", "/api/stream/invalid-session-123/save/0");
+    expect(status).toBe(500);
+    expect(body?.message).toBe("Failed to save state");
+  });
+
+  it("POST /api/stream/:sessionId/load/:slot returns error when session does not exist", async () => {
+    const { status, body } = await api("POST", "/api/stream/invalid-session-123/load/0");
+    expect(status).toBe(500);
+    expect(body?.message).toBe("Failed to load state");
+  });
+
+  it("GET /api/stream/:sessionId/slots returns error when session does not exist", async () => {
+    const { status, body } = await api("GET", "/api/stream/invalid-session-123/slots");
+    expect(status).toBe(500);
+    expect(body?.message).toBe("Failed to get save slots");
   });
 });
 
