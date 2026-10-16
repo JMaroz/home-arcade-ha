@@ -24,7 +24,7 @@ import { DEFAULT_INTEGRATION_SETTINGS, integrationSettingsSchema } from '@shared
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import Database from "better-sqlite3";
-import { and, desc, eq, sql, sum, count } from "drizzle-orm";
+import { and, desc, eq, inArray, sql, sum, count } from "drizzle-orm";
 import { dataPath, ensureDir, getDataDir } from "./data-dir";
 import { log } from "./log";
 import path from "node:path";
@@ -749,51 +749,90 @@ export class DatabaseStorage implements IStorage {
       .having(sql`count(*) >= 2`)
       .all() as { discGroup: string }[];
 
-    for (const { discGroup } of groups) {
-      const existingM3u = await db.select().from(uploadedRoms)
-        .where(and(eq(uploadedRoms.discGroup, discGroup), eq(uploadedRoms.isPlaylist, true)))
-        .get();
-      if (existingM3u) continue;
+    const discGroupList = groups.map((g) => g.discGroup).filter(Boolean);
+    if (discGroupList.length === 0) return;
 
-      const siblings = await db.select().from(uploadedRoms)
+    const CHUNK_SIZE = 500;
+    for (let i = 0; i < discGroupList.length; i += CHUNK_SIZE) {
+      const chunk = discGroupList.slice(i, i + CHUNK_SIZE);
+
+      const existingM3uRows = await db.select({
+        discGroup: uploadedRoms.discGroup,
+      }).from(uploadedRoms)
         .where(and(
-          eq(uploadedRoms.discGroup, discGroup),
-          eq(uploadedRoms.isPlaylist, false),
-          sql`${uploadedRoms.parentM3uId} IS NULL`,
+          inArray(uploadedRoms.discGroup, chunk),
+          eq(uploadedRoms.isPlaylist, true)
         ))
-        .orderBy(uploadedRoms.discNumber)
         .all();
 
-      if (siblings.length < 2) continue;
+      const existingM3uGroups = new Set(existingM3uRows.map((r: any) => r.discGroup));
+      const targetGroups = chunk.filter((g) => !existingM3uGroups.has(g));
+      if (targetGroups.length === 0) continue;
 
-      const system = siblings[0].system;
-      const title = siblings[0].title;
-      const m3uLines = siblings.map((s: UploadedRom) => s.originalName).join("\n");
-      const m3uSlug = `${system}_m3u_${slugify(title)}_${Date.now().toString(36)}`;
+      const allSiblings = await db.select().from(uploadedRoms)
+        .where(and(
+          inArray(uploadedRoms.discGroup, targetGroups),
+          eq(uploadedRoms.isPlaylist, false),
+          sql`${uploadedRoms.parentM3uId} IS NULL`
+        ))
+        .orderBy(uploadedRoms.discNumber)
+        .all() as UploadedRom[];
 
-      const m3uRecord = db.insert(uploadedRoms).values({
-        title,
-        system,
-        slug: m3uSlug,
-        originalName: `${title}.m3u`,
-        fileName: `${m3uSlug}.m3u`,
-        filePath: `${ROM_ROOT}/${system}/${m3uSlug}.m3u`,
-        size: Buffer.byteLength(m3uLines, "utf8"),
-        mimeType: "text/plain",
-        isPlaylist: true,
-        m3uContent: m3uLines,
-        discNumber: null,
-        discGroup: discGroup,
-        parentM3uId: null,
-        romHash: null,
-        minutesPlayed: 0,
-        createdAt: Date.now(),
-      }).returning().get() as UploadedRom;
-
-      // Link siblings to the new M3U
-      for (const sib of siblings) {
-        db.update(uploadedRoms).set({ parentM3uId: m3uRecord.id }).where(eq(uploadedRoms.id, sib.id)).run();
+      const siblingsByGroup = new Map<string, UploadedRom[]>();
+      for (const sib of allSiblings) {
+        if (!sib.discGroup) continue;
+        let groupList = siblingsByGroup.get(sib.discGroup);
+        if (!groupList) {
+          groupList = [];
+          siblingsByGroup.set(sib.discGroup, groupList);
+        }
+        groupList.push(sib);
       }
+
+      db.transaction((tx: typeof db) => {
+        const now = Date.now();
+        let idx = 0;
+
+        for (const [discGroup, siblings] of siblingsByGroup.entries()) {
+          // Ensure sort order by discNumber ascending, then fallback to fileName
+          siblings.sort((a, b) => (a.discNumber ?? 0) - (b.discNumber ?? 0) || a.fileName.localeCompare(b.fileName));
+
+          if (siblings.length < 2) continue;
+
+          const system = siblings[0].system;
+          const title = siblings[0].title;
+          const m3uLines = siblings.map((s: UploadedRom) => s.originalName).join("\n");
+          const m3uSlug = `${system}_m3u_${slugify(title)}_${now.toString(36)}_${idx.toString(36)}`;
+          idx++;
+
+          const m3uRecord = tx.insert(uploadedRoms).values({
+            title,
+            system,
+            slug: m3uSlug,
+            originalName: `${title}.m3u`,
+            fileName: `${m3uSlug}.m3u`,
+            filePath: `${ROM_ROOT}/${system}/${m3uSlug}.m3u`,
+            size: Buffer.byteLength(m3uLines, "utf8"),
+            mimeType: "text/plain",
+            isPlaylist: true,
+            m3uContent: m3uLines,
+            discNumber: null,
+            discGroup,
+            parentM3uId: null,
+            romHash: null,
+            minutesPlayed: 0,
+            createdAt: now,
+          }).returning().get() as UploadedRom;
+
+          const sibIds = siblings.map((s) => s.id);
+          if (sibIds.length > 0) {
+            tx.update(uploadedRoms)
+              .set({ parentM3uId: m3uRecord.id })
+              .where(inArray(uploadedRoms.id, sibIds))
+              .run();
+          }
+        }
+      });
     }
   }
   async listRomFilenames(): Promise<string[]> {
