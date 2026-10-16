@@ -1,8 +1,6 @@
 import { Express } from "express";
 import express from "express";
-import { storage, db } from "../storage";
-import { uploadedRoms } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { storage, sqlite } from "../storage";
 
 function decodeXMLEntities(s: string) {
   return s
@@ -14,6 +12,19 @@ function decodeXMLEntities(s: string) {
     .trim();
 }
 
+function parseXmlTags(xmlText: string) {
+  const map = new Map<string, string>();
+  const tagRegex = /<([a-zA-Z0-9_]+)[^>]*>([\s\S]*?)<\/\1>/gi;
+  let match;
+  while ((match = tagRegex.exec(xmlText)) !== null) {
+    const tagName = match[1].toLowerCase();
+    if (!map.has(tagName)) {
+      map.set(tagName, decodeXMLEntities(match[2]));
+    }
+  }
+  return map;
+}
+
 export function registerImportRoutes(app: Express) {
   // ── EmulationStation gamelist.xml import ──────────────────────────────────
   app.post("/api/import/emulationstation", express.raw({ limit: "50mb", type: ["text/xml", "application/xml", "application/octet-stream", "text/plain"] }), async (req, res) => {
@@ -21,70 +32,134 @@ export function registerImportRoutes(app: Express) {
       const xml = req.body.toString("utf8");
       const gameBlocks = [...xml.matchAll(/<game[^>]*>([\s\S]*?)<\/game>/gi)];
       const roms = await storage.listUploadedRoms();
-      const results: { title: string; updated: boolean; reason?: string }[] = [];
 
-      await db.transaction(async (tx: any) => {
-        for (const block of gameBlocks) {
-          const inner = block[1];
-          const get = (tag: string) => {
-            const m = inner.match(new RegExp(`<${tag}[^>]*>([\s\S]*?)<\/${tag}>`, "i"));
-            return m ? decodeXMLEntities(m[1]) : null;
-          };
-          const path2 = get("path");
-          const name = get("name");
-          if (!path2 && !name) continue;
-
-          const baseName = path2 ? path2.split(/[\/]/).pop()?.replace(/\..*$/, "").toLowerCase() : null;
-          const match = roms.find((r) => {
-            if (baseName && r.originalName.replace(/\..*$/, "").toLowerCase() === baseName) return true;
-            if (name && r.title.toLowerCase() === (name ?? "").toLowerCase()) return true;
-            return false;
-          });
-
-          if (!match) {
-            results.push({ title: name ?? path2 ?? "?", updated: false, reason: "no matching ROM" });
-            continue;
-          }
-
-          const meta: Record<string, any> = {};
-          const desc = get("desc");
-          const date = get("releasedate");
-          const dev = get("developer");
-          const pub = get("publisher");
-          const genre = get("genre");
-          const players = get("players");
-          const image = get("image");
-          const rating = get("rating");
-          const playcount = get("playcount");
-          const lastplayed = get("lastplayed");
-
-          if (desc) meta.description = desc.slice(0, 2000);
-          if (date) { const y = Number(date.slice(0, 4)); if (y >= 1970 && y <= 2030) meta.releaseYear = y; }
-          if (dev) meta.developer = dev.slice(0, 256);
-          if (pub) meta.publisher = pub.slice(0, 256);
-          if (genre) meta.genre = genre.slice(0, 256);
-          if (players) meta.players = players.slice(0, 16);
-          if (image && image.startsWith("http")) meta.artUrl = image;
-          if (rating) { const r = parseFloat(rating); if (!isNaN(r)) meta.rating = Math.round(r * 5); } // ES rating is 0..1, our app is 0..5
-          if (playcount) { const pc = parseInt(playcount, 10); if (!isNaN(pc)) meta.playCount = pc; }
-          if (lastplayed) { 
-            // ES lastplayed is usually YYYYMMDDTHHMMSS
-            const y = parseInt(lastplayed.slice(0, 4), 10);
-            const m = parseInt(lastplayed.slice(4, 6), 10) - 1;
-            const d = parseInt(lastplayed.slice(6, 8), 10);
-            const ts = new Date(y, m, d).getTime();
-            if (!isNaN(ts)) meta.lastPlayed = ts;
-          }
-
-          if (Object.keys(meta).length > 0) {
-            if (meta.artUrl || meta.description || meta.developer || meta.publisher || meta.genre) {
-              meta.scrapeStatus = "matched";
-            }
-            await tx.update(uploadedRoms).set(meta).where(eq(uploadedRoms.id, match.id)).run();
-          }
-          results.push({ title: match.title, updated: true });
+      // Pre-build O(1) lookup maps for matching
+      const baseNameMap = new Map<string, typeof roms[0]>();
+      const titleMap = new Map<string, typeof roms[0]>();
+      for (const r of roms) {
+        const baseName = r.originalName.replace(/\..*$/, "").toLowerCase();
+        if (!baseNameMap.has(baseName)) {
+          baseNameMap.set(baseName, r);
         }
-      });
+        const t = r.title.toLowerCase();
+        if (!titleMap.has(t)) {
+          titleMap.set(t, r);
+        }
+      }
+
+      const results: { title: string; updated: boolean; reason?: string }[] = [];
+      const updates: { id: number; meta: Record<string, any> }[] = [];
+
+      for (const block of gameBlocks) {
+        const inner = block[1];
+        const tags = parseXmlTags(inner);
+        const path2 = tags.get("path") ?? null;
+        const name = tags.get("name") ?? null;
+        if (!path2 && !name) continue;
+
+        const baseName = path2 ? path2.split(/[\/]/).pop()?.replace(/\..*$/, "").toLowerCase() : null;
+        let match = baseName ? baseNameMap.get(baseName) : undefined;
+        if (!match && name) {
+          match = titleMap.get(name.toLowerCase());
+        }
+
+        if (!match) {
+          results.push({ title: name ?? path2 ?? "?", updated: false, reason: "no matching ROM" });
+          continue;
+        }
+
+        const meta: Record<string, any> = {};
+        const desc = tags.get("desc");
+        const date = tags.get("releasedate");
+        const dev = tags.get("developer");
+        const pub = tags.get("publisher");
+        const genre = tags.get("genre");
+        const players = tags.get("players");
+        const image = tags.get("image");
+        const rating = tags.get("rating");
+        const playcount = tags.get("playcount");
+        const lastplayed = tags.get("lastplayed");
+
+        if (desc) meta.description = desc.slice(0, 2000);
+        if (date) { const y = Number(date.slice(0, 4)); if (y >= 1970 && y <= 2030) meta.releaseYear = y; }
+        if (dev) meta.developer = dev.slice(0, 256);
+        if (pub) meta.publisher = pub.slice(0, 256);
+        if (genre) meta.genre = genre.slice(0, 256);
+        if (players) meta.players = players.slice(0, 16);
+        if (image && image.startsWith("http")) meta.artUrl = image;
+        if (rating) { const r = parseFloat(rating); if (!isNaN(r)) meta.rating = Math.round(r * 5); } // ES rating is 0..1, our app is 0..5
+        if (playcount) { const pc = parseInt(playcount, 10); if (!isNaN(pc)) meta.playCount = pc; }
+        if (lastplayed) {
+          // ES lastplayed is usually YYYYMMDDTHHMMSS
+          const y = parseInt(lastplayed.slice(0, 4), 10);
+          const m = parseInt(lastplayed.slice(4, 6), 10) - 1;
+          const d = parseInt(lastplayed.slice(6, 8), 10);
+          const ts = new Date(y, m, d).getTime();
+          if (!isNaN(ts)) meta.lastPlayed = ts;
+        }
+
+        if (Object.keys(meta).length > 0) {
+          if (meta.artUrl || meta.description || meta.developer || meta.publisher || meta.genre) {
+            meta.scrapeStatus = "matched";
+          }
+          updates.push({ id: match.id, meta });
+        }
+        results.push({ title: match.title, updated: true });
+      }
+
+      if (updates.length > 0) {
+        const columns = [
+          "description", "releaseYear", "developer", "publisher",
+          "genre", "players", "artUrl", "rating", "playCount",
+          "lastPlayed", "scrapeStatus"
+        ];
+        const dbCols: Record<string, string> = {
+          description: "description",
+          releaseYear: "release_year",
+          developer: "developer",
+          publisher: "publisher",
+          genre: "genre",
+          players: "players",
+          artUrl: "art_url",
+          rating: "rating",
+          playCount: "play_count",
+          lastPlayed: "last_played",
+          scrapeStatus: "scrape_status",
+        };
+
+        const batchSize = 200;
+        for (let i = 0; i < updates.length; i += batchSize) {
+          const batch = updates.slice(i, i + batchSize);
+          const ids = batch.map(u => u.id);
+
+          const setClauses: string[] = [];
+          const params: any[] = [];
+
+          for (const col of columns) {
+            const dbCol = dbCols[col];
+            let caseSql = `"${dbCol}" = CASE "id" `;
+            let hasColUpdate = false;
+            for (const u of batch) {
+              if (u.meta[col] !== undefined) {
+                caseSql += `WHEN ? THEN ? `;
+                params.push(u.id, u.meta[col]);
+                hasColUpdate = true;
+              }
+            }
+            if (hasColUpdate) {
+              caseSql += `ELSE "${dbCol}" END`;
+              setClauses.push(caseSql);
+            }
+          }
+
+          if (setClauses.length > 0) {
+            const sqlStr = `UPDATE "uploaded_roms" SET ${setClauses.join(", ")} WHERE "id" IN (${ids.map(() => "?").join(",")})`;
+            params.push(...ids);
+            sqlite.prepare(sqlStr).run(...params);
+          }
+        }
+      }
+
       res.json({ imported: results.filter((r) => r.updated).length, skipped: results.filter((r) => !r.updated).length, results });
     } catch (err) {
       console.error("[Import] EmulationStation sync error:", err);
@@ -98,63 +173,127 @@ export function registerImportRoutes(app: Express) {
       const xml = req.body.toString("utf8");
       const gameBlocks = [...xml.matchAll(/<Game>([\s\S]*?)<\/Game>/gi)];
       const roms = await storage.listUploadedRoms();
-      const results: { title: string; updated: boolean; reason?: string }[] = [];
 
-      await db.transaction(async (tx: any) => {
-        for (const block of gameBlocks) {
-          const inner = block[1];
-          const get = (tag: string) => {
-            const m = inner.match(new RegExp(`<${tag}>([\s\S]*?)<\/${tag}>`, "i"));
-            return m ? decodeXMLEntities(m[1]) : null;
-          };
-
-          const title = get("Title");
-          const appPath = get("ApplicationPath");
-          if (!title && !appPath) continue;
-
-          const baseName = appPath ? appPath.split(/[\/]/).pop()?.replace(/\..*$/, "").toLowerCase() : null;
-          const match = roms.find((r) => {
-            if (baseName && r.originalName.replace(/\..*$/, "").toLowerCase() === baseName) return true;
-            if (title && r.title.toLowerCase() === (title ?? "").toLowerCase()) return true;
-            return false;
-          });
-
-          if (!match) {
-            results.push({ title: title ?? appPath ?? "?", updated: false, reason: "no matching ROM" });
-            continue;
-          }
-
-          const meta: Record<string, any> = {};
-          const overview = get("Notes") ?? get("Overview");
-          const releaseDate = get("ReleaseDate");
-          const developer = get("Developer");
-          const publisher = get("Publisher");
-          const genre = get("Genre") ?? get("Genres");
-          const maxPlayers = get("MaxPlayers");
-          const starRating = get("StarRating");
-          const playCount = get("PlayCount");
-
-          if (overview) meta.description = overview.slice(0, 2000);
-          if (releaseDate) {
-            const y = Number(releaseDate.slice(0, 4));
-            if (y >= 1970 && y <= 2030) meta.releaseYear = y;
-          }
-          if (developer) meta.developer = developer.slice(0, 256);
-          if (publisher) meta.publisher = publisher.slice(0, 256);
-          if (genre) meta.genre = genre.split(";")[0].trim().slice(0, 256);
-          if (maxPlayers) meta.players = maxPlayers.trim().slice(0, 16);
-          if (starRating) { const r = parseFloat(starRating); if (!isNaN(r)) meta.rating = Math.round(r); }
-          if (playCount) { const pc = parseInt(playCount, 10); if (!isNaN(pc)) meta.playCount = pc; }
-
-          if (Object.keys(meta).length > 0) {
-            if (meta.description || meta.developer || meta.publisher || meta.genre) {
-              meta.scrapeStatus = "matched";
-            }
-            await tx.update(uploadedRoms).set(meta).where(eq(uploadedRoms.id, match.id)).run();
-          }
-          results.push({ title: match.title, updated: true });
+      // Pre-build O(1) lookup maps for matching
+      const baseNameMap = new Map<string, typeof roms[0]>();
+      const titleMap = new Map<string, typeof roms[0]>();
+      for (const r of roms) {
+        const baseName = r.originalName.replace(/\..*$/, "").toLowerCase();
+        if (!baseNameMap.has(baseName)) {
+          baseNameMap.set(baseName, r);
         }
-      });
+        const t = r.title.toLowerCase();
+        if (!titleMap.has(t)) {
+          titleMap.set(t, r);
+        }
+      }
+
+      const results: { title: string; updated: boolean; reason?: string }[] = [];
+      const updates: { id: number; meta: Record<string, any> }[] = [];
+
+      for (const block of gameBlocks) {
+        const inner = block[1];
+        const tags = parseXmlTags(inner);
+
+        const title = tags.get("title") ?? null;
+        const appPath = tags.get("applicationpath") ?? null;
+        if (!title && !appPath) continue;
+
+        const baseName = appPath ? appPath.split(/[\/]/).pop()?.replace(/\..*$/, "").toLowerCase() : null;
+        let match = baseName ? baseNameMap.get(baseName) : undefined;
+        if (!match && title) {
+          match = titleMap.get(title.toLowerCase());
+        }
+
+        if (!match) {
+          results.push({ title: title ?? appPath ?? "?", updated: false, reason: "no matching ROM" });
+          continue;
+        }
+
+        const meta: Record<string, any> = {};
+        const overview = tags.get("notes") ?? tags.get("overview");
+        const releaseDate = tags.get("releasedate");
+        const developer = tags.get("developer");
+        const publisher = tags.get("publisher");
+        const genre = tags.get("genre") ?? tags.get("genres");
+        const maxPlayers = tags.get("maxplayers");
+        const starRating = tags.get("starrating");
+        const playCount = tags.get("playcount");
+
+        if (overview) meta.description = overview.slice(0, 2000);
+        if (releaseDate) {
+          const y = Number(releaseDate.slice(0, 4));
+          if (y >= 1970 && y <= 2030) meta.releaseYear = y;
+        }
+        if (developer) meta.developer = developer.slice(0, 256);
+        if (publisher) meta.publisher = publisher.slice(0, 256);
+        if (genre) meta.genre = genre.split(";")[0].trim().slice(0, 256);
+        if (maxPlayers) meta.players = maxPlayers.trim().slice(0, 16);
+        if (starRating) { const r = parseFloat(starRating); if (!isNaN(r)) meta.rating = Math.round(r); }
+        if (playCount) { const pc = parseInt(playCount, 10); if (!isNaN(pc)) meta.playCount = pc; }
+
+        if (Object.keys(meta).length > 0) {
+          if (meta.description || meta.developer || meta.publisher || meta.genre) {
+            meta.scrapeStatus = "matched";
+          }
+          updates.push({ id: match.id, meta });
+        }
+        results.push({ title: match.title, updated: true });
+      }
+
+      if (updates.length > 0) {
+        const columns = [
+          "description", "releaseYear", "developer", "publisher",
+          "genre", "players", "artUrl", "rating", "playCount",
+          "lastPlayed", "scrapeStatus"
+        ];
+        const dbCols: Record<string, string> = {
+          description: "description",
+          releaseYear: "release_year",
+          developer: "developer",
+          publisher: "publisher",
+          genre: "genre",
+          players: "players",
+          artUrl: "art_url",
+          rating: "rating",
+          playCount: "play_count",
+          lastPlayed: "last_played",
+          scrapeStatus: "scrape_status",
+        };
+
+        const batchSize = 200;
+        for (let i = 0; i < updates.length; i += batchSize) {
+          const batch = updates.slice(i, i + batchSize);
+          const ids = batch.map(u => u.id);
+
+          const setClauses: string[] = [];
+          const params: any[] = [];
+
+          for (const col of columns) {
+            const dbCol = dbCols[col];
+            let caseSql = `"${dbCol}" = CASE "id" `;
+            let hasColUpdate = false;
+            for (const u of batch) {
+              if (u.meta[col] !== undefined) {
+                caseSql += `WHEN ? THEN ? `;
+                params.push(u.id, u.meta[col]);
+                hasColUpdate = true;
+              }
+            }
+            if (hasColUpdate) {
+              caseSql += `ELSE "${dbCol}" END`;
+              setClauses.push(caseSql);
+            }
+          }
+
+          if (setClauses.length > 0) {
+            const sqlStr = `UPDATE "uploaded_roms" SET ${setClauses.join(", ")} WHERE "id" IN (${ids.map(() => "?").join(",")})`;
+            params.push(...ids);
+            sqlite.prepare(sqlStr).run(...params);
+          }
+        }
+      }
+
       res.json({ imported: results.filter((r) => r.updated).length, skipped: results.filter((r) => !r.updated).length, results });
     } catch (err) {
       console.error("[Import] LaunchBox sync error:", err);
