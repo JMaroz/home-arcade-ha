@@ -1,7 +1,7 @@
 import { Express } from "express";
 import express from "express";
-import { storage, db } from "../storage";
-import { uploadedRoms } from "@shared/schema";
+import { storage, db, sqlite } from "../storage";
+import { uploadedRoms, UploadedRom } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 function decodeXMLEntities(s: string) {
@@ -14,32 +14,81 @@ function decodeXMLEntities(s: string) {
     .trim();
 }
 
+/**
+ * Builds O(1) lookup maps for matching ROMs by normalized base file name and title.
+ */
+function buildRomLookupMaps(roms: UploadedRom[]) {
+  const romsByBaseName = new Map<string, UploadedRom>();
+  const romsByTitle = new Map<string, UploadedRom>();
+
+  for (const r of roms) {
+    if (r.originalName) {
+      const baseName = r.originalName.replace(/\..*$/, "").toLowerCase();
+      if (baseName && !romsByBaseName.has(baseName)) {
+        romsByBaseName.set(baseName, r);
+      }
+    }
+    if (r.title) {
+      const titleKey = r.title.toLowerCase();
+      if (titleKey && !romsByTitle.has(titleKey)) {
+        romsByTitle.set(titleKey, r);
+      }
+    }
+  }
+
+  return { romsByBaseName, romsByTitle };
+}
+
+let cachedPreparedUpdateStmt: any = null;
+function getPreparedUpdateStmt() {
+  if (!cachedPreparedUpdateStmt && sqlite) {
+    cachedPreparedUpdateStmt = sqlite.prepare(`
+      UPDATE uploaded_roms SET
+        description = COALESCE(@description, description),
+        release_year = COALESCE(@releaseYear, release_year),
+        developer = COALESCE(@developer, developer),
+        publisher = COALESCE(@publisher, publisher),
+        genre = COALESCE(@genre, genre),
+        players = COALESCE(@players, players),
+        art_url = COALESCE(@artUrl, art_url),
+        scrape_status = COALESCE(@scrapeStatus, scrape_status),
+        rating = COALESCE(@rating, rating),
+        play_count = COALESCE(@playCount, play_count),
+        last_played = COALESCE(@lastPlayed, last_played)
+      WHERE id = @id
+    `);
+  }
+  return cachedPreparedUpdateStmt;
+}
+
 export function registerImportRoutes(app: Express) {
   // ── EmulationStation gamelist.xml import ──────────────────────────────────
   app.post("/api/import/emulationstation", express.raw({ limit: "50mb", type: ["text/xml", "application/xml", "application/octet-stream", "text/plain"] }), async (req, res) => {
     try {
-      const xml = req.body.toString("utf8");
+      const xml = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : (typeof req.body === "string" ? req.body : "");
       const gameBlocks = [...xml.matchAll(/<game[^>]*>([\s\S]*?)<\/game>/gi)];
       const roms = await storage.listUploadedRoms();
+      const { romsByBaseName, romsByTitle } = buildRomLookupMaps(roms);
       const results: { title: string; updated: boolean; reason?: string }[] = [];
+      const stmt = getPreparedUpdateStmt();
 
-      await db.transaction(async (tx: any) => {
+      db.transaction((tx: any) => {
         for (const block of gameBlocks) {
           const inner = block[1];
           const get = (tag: string) => {
-            const m = inner.match(new RegExp(`<${tag}[^>]*>([\s\S]*?)<\/${tag}>`, "i"));
+            const m = inner.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i"));
             return m ? decodeXMLEntities(m[1]) : null;
           };
           const path2 = get("path");
           const name = get("name");
           if (!path2 && !name) continue;
 
-          const baseName = path2 ? path2.split(/[\/]/).pop()?.replace(/\..*$/, "").toLowerCase() : null;
-          const match = roms.find((r) => {
-            if (baseName && r.originalName.replace(/\..*$/, "").toLowerCase() === baseName) return true;
-            if (name && r.title.toLowerCase() === (name ?? "").toLowerCase()) return true;
-            return false;
-          });
+          const baseName = path2 ? path2.split(/[\/\\]/).pop()?.replace(/\..*$/, "").toLowerCase() : null;
+          const nameKey = name ? name.toLowerCase() : null;
+
+          let match: UploadedRom | undefined;
+          if (baseName) match = romsByBaseName.get(baseName);
+          if (!match && nameKey) match = romsByTitle.get(nameKey);
 
           if (!match) {
             results.push({ title: name ?? path2 ?? "?", updated: false, reason: "no matching ROM" });
@@ -80,7 +129,24 @@ export function registerImportRoutes(app: Express) {
             if (meta.artUrl || meta.description || meta.developer || meta.publisher || meta.genre) {
               meta.scrapeStatus = "matched";
             }
-            await tx.update(uploadedRoms).set(meta).where(eq(uploadedRoms.id, match.id)).run();
+            if (stmt) {
+              stmt.run({
+                id: match.id,
+                description: meta.description ?? null,
+                releaseYear: meta.releaseYear ?? null,
+                developer: meta.developer ?? null,
+                publisher: meta.publisher ?? null,
+                genre: meta.genre ?? null,
+                players: meta.players ?? null,
+                artUrl: meta.artUrl ?? null,
+                scrapeStatus: meta.scrapeStatus ?? null,
+                rating: meta.rating ?? null,
+                playCount: meta.playCount ?? null,
+                lastPlayed: meta.lastPlayed ?? null,
+              });
+            } else {
+              tx.update(uploadedRoms).set(meta).where(eq(uploadedRoms.id, match.id)).run();
+            }
           }
           results.push({ title: match.title, updated: true });
         }
@@ -95,16 +161,18 @@ export function registerImportRoutes(app: Express) {
   // ── LaunchBox XML import ───────────────────────────────────────────────────
   app.post("/api/import/launchbox", express.raw({ limit: "50mb", type: ["text/xml", "application/xml", "application/octet-stream", "text/plain"] }), async (req, res) => {
     try {
-      const xml = req.body.toString("utf8");
+      const xml = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : (typeof req.body === "string" ? req.body : "");
       const gameBlocks = [...xml.matchAll(/<Game>([\s\S]*?)<\/Game>/gi)];
       const roms = await storage.listUploadedRoms();
+      const { romsByBaseName, romsByTitle } = buildRomLookupMaps(roms);
       const results: { title: string; updated: boolean; reason?: string }[] = [];
+      const stmt = getPreparedUpdateStmt();
 
-      await db.transaction(async (tx: any) => {
+      db.transaction((tx: any) => {
         for (const block of gameBlocks) {
           const inner = block[1];
           const get = (tag: string) => {
-            const m = inner.match(new RegExp(`<${tag}>([\s\S]*?)<\/${tag}>`, "i"));
+            const m = inner.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, "i"));
             return m ? decodeXMLEntities(m[1]) : null;
           };
 
@@ -112,12 +180,12 @@ export function registerImportRoutes(app: Express) {
           const appPath = get("ApplicationPath");
           if (!title && !appPath) continue;
 
-          const baseName = appPath ? appPath.split(/[\/]/).pop()?.replace(/\..*$/, "").toLowerCase() : null;
-          const match = roms.find((r) => {
-            if (baseName && r.originalName.replace(/\..*$/, "").toLowerCase() === baseName) return true;
-            if (title && r.title.toLowerCase() === (title ?? "").toLowerCase()) return true;
-            return false;
-          });
+          const baseName = appPath ? appPath.split(/[\/\\]/).pop()?.replace(/\..*$/, "").toLowerCase() : null;
+          const titleKey = title ? title.toLowerCase() : null;
+
+          let match: UploadedRom | undefined;
+          if (baseName) match = romsByBaseName.get(baseName);
+          if (!match && titleKey) match = romsByTitle.get(titleKey);
 
           if (!match) {
             results.push({ title: title ?? appPath ?? "?", updated: false, reason: "no matching ROM" });
@@ -150,7 +218,24 @@ export function registerImportRoutes(app: Express) {
             if (meta.description || meta.developer || meta.publisher || meta.genre) {
               meta.scrapeStatus = "matched";
             }
-            await tx.update(uploadedRoms).set(meta).where(eq(uploadedRoms.id, match.id)).run();
+            if (stmt) {
+              stmt.run({
+                id: match.id,
+                description: meta.description ?? null,
+                releaseYear: meta.releaseYear ?? null,
+                developer: meta.developer ?? null,
+                publisher: meta.publisher ?? null,
+                genre: meta.genre ?? null,
+                players: meta.players ?? null,
+                artUrl: meta.artUrl ?? null,
+                scrapeStatus: meta.scrapeStatus ?? null,
+                rating: meta.rating ?? null,
+                playCount: meta.playCount ?? null,
+                lastPlayed: meta.lastPlayed ?? null,
+              });
+            } else {
+              tx.update(uploadedRoms).set(meta).where(eq(uploadedRoms.id, match.id)).run();
+            }
           }
           results.push({ title: match.title, updated: true });
         }
