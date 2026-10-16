@@ -1,40 +1,39 @@
-# Handoff Sessione: WebRTC Player UI Cleanup, Architettura Save/Load, Backup HA/Cloud & Unificazione Co-Op
+# Handoff Sessione: Review, Ottimizzazione e Merge Pull Requests (Release v2.65.0)
 
 **Data**: 2026-10-16  
-**Stato**: Completato e Validato (100% Test Passati: 22/22 suite Vitest, 147 test, Go tests 100%, Type-check 0 errori, Build OK)
+**Stato**: Completato e Validato (100% Test Passati: 25/25 suite Vitest, 152 test, Type-check 0 errori, release v2.65.0 pubblicata)
 
 ---
 
 ### Stato Corrente
-- **UI WebRTC Player & Scroll Mobile**: Rimossi i pulsanti ridondanti dalla barra superiore (`Pad`, `Co-Op`, `Stats`), lasciando solo `Menu` e il badge FPS/RTT. Aggiunto scroll touch verticale (`overflow-y: auto`, `overscroll-behavior: contain`, safe-area insets) su tutti i modali HUD per schermi smartphone portrait/landscape.
-- **Architettura Universale Save/Load**: Implementate le API Cgo Libretro `retro_serialize` / `retro_unserialize` protette da mutex nel runner nativo Go (`/save`, `/load`) e integrate in Express (`/api/stream/:sessionId/save`, `/load`, `/slots`).
-- **Salvataggi Home Assistant (`/share`)**: Percorso salvataggi impostato su `/share/homearcade/saves/` quando montato da Home Assistant (incluso in automatico nei backup completi HA e accessibile da Samba SMB), con fallback locale a `save-backups`.
-- **Integrazione Cloud OneDrive & Google Drive**: Creato modulo `onedrive.ts` con Microsoft Graph API (OAuth2 refresh token, upload, download, test, sync bidirezionale) e aggiunta scheda di configurazione OneDrive in `ServicesSettings.tsx`.
-- **Unificazione Co-Op**: WebRTC Single-Host Fan-out Co-Op confermata come architettura di riferimento (zero desync, zero download ROM per l'ospite, 60 FPS 3D, QR code immediato). Aggiunto banner promozionale e avvio WebRTC Co-Op in `NetplayLobbyDialog.tsx`.
-- **DoD Validata**: Go tests (100% pass), `pnpm check` (0 errori), Vitest (22 file, 147 test passati), `pnpm build` (bundle completato).
+- **Review e Merge PR Aperte**: Tutte le PR aperte sul repository GitHub sono state analizzate, validate e gestite:
+  - **PR #35 (Async debug endpoint)**: Mergiata. Sostituito I/O sincrono (`fs.existsSync`, `readFileSync`) in `/api/debug` con `fs.promises.readFile` e `fs.promises.access`.
+  - **PR #36 (Async system CPU info)**: Mergiata. Sostituito `fs.readFileSync("/proc/cpuinfo")` con `fs.readFile` asincrono e caching memoizzato in memoria su `/api/system`.
+  - **PR #37 vs PR #34 (N+1 query in `generateM3uForAllDiscGroups`)**: Mergiata PR #37 (superiore a #34 per chunking a 500 gruppi, update massivo dei `parentM3uId` in singola query con `inArray`, slug deterministico con contatore progressivo). PR #34 chiusa; incrementati i timeout nei test di decompressione archive a 15s.
+  - **PR #38 vs PR #39 (Batch XML import updates)**: Mergiata PR #38 (parsing XML single-pass e batch update via SQL CASE su LaunchBox ed EmulationStation). Eseguito refactoring Ponytail: estratto helper deduplicato `batchUpdateRomMetadata`, merge ID duplicati, supporto percorsi con backslash Windows (`/` e `\`) e gestione payload buffer/string da PR #39. Fixato `import type { Server }` in `import_perf.test.ts`. PR #39 chiusa in favore di #38.
+  - **PR #33 (Release Please)**: Aggiornata automaticamente con tutte le feature, bugfix e ottimizzazioni; mergiata per il rilascio ufficiale della versione **2.65.0**.
+- **DoD Validata**: `pnpm check` (0 errori), Vitest (25 file, 152 test passati al 100%). Nessuna PR rimasta aperta.
 
 ---
 
 ### File Rilevanti
-- `cabinet_bridge/server/native-runner/pkg/emulator/cgo_session.go` & `main.go`: Serializzazione/deserializzazione atomica Libretro ed endpoint HTTP `/save` e `/load`.
-- `cabinet_bridge/server/routes/streamPlayer.ts`: Pulizia top bar, scroll touch modali, Quick Save, Quick Load, modale Gestione Slot 0-4, telemetria e Co-Op nel menu.
-- `cabinet_bridge/server/stream/runner-manager.ts` & `server/routes/stream.ts`: Metodi `saveState`, `loadState`, `getSlots` e relative rotte Express.
-- `cabinet_bridge/server/routes/shared.ts`: Risoluzione cartella `SAVE_BACKUP_DIR` prioritizzando `/share/homearcade/saves`.
-- `cabinet_bridge/server/onedrive.ts` & `server/routes/vault.ts`: Modulo Microsoft Graph e rotte `/api/vault/onedrive-test` e `/onedrive-sync`.
-- `cabinet_bridge/client/src/pages/settings/ServicesSettings.tsx`: Sezione OneDrive con credenziali, switch sync, test connessione e sync manuale.
-- `cabinet_bridge/client/src/components/NetplayLobbyDialog.tsx`: Banner e avvio rapido WebRTC Stream Co-Op.
-- `cabinet_bridge/server/__tests__/stream.test.ts`: Test di regressione per top-bar pulita, save/load/slots e scroll overlay.
+- `cabinet_bridge/server/index.ts`: Endpoint `/api/debug` asincrono con gestione errori e promesse non bloccanti.
+- `cabinet_bridge/server/routes/system.ts` & `__tests__/system.test.ts`: Lettura asincrona e cache del modello CPU in `/api/system`.
+- `cabinet_bridge/server/storage.ts` & `__tests__/m3u_perf.test.ts`: Generazione M3U a blocchi di 500 gruppi con Drizzle `inArray` e transazioni atomiche.
+- `cabinet_bridge/server/routes/import.ts` & `__tests__/import_perf.test.ts`: Parsing tag XML single-pass e helper riutilizzabile `batchUpdateRomMetadata` con costrutti CASE SQLite.
+- `cabinet_bridge/server/__tests__/archive.test.ts`: Timeout aumentato a 15s per test di decompressione archivio.
+- `cabinet_bridge/config.yaml` & `package.json`: Versione sincronizzata a `2.65.0`.
+- `docs/plans/2026-10-16_pr_reviews_and_merges.md`: Piano operativo completato e tracciato.
 
 ---
 
 ### Prossimi Passi (Next Steps)
-1. **Commit & Push**: Creare commit atomico Conventional Commits (`feat(stream): clean up webrtc toolbar, add libretro save/load states, ha share backup, onedrive sync and stream coop`) e sincronizzare su `main`.
-2. **Test E2E su Dispositivo Mobile**: Lanciare un gioco in streaming WebRTC da smartphone per testare lo scorrimento del menu, il salvataggio rapido (Slot 0), la gestione slot 0-4 e la scansione del QR code Co-Op da un secondo telefono.
+1. **Verifica GitHub Actions Build**: Monitorare la pipeline CI/CD di release scatenata dal tag `v2.65.0` per la generazione automatica delle immagini container multi-arch (`amd64`/`aarch64`) su GitHub Packages.
+2. **Test Installazione Add-on**: Eseguire un test di aggiornamento su Home Assistant per verificare la corretta installazione della versione 2.65.0 e il corretto funzionamento dello streaming WebRTC e degli import XML.
 
 ---
 
 ### Comandi Utili
-- `cd cabinet_bridge/server/native-runner && go test -v ./...`: Test suite Go runner nativo (save/load, encoder, m3u).
 - `cd cabinet_bridge && pnpm check`: Type-check TypeScript (0 errori).
-- `cd cabinet_bridge && pnpm test`: Esecuzione test suite Vitest (22 file, 147 test passati).
-- `cd cabinet_bridge && pnpm run build`: Build di produzione (Vite + esbuild).
+- `cd cabinet_bridge && pnpm test`: Esecuzione test suite Vitest completa (25 file, 152 test).
+- `gh pr list`: Verifica stato pull request su GitHub (attualmente 0 aperte).
