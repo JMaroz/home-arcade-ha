@@ -5,10 +5,11 @@ import crypto from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import { Transform } from "node:stream";
 import { storage } from "./storage";
-import { extractZip } from "./zip";
+import { extractZipArchive } from "./zip";
 import { log } from "./log";
-import { getDeterministicBoxArtUrl } from "./archive-client";
+import { getDeterministicBoxArtUrl, RETRO_BEST_PLATFORMS, TINY_BEST_PLATFORMS, ARCHIVE_PLATFORMS } from "./archive-client";
 import { fetchGameMetadata, type UnifiedGameMetadata } from "./metadata-fetcher";
+import { computeFileHash } from "./scanner";
 import { titleFromFileName, slugify } from "./routes/utils";
 import { ROM_ROOT } from "./routes/shared";
 
@@ -54,6 +55,20 @@ export function cancelDownloadJob(id: string): boolean {
   activeJobs.delete(id);
   completedJobs.unshift(entry.job);
   return true;
+}
+
+export function isKnownFullSetArchive(fileName: string): boolean {
+  const lower = fileName.toLowerCase();
+  for (const cfg of Object.values(RETRO_BEST_PLATFORMS)) {
+    if (cfg.archiveZipFile && path.basename(cfg.archiveZipFile).toLowerCase() === lower) return true;
+  }
+  for (const cfg of Object.values(TINY_BEST_PLATFORMS)) {
+    if (cfg.archiveZipFile && path.basename(cfg.archiveZipFile).toLowerCase() === lower) return true;
+  }
+  for (const cfg of Object.values(ARCHIVE_PLATFORMS)) {
+    if (cfg.archiveZipFile && path.basename(cfg.archiveZipFile).toLowerCase() === lower) return true;
+  }
+  return false;
 }
 
 export async function startArchiveDownload(options: {
@@ -248,25 +263,29 @@ export async function startArchiveDownload(options: {
 
       // 3. Decompression or final rename
       const isZip = options.fileName.toLowerCase().endsWith(".zip");
-      const isArcadeSingle = !job.isFullSet && (options.system === "arcade" || options.system === "neogeo");
-      const shouldDecompress = isZip && (job.isFullSet || !isArcadeSingle);
+      const isFullSet = Boolean(job.isFullSet) || isKnownFullSetArchive(options.fileName);
+      const isArcadeSingle = !isFullSet && (options.system === "arcade" || options.system === "neogeo");
+      const shouldDecompress = isZip && (isFullSet || !isArcadeSingle);
 
       if (shouldDecompress) {
         job.status = "extracting";
         job.progress = 0;
         log(`[ArchiveDownloader] Extracting zip ${options.fileName}...`, "archive");
 
-        const zipData = await fs.readFile(partFilePath);
-        const entries = await extractZip(zipData, (current, total, entryName) => {
-          job.extractionProgress = { current, total, currentFileName: entryName };
-          job.progress = Math.min(99, Math.round((current / total) * 100));
+        const extracted = await extractZipArchive(partFilePath, systemDir, {
+          flatten: true,
+          onProgress: (current, total, entryName) => {
+            job.extractionProgress = { current, total, currentFileName: entryName };
+            job.progress = Math.min(99, Math.round((current / total) * 100));
+          },
         });
+        log(`[ArchiveDownloader] Extracted ${extracted.length} items from ${options.fileName}`, "archive");
 
         job.status = "indexing";
         let importedCount = 0;
 
-        for (const entry of entries) {
-          const entryBase = path.basename(entry.name);
+        for (const item of extracted) {
+          const entryBase = path.basename(item.filePath);
           const lowerBase = entryBase.toLowerCase();
 
           // Skip MacOS metadata, hidden files, and auxiliary IA metadata files
@@ -276,15 +295,16 @@ export async function startArchiveDownload(options: {
             lowerBase.endsWith("_files.xml") ||
             lowerBase.endsWith(".torrent") ||
             lowerBase.endsWith("_meta.sqlite") ||
-            lowerBase.endsWith("_reviews.xml")
+            lowerBase.endsWith("_reviews.xml") ||
+            lowerBase.endsWith(".txt") ||
+            lowerBase.endsWith(".nfo") ||
+            lowerBase.endsWith(".xml") ||
+            lowerBase.endsWith(".part")
           ) {
+            await fs.unlink(item.filePath).catch(() => {});
             continue;
           }
 
-          const entryDest = path.join(systemDir, entryBase);
-          await fs.writeFile(entryDest, entry.data);
-
-          const entryMd5 = crypto.createHash("md5").update(entry.data).digest("hex");
           const cleanTitle = titleFromFileName(entryBase);
           const slug = slugify(cleanTitle) + "-" + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 4);
 
@@ -293,14 +313,16 @@ export async function startArchiveDownload(options: {
             scrapeStatus: "matched" as const,
           }));
 
+          const entryMd5 = await computeFileHash(item.filePath).catch(() => null);
+
           await storage.createUploadedRom({
             title: cleanTitle,
             system: options.system,
             slug,
             originalName: entryBase,
             fileName: entryBase,
-            filePath: entryDest,
-            size: entry.data.length,
+            filePath: item.filePath,
+            size: item.size,
             mimeType: "application/octet-stream",
             artUrl: meta.artUrl || getDeterministicBoxArtUrl(options.system, cleanTitle),
             description: meta.description,

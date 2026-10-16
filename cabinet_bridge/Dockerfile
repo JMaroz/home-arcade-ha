@@ -92,13 +92,15 @@ ENV LANG=C.UTF-8 \
     PORT=5000 \
     NODE_ENV=production
 
-# Install runtime dependencies: Node.js 20 + glibc SQLite + libvpx for WebRTC streaming
+# Install runtime dependencies: Node.js 20 + glibc SQLite + libvpx for WebRTC streaming + archive tools (unzip, 7zip)
 RUN apt-get update && apt-get install -y --no-install-recommends \
       curl \
       ca-certificates \
       libsqlite3-0 \
       libstdc++6 \
       libvpx7 \
+      unzip \
+      7zip \
       && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
       && apt-get install -y --no-install-recommends nodejs \
       && apt-get purge -y curl \

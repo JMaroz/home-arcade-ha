@@ -1,41 +1,35 @@
-# Handoff Sessione: Risoluzione Add-on, S3 Keys Gatekeeper & Sorgenti Archive
+# Handoff Sessione: Fix Decompressione Archivi ZIP > 2GB & Sincronizzazione v2.64.0
 
-**Data**: 2026-10-14  
-**Stato**: Completato e Verificato con Successo (DoD Validata)
+**Data**: 2026-10-16  
+**Stato**: Allineato con origin/main (v2.64.0), Conflitti Risolti e DoD Validata (100% Pass)
 
 ---
 
 ### Stato Corrente
-- **Gatekeeper Autenticazione S3**: Senza credenziali S3 configurate, il catalogo e la ricerca in `ArchiveDownloadDialog` vengono bloccati. Viene presentata una schermata di onboarding con link diretto a `archive.org/account/s3.php`, input per Access/Secret Key e validazione live via `POST /api/archive/validate-keys` prima dello sblocco.
-- **Fix Download 401 Unauthorized**: Implementato redirect manuale in `archive-downloader.ts` per preservare l'header `Authorization: LOW ...` verso i nodi di storage (`*.archive.org`), evitando la rimozione automatica dell'header da parte di WHATWG Fetch.
-- **Filtro Rigoroso Piattaforme**: Implementata la funzione `isPlatformFile` in `archive-client.ts`; la selezione di una console mostra unicamente i file e i pack pertinenti, eliminando la duplicazione dell'intero set globale su tutte le schede.
-- **Supporto Multi-Sorgente**: Aggiunte le sorgenti `retro-best` (**Retro Roms "Best" Set**) e `tiny-best` (**Tiny Best Set: GO!**), rimosso il mirror dismesso Myrient e collegato `archiveSource` nei resolver dei metadati.
-- **Fix Loop Autosave & Scanner**: Rimosso `saveStatus` dalle dipendenze di `useEffect` in `integration.tsx` per fermare le continue chiamate `PUT /api/settings/integration`. Ottimizzato l'hashing in `scanner.ts` per file superiori a 32 MB.
-- **Pulizia Manifest Add-on**: Rimosse le opzioni ridondanti `data_dir` e `rom_watch_dir` da `config.yaml`, `translations/en.yaml` e `DOCS.md`.
+- **Sincronizzazione con Remote**: Eseguito `git fetch origin` e `git pull origin main` integrando i 30 commit remoti fino al rilascio `v2.64.0` (inclusi `GlobalDownloadBanner`, metadata scraper, single-rom decompression e curator).
+- **Risoluzione Conflitti e Decompressione > 2GB**: Risolto il conflitto in `archive-downloader.ts` e `zip.ts`. La decompressione precedente usava `fs.readFile` in memoria provocando `RangeError [ERR_FS_FILE_TOO_LARGE]` su file > 2GB. È stata integrata l'estrazione disk-to-disk streaming (`extractZipArchive`) con notifica progressi integrata con `job.extractionProgress` e `GlobalDownloadBanner`.
+- **Supporto ZIP64 e Multi-tool**: `zip.ts` rileva `7zz`, `7z` o `unzip` sul sistema (inclusi nel runtime container tramite `Dockerfile`), con fallback su streaming Node.js (`zlib.createInflateRaw` + Central Directory ZIP64). Zero buffering in RAM.
+- **DoD e Validazione Completa**: `pnpm check` (0 errori), `pnpm test` (22 suite passate, 141 test passati), `pnpm build` (bundle completato con successo).
 
 ---
 
 ### File Rilevanti
-- `cabinet_bridge/client/src/components/ArchiveDownloadDialog.tsx`: Schermata Gatekeeper con link S3 diretto, validazione live e sblocco catalogo.
-- `cabinet_bridge/server/routes/archive.ts`: Endpoints `POST /api/archive/validate-keys` e `GET /api/archive/keys-status`, sorgenti dinamiche.
-- `cabinet_bridge/server/archive-downloader.ts`: Loop manuale di redirect HTTP con persistenza credenziali S3 e gestione errori 401.
-- `cabinet_bridge/server/archive-client.ts`: Configurazioni multi-sorgente (`retro-best`, `tiny-best`, `hearto-1g1r`) e filtro `isPlatformFile`.
-- `cabinet_bridge/client/src/pages/settings/GamesStorageSettings.tsx`: Aggiornamento schede sorgenti e pulsante test credenziali S3.
-- `cabinet_bridge/client/src/lib/integration.tsx`: Eliminazione loop infinito autosave.
-- `cabinet_bridge/server/scanner.ts`: Hashing bound su file > 32 MB e chiusura stream SSE.
-- `cabinet_bridge/config.yaml`: Rimozione opzioni obsolete `data_dir` e `rom_watch_dir`.
+- `cabinet_bridge/server/zip.ts`: Implementata `extractZipArchive`, `listZipArchive` (ZIP64 streaming parser), supporto callback `onProgress` e fallback streaming puro Node.js.
+- `cabinet_bridge/server/archive-downloader.ts`: Decompressione disk-to-disk senza `fs.readFile`, calcolo MD5 in streaming con `computeFileHash`, e report progresso a `job.extractionProgress`.
+- `cabinet_bridge/Dockerfile`: Aggiunti `unzip` e `7zip` nei pacchetti Debian Bookworm per accelerare l'estrazione nell'add-on HA.
+- `cabinet_bridge/server/__tests__/zip_stream.test.ts`: Suite di test per streaming ZIP, appiattimento, fallback Node.js e protezione Zip Slip.
+- `docs/plans/2026-10-16_fix-zip-decompression-large-files.md`: Piano operativo completato e tracciato.
 
 ---
 
 ### Prossimi Passi (Next Steps)
-1. **Verifica Installazione Add-on HA**: Ricostruire/aggiornare l'add-on in Home Assistant OS e verificare che la scheda Configurazione mostri solo `max_upload_mb` e `steamgriddb_api_key`.
-2. **Test Download Reale su HA**: Inserire le proprie chiavi S3 nell'interfaccia dell'add-on, verificare lo sblocco immediato del catalogo ed effettuare il download di un set di giochi.
-3. **Monitoraggio Spazio Storage**: Verificare che la decompressione dei set estratti su `/data/roms` o mount Samba mantenga le quote disco corrette.
+1. **Commit & Push**: Creare commit Conventional Commits (`fix: stream zip decompression to support files larger than 2gb`) e fare push su `origin/main`.
+2. **Test Download Reale su HA**: Verificare su Home Assistant il download di un set di grandi dimensioni (es. PSX > 2GB o Tiny Best Set) controllando che `GlobalDownloadBanner` mostri correttamente avanzamento download ed estrazione senza errori di memoria.
 
 ---
 
 ### Comandi Utili
-- `cd cabinet_bridge && pnpm check`: Type check TypeScript (0 errori).
-- `cd cabinet_bridge && pnpm test`: Esecuzione test suite Vitest (20 suite, 133 test passati).
+- `cd cabinet_bridge && pnpm check`: Type-check TypeScript (0 errori).
+- `cd cabinet_bridge && pnpm test`: Esecuzione test suite completa (22 suite, 141 test passati).
 - `cd cabinet_bridge && pnpm run build`: Build di produzione client Vite + bundle server CJS.
 - `PORT=5001 pnpm dev`: Avvio dev server locale (evita conflitto porta 5000 AirPlay su macOS).
