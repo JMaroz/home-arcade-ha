@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import express from "express";
 import { createServer } from "node:http";
-import type { Server } from "node:server";
+import type { Server } from "node:http";
 import http from "node:http";
 import { performance } from "node:perf_hooks";
 

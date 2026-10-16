@@ -25,6 +25,71 @@ function parseXmlTags(xmlText: string) {
   return map;
 }
 
+const DB_METADATA_COLS: Record<string, string> = {
+  description: "description",
+  releaseYear: "release_year",
+  developer: "developer",
+  publisher: "publisher",
+  genre: "genre",
+  players: "players",
+  artUrl: "art_url",
+  rating: "rating",
+  playCount: "play_count",
+  lastPlayed: "last_played",
+  scrapeStatus: "scrape_status",
+};
+
+const METADATA_FIELDS = Object.keys(DB_METADATA_COLS);
+
+function batchUpdateRomMetadata(updates: { id: number; meta: Record<string, any> }[]) {
+  if (updates.length === 0) return;
+
+  // Deduplicate and merge by ROM ID to avoid duplicate WHEN clauses in CASE statements
+  const mergedMap = new Map<number, Record<string, any>>();
+  for (const { id, meta } of updates) {
+    const existing = mergedMap.get(id);
+    if (!existing) {
+      mergedMap.set(id, { ...meta });
+    } else {
+      Object.assign(existing, meta);
+    }
+  }
+
+  const dedupedUpdates = Array.from(mergedMap.entries()).map(([id, meta]) => ({ id, meta }));
+  const batchSize = 200;
+
+  for (let i = 0; i < dedupedUpdates.length; i += batchSize) {
+    const batch = dedupedUpdates.slice(i, i + batchSize);
+    const ids = batch.map((u) => u.id);
+
+    const setClauses: string[] = [];
+    const params: any[] = [];
+
+    for (const col of METADATA_FIELDS) {
+      const dbCol = DB_METADATA_COLS[col];
+      let caseSql = `"${dbCol}" = CASE "id" `;
+      let hasColUpdate = false;
+      for (const u of batch) {
+        if (u.meta[col] !== undefined) {
+          caseSql += `WHEN ? THEN ? `;
+          params.push(u.id, u.meta[col]);
+          hasColUpdate = true;
+        }
+      }
+      if (hasColUpdate) {
+        caseSql += `ELSE "${dbCol}" END`;
+        setClauses.push(caseSql);
+      }
+    }
+
+    if (setClauses.length > 0) {
+      const sqlStr = `UPDATE "uploaded_roms" SET ${setClauses.join(", ")} WHERE "id" IN (${ids.map(() => "?").join(",")})`;
+      params.push(...ids);
+      sqlite.prepare(sqlStr).run(...params);
+    }
+  }
+}
+
 export function registerImportRoutes(app: Express) {
   // ── EmulationStation gamelist.xml import ──────────────────────────────────
   app.post("/api/import/emulationstation", express.raw({ limit: "50mb", type: ["text/xml", "application/xml", "application/octet-stream", "text/plain"] }), async (req, res) => {
@@ -107,58 +172,7 @@ export function registerImportRoutes(app: Express) {
         results.push({ title: match.title, updated: true });
       }
 
-      if (updates.length > 0) {
-        const columns = [
-          "description", "releaseYear", "developer", "publisher",
-          "genre", "players", "artUrl", "rating", "playCount",
-          "lastPlayed", "scrapeStatus"
-        ];
-        const dbCols: Record<string, string> = {
-          description: "description",
-          releaseYear: "release_year",
-          developer: "developer",
-          publisher: "publisher",
-          genre: "genre",
-          players: "players",
-          artUrl: "art_url",
-          rating: "rating",
-          playCount: "play_count",
-          lastPlayed: "last_played",
-          scrapeStatus: "scrape_status",
-        };
-
-        const batchSize = 200;
-        for (let i = 0; i < updates.length; i += batchSize) {
-          const batch = updates.slice(i, i + batchSize);
-          const ids = batch.map(u => u.id);
-
-          const setClauses: string[] = [];
-          const params: any[] = [];
-
-          for (const col of columns) {
-            const dbCol = dbCols[col];
-            let caseSql = `"${dbCol}" = CASE "id" `;
-            let hasColUpdate = false;
-            for (const u of batch) {
-              if (u.meta[col] !== undefined) {
-                caseSql += `WHEN ? THEN ? `;
-                params.push(u.id, u.meta[col]);
-                hasColUpdate = true;
-              }
-            }
-            if (hasColUpdate) {
-              caseSql += `ELSE "${dbCol}" END`;
-              setClauses.push(caseSql);
-            }
-          }
-
-          if (setClauses.length > 0) {
-            const sqlStr = `UPDATE "uploaded_roms" SET ${setClauses.join(", ")} WHERE "id" IN (${ids.map(() => "?").join(",")})`;
-            params.push(...ids);
-            sqlite.prepare(sqlStr).run(...params);
-          }
-        }
-      }
+      batchUpdateRomMetadata(updates);
 
       res.json({ imported: results.filter((r) => r.updated).length, skipped: results.filter((r) => !r.updated).length, results });
     } catch (err) {
@@ -241,58 +255,7 @@ export function registerImportRoutes(app: Express) {
         results.push({ title: match.title, updated: true });
       }
 
-      if (updates.length > 0) {
-        const columns = [
-          "description", "releaseYear", "developer", "publisher",
-          "genre", "players", "artUrl", "rating", "playCount",
-          "lastPlayed", "scrapeStatus"
-        ];
-        const dbCols: Record<string, string> = {
-          description: "description",
-          releaseYear: "release_year",
-          developer: "developer",
-          publisher: "publisher",
-          genre: "genre",
-          players: "players",
-          artUrl: "art_url",
-          rating: "rating",
-          playCount: "play_count",
-          lastPlayed: "last_played",
-          scrapeStatus: "scrape_status",
-        };
-
-        const batchSize = 200;
-        for (let i = 0; i < updates.length; i += batchSize) {
-          const batch = updates.slice(i, i + batchSize);
-          const ids = batch.map(u => u.id);
-
-          const setClauses: string[] = [];
-          const params: any[] = [];
-
-          for (const col of columns) {
-            const dbCol = dbCols[col];
-            let caseSql = `"${dbCol}" = CASE "id" `;
-            let hasColUpdate = false;
-            for (const u of batch) {
-              if (u.meta[col] !== undefined) {
-                caseSql += `WHEN ? THEN ? `;
-                params.push(u.id, u.meta[col]);
-                hasColUpdate = true;
-              }
-            }
-            if (hasColUpdate) {
-              caseSql += `ELSE "${dbCol}" END`;
-              setClauses.push(caseSql);
-            }
-          }
-
-          if (setClauses.length > 0) {
-            const sqlStr = `UPDATE "uploaded_roms" SET ${setClauses.join(", ")} WHERE "id" IN (${ids.map(() => "?").join(",")})`;
-            params.push(...ids);
-            sqlite.prepare(sqlStr).run(...params);
-          }
-        }
-      }
+      batchUpdateRomMetadata(updates);
 
       res.json({ imported: results.filter((r) => r.updated).length, skipped: results.filter((r) => !r.updated).length, results });
     } catch (err) {
