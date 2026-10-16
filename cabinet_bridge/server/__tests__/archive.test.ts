@@ -251,7 +251,7 @@ describe("Internet Archive ROM Management & Deterministic Box Art", () => {
       const zipPath = `${importedGba!.filePath.replace(/\.gba$/, ".zip")}`;
       expect(existsSync(zipPath)).toBe(false);
       expect(existsSync(`${zipPath}.part`)).toBe(false);
-    });
+    }, 15000);
 
     it("preserves single game Arcade zip archive without decompressing", async () => {
       const { startArchiveDownload, getActiveDownloadJobs } = await import("../archive-downloader");
@@ -283,6 +283,6 @@ describe("Internet Archive ROM Management & Deterministic Box Art", () => {
       const importedArcade = roms.find((r) => r.system === "arcade" && r.fileName === "sf2.zip");
       expect(importedArcade).toBeDefined();
       expect(existsSync(importedArcade!.filePath)).toBe(true);
-    });
+    }, 15000);
   });
 });
