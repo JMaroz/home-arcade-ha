@@ -344,10 +344,10 @@ export function renderStreamPlayerPage({
 
       <!-- Action Buttons (Right) -->
       <div class="v-actions">
-        <div class="v-btn v-act-btn v-btn-y" data-btn="1">Y</div>
-        <div class="v-btn v-act-btn v-btn-x" data-btn="9">X</div>
-        <div class="v-btn v-act-btn v-btn-b" data-btn="0">B</div>
-        <div class="v-btn v-act-btn v-btn-a" data-btn="8">A</div>
+        <div id="v-btn-y" class="v-btn v-act-btn v-btn-y" data-btn="1">Y</div>
+        <div id="v-btn-x" class="v-btn v-act-btn v-btn-x" data-btn="9">X</div>
+        <div id="v-btn-b" class="v-btn v-act-btn v-btn-b" data-btn="0">B</div>
+        <div id="v-btn-a" class="v-btn v-act-btn v-btn-a" data-btn="8">A</div>
       </div>
     </div>
 
@@ -507,9 +507,9 @@ export function renderStreamPlayerPage({
             <div style="font-weight: 800; color: #ec4899; text-transform: uppercase; margin-bottom: 4px; font-size: 10px; letter-spacing: 0.08em;">🎮 Mappatura Comandi</div>
             <div>• <b style="color: #fff;">Enter</b>: START &nbsp;|&nbsp; <b style="color: #fff;">Shift</b>: SELECT</div>
             <div>• <b style="color: #fff;">Frecce</b>: D-Pad / Analogico</div>
-            <div>• <b style="color: #fff;">X / K</b>: Tasto A &nbsp;|&nbsp; <b style="color: #fff;">Z / J</b>: Tasto B</div>
-            <div>• <b style="color: #fff;">S / I</b>: Tasto X &nbsp;|&nbsp; <b style="color: #fff;">A / U</b>: Tasto Y</div>
-            <div>• <b style="color: #fff;">Q / W</b>: Dorsali L / R &nbsp;|&nbsp; <b style="color: #fff;">E / R</b>: ZL / ZR</div>
+            <div id="legend-actions">• <b style="color: #fff;">X / K</b>: Tasto A &nbsp;|&nbsp; <b style="color: #fff;">Z / J</b>: Tasto B</div>
+            <div id="legend-extra">• <b style="color: #fff;">S / I</b>: Tasto X &nbsp;|&nbsp; <b style="color: #fff;">A / U</b>: Tasto Y</div>
+            <div id="legend-shoulders">• <b style="color: #fff;">Q / W</b>: Dorsali L / R &nbsp;|&nbsp; <b style="color: #fff;">E / R</b>: ZL / ZR</div>
             <div style="color: #10b981; margin-top: 4px;">• Gamepad USB/Bluetooth plug & play</div>
           </div>
         </div>
@@ -558,7 +558,7 @@ export function renderStreamPlayerPage({
         // Aspect ratio handling & persistence
         const systemName = ${JSON.stringify(system.toLowerCase())};
 
-        // Platform-aware virtual controls configuration (Shoulders & Analog Thumbsticks)
+        // Platform-aware virtual controls configuration (Shoulders, Action Buttons & Analog Thumbsticks)
         (function configurePlatformVirtualControls(sys) {
           const noShoulderSystems = new Set([
             "nes", "gb", "gbc", "mastersystem", "gamegear", "atari2600",
@@ -574,13 +574,31 @@ export function renderStreamPlayerPage({
             "n64", "ps1", "ps2", "gc"
           ]);
 
+          const twoButtonSystems = new Set([
+            "nes", "gb", "gbc", "gba", "atari2600", "atari7800", "mastersystem", "gamegear", "ngp", "wonderswan"
+          ]);
+          const segaThreeButtonSystems = new Set([
+            "genesis", "megadrive", "md", "segacd", "32x"
+          ]);
+          const playstationSystems = new Set([
+            "ps1", "ps2", "psp"
+          ]);
+
           const shLeft = document.getElementById("v-shoulders-left");
           const shRight = document.getElementById("v-shoulders-right");
+          const btnL = document.getElementById("v-btn-l");
+          const btnR = document.getElementById("v-btn-r");
           const btnZl = document.getElementById("v-btn-zl");
           const btnZr = document.getElementById("v-btn-zr");
           const stickLeft = document.getElementById("v-stick-left");
           const stickRight = document.getElementById("v-stick-right");
 
+          const btnY = document.getElementById("v-btn-y");
+          const btnX = document.getElementById("v-btn-x");
+          const btnB = document.getElementById("v-btn-b");
+          const btnA = document.getElementById("v-btn-a");
+
+          // 1. Shoulders visibility and labels
           if (noShoulderSystems.has(sys)) {
             if (shLeft) shLeft.style.display = "none";
             if (shRight) shRight.style.display = "none";
@@ -589,6 +607,98 @@ export function renderStreamPlayerPage({
             if (btnZr) btnZr.style.display = "none";
           }
 
+          if (playstationSystems.has(sys)) {
+            if (btnL) btnL.textContent = "L1";
+            if (btnR) btnR.textContent = "R1";
+            if (btnZl) btnZl.textContent = "L2";
+            if (btnZr) btnZr.textContent = "R2";
+            if (sys === "psp") {
+              if (btnZl) btnZl.style.display = "none";
+              if (btnZr) btnZr.style.display = "none";
+            }
+          } else if (sys === "n64") {
+            if (btnL) btnL.textContent = "L";
+            if (btnR) btnR.textContent = "R";
+            if (btnZl) btnZl.textContent = "Z";
+            if (btnZr) btnZr.style.display = "none";
+          }
+
+          // 2. Action buttons configuration & platform styling
+          if (playstationSystems.has(sys)) {
+            // PlayStation Shapes: △ (Triangle, top), ◯ (Circle, right), ✕ (Cross, bottom), ▢ (Square, left)
+            if (btnX) {
+              btnX.textContent = "△";
+              btnX.style.background = "rgba(16, 185, 129, 0.32)";
+              btnX.style.borderColor = "rgba(16, 185, 129, 0.75)";
+              btnX.style.fontSize = "18px";
+            }
+            if (btnA) {
+              btnA.textContent = "◯";
+              btnA.style.background = "rgba(239, 68, 68, 0.32)";
+              btnA.style.borderColor = "rgba(239, 68, 68, 0.75)";
+              btnA.style.fontSize = "18px";
+            }
+            if (btnB) {
+              btnB.textContent = "✕";
+              btnB.style.background = "rgba(59, 130, 246, 0.32)";
+              btnB.style.borderColor = "rgba(59, 130, 246, 0.75)";
+              btnB.style.fontSize = "18px";
+            }
+            if (btnY) {
+              btnY.textContent = "▢";
+              btnY.style.background = "rgba(236, 72, 153, 0.32)";
+              btnY.style.borderColor = "rgba(236, 72, 153, 0.75)";
+              btnY.style.fontSize = "18px";
+            }
+          } else if (twoButtonSystems.has(sys)) {
+            // NES / Game Boy / GBA: Only B and A buttons
+            if (btnX) btnX.style.display = "none";
+            if (btnY) btnY.style.display = "none";
+            if (btnB) {
+              btnB.textContent = "B";
+              btnB.style.background = "rgba(239, 68, 68, 0.32)";
+              btnB.style.borderColor = "rgba(239, 68, 68, 0.75)";
+            }
+            if (btnA) {
+              btnA.textContent = "A";
+              btnA.style.background = "rgba(239, 68, 68, 0.32)";
+              btnA.style.borderColor = "rgba(239, 68, 68, 0.75)";
+            }
+          } else if (segaThreeButtonSystems.has(sys)) {
+            // Sega Genesis 3-button layout: A (left), B (bottom), C (right)
+            if (btnX) btnX.style.display = "none";
+            if (btnY) {
+              btnY.textContent = "A";
+              btnY.style.background = "rgba(59, 130, 246, 0.32)";
+              btnY.style.borderColor = "rgba(59, 130, 246, 0.75)";
+            }
+            if (btnB) {
+              btnB.textContent = "B";
+              btnB.style.background = "rgba(234, 179, 8, 0.32)";
+              btnB.style.borderColor = "rgba(234, 179, 8, 0.75)";
+            }
+            if (btnA) {
+              btnA.textContent = "C";
+              btnA.style.background = "rgba(239, 68, 68, 0.32)";
+              btnA.style.borderColor = "rgba(239, 68, 68, 0.75)";
+            }
+          }
+
+          // Update Pause Menu keyboard legend based on platform
+          const legAct = document.getElementById("legend-actions");
+          const legExtra = document.getElementById("legend-extra");
+          const legSh = document.getElementById("legend-shoulders");
+          if (playstationSystems.has(sys)) {
+            if (legAct) legAct.innerHTML = '• <b style="color: #fff;">X / K</b>: ◯ (Cerchio) &nbsp;|&nbsp; <b style="color: #fff;">Z / J</b>: ✕ (Croce)';
+            if (legExtra) legExtra.innerHTML = '• <b style="color: #fff;">S / I</b>: △ (Triangolo) &nbsp;|&nbsp; <b style="color: #fff;">A / U</b>: ▢ (Quadrato)';
+            if (legSh) legSh.innerHTML = sys === "psp" ? '• <b style="color: #fff;">Q / W</b>: Dorsali L / R' : '• <b style="color: #fff;">Q / W</b>: L1 / R1 &nbsp;|&nbsp; <b style="color: #fff;">E / R</b>: L2 / R2';
+          } else if (twoButtonSystems.has(sys)) {
+            if (legAct) legAct.innerHTML = '• <b style="color: #fff;">X / K</b>: Tasto A &nbsp;|&nbsp; <b style="color: #fff;">Z / J</b>: Tasto B';
+            if (legExtra) legExtra.style.display = "none";
+            if (noShoulderSystems.has(sys) && legSh) legSh.style.display = "none";
+          }
+
+          // 3. Analog sticks
           if (stickLeft) {
             stickLeft.style.display = leftStickSystems.has(sys) ? "flex" : "none";
           }
@@ -755,9 +865,23 @@ export function renderStreamPlayerPage({
               iceServers: startData.iceServers || [{ urls: "stun:stun.l.google.com:19302" }]
             });
 
-            // 3. Setup transceivers for receiving video and audio
-            pc.addTransceiver("video", { direction: "recvonly" });
-            pc.addTransceiver("audio", { direction: "recvonly" });
+            function applyZeroDelay(receiver) {
+              if (!receiver) return;
+              try {
+                if ("playoutDelayHint" in receiver) {
+                  receiver.playoutDelayHint = 0;
+                }
+                if ("jitterBufferTarget" in receiver) {
+                  receiver.jitterBufferTarget = 0;
+                }
+              } catch (_) {}
+            }
+
+            // 3. Setup transceivers for receiving video and audio with zero playout delay
+            const videoTransceiver = pc.addTransceiver("video", { direction: "recvonly" });
+            const audioTransceiver = pc.addTransceiver("audio", { direction: "recvonly" });
+            applyZeroDelay(videoTransceiver.receiver);
+            applyZeroDelay(audioTransceiver.receiver);
 
             // 4. Create DataChannel for low-latency gamepad & keyboard input
             dataChannel = pc.createDataChannel("input", { ordered: false, maxRetransmits: 0 });
@@ -768,6 +892,7 @@ export function renderStreamPlayerPage({
 
             pc.ontrack = (event) => {
               console.log("[stream] Received remote track:", event.track.kind);
+              applyZeroDelay(event.receiver);
               let stream = video.srcObject;
               if (!stream || !(stream instanceof MediaStream)) {
                 stream = new MediaStream();
@@ -796,6 +921,9 @@ export function renderStreamPlayerPage({
               if (pc.connectionState === "connected") {
                 statusHud.classList.add("is-hidden");
                 statsBadge.textContent = (isGuest ? "P2" : "P1") + " · CONNECTED · 60 FPS";
+                try {
+                  pc.getReceivers().forEach(applyZeroDelay);
+                } catch (_) {}
               } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
                 showError("Stream Disconnected", "The connection to the native emulation runner was lost.");
               }
@@ -873,12 +1001,33 @@ export function renderStreamPlayerPage({
         window.addEventListener("keydown", (e) => {
           unlockAudio();
           if (e.code === "KeyH") {
+            e.preventDefault();
+            e.stopPropagation();
             telemetryOverlay.classList.toggle("is-hidden");
+            return;
           }
-          activeKeys.add(e.code);
+          if (e.code === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            menuOverlay.classList.toggle("is-hidden");
+            return;
+          }
+          if (KEY_MAP[e.code] !== undefined) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!activeKeys.has(e.code)) {
+              activeKeys.add(e.code);
+              sendInputIfChanged(true);
+            }
+          }
         });
         window.addEventListener("keyup", (e) => {
-          activeKeys.delete(e.code);
+          if (KEY_MAP[e.code] !== undefined) {
+            e.preventDefault();
+            e.stopPropagation();
+            activeKeys.delete(e.code);
+            sendInputIfChanged(true);
+          }
         });
 
         let prevSelectStart = false;
@@ -963,6 +1112,7 @@ export function renderStreamPlayerPage({
             virtualButtonsMask |= (1 << btnCode);
             btn.classList.add("is-pressed");
             try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+            sendInputIfChanged(true);
           });
 
           const release = (e) => {
@@ -971,6 +1121,7 @@ export function renderStreamPlayerPage({
             virtualButtonsMask &= ~(1 << btnCode);
             btn.classList.remove("is-pressed");
             try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+            sendInputIfChanged(true);
           };
 
           btn.addEventListener("pointerup", release);
@@ -1043,10 +1194,12 @@ export function renderStreamPlayerPage({
         bindVirtualStick("v-stick-left", (x, y) => {
           virtualLeftAxisX = x;
           virtualLeftAxisY = y;
+          sendInputIfChanged(true);
         });
         bindVirtualStick("v-stick-right", (x, y) => {
           virtualRightAxisX = x;
           virtualRightAxisY = y;
+          sendInputIfChanged(true);
         });
 
         // Initialize virtual pad from localStorage or auto-enable on touch devices if no gamepad is active
@@ -1067,101 +1220,116 @@ export function renderStreamPlayerPage({
           }
         } catch (_) {}
 
-        function pollInput() {
-          if (dataChannel && dataChannel.readyState === "open") {
-            let mask = 0;
-            let axisX = 0;
-            let axisY = 0;
-            let rightAxisX = 0;
-            let rightAxisY = 0;
+        let lastMask = -1;
+        let lastAxisX = 0;
+        let lastAxisY = 0;
+        let lastRightAxisX = 0;
+        let lastRightAxisY = 0;
+        let lastSendTime = 0;
 
-            // 1. Native Gamepad Input
-            const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-            const gp = gamepads[0];
-            if (gp) {
-              unlockAudio();
-              const b = gp.buttons;
+        function sendInputIfChanged(force) {
+          if (!dataChannel || dataChannel.readyState !== "open") return;
+          // Avoid SCTP queue buffer bloat during momentary network jitter
+          if (dataChannel.bufferedAmount > 1024) return;
 
-              // Auto-hide virtual overlay on first physical button press or analog movement
-              if (!physicalGamepadDetected) {
-                const hasActivity = b.some((btn) => btn && btn.pressed) ||
-                  (gp.axes && gp.axes.some((a) => Math.abs(a) > 0.3));
-                if (hasActivity) {
-                  physicalGamepadDetected = true;
-                  const userForced = localStorage.getItem("ha_arcade_touch_controller_forced");
-                  if (!userForced && virtualController && !virtualController.classList.contains("is-hidden")) {
-                    setVirtualPadVisible(false);
-                    showGamepadToast("🎮 Gamepad attivo — Touch Pad nascosto");
-                  }
+          let mask = 0;
+          let axisX = 0;
+          let axisY = 0;
+          let rightAxisX = 0;
+          let rightAxisY = 0;
+
+          // 1. Native Gamepad Input
+          const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+          const gp = gamepads[0];
+          if (gp) {
+            unlockAudio();
+            const b = gp.buttons;
+
+            // Auto-hide virtual overlay on first physical button press or analog movement
+            if (!physicalGamepadDetected) {
+              const hasActivity = b.some((btn) => btn && btn.pressed) ||
+                (gp.axes && gp.axes.some((a) => Math.abs(a) > 0.3));
+              if (hasActivity) {
+                physicalGamepadDetected = true;
+                const userForced = localStorage.getItem("ha_arcade_touch_controller_forced");
+                if (!userForced && virtualController && !virtualController.classList.contains("is-hidden")) {
+                  setVirtualPadVisible(false);
+                  showGamepadToast("🎮 Gamepad attivo — Touch Pad nascosto");
                 }
               }
-              if (b[0] && b[0].pressed) mask |= (1 << 0);   // B
-              if (b[2] && b[2].pressed) mask |= (1 << 1);   // Y
-              if (b[8] && b[8].pressed) mask |= (1 << 2);   // Select
-              if (b[9] && b[9].pressed) mask |= (1 << 3);   // Start
-              if (b[12] && b[12].pressed) mask |= (1 << 4); // Up
-              if (b[13] && b[13].pressed) mask |= (1 << 5); // Down
-              if (b[14] && b[14].pressed) mask |= (1 << 6); // Left
-              if (b[15] && b[15].pressed) mask |= (1 << 7); // Right
-              if (b[1] && b[1].pressed) mask |= (1 << 8);   // A
-              if (b[3] && b[3].pressed) mask |= (1 << 9);   // X
-              if (b[4] && b[4].pressed) mask |= (1 << 10);  // L
-              if (b[5] && b[5].pressed) mask |= (1 << 11);  // R
-              if (b[6] && b[6].pressed) mask |= (1 << 12);  // L2 / ZL
-              if (b[7] && b[7].pressed) mask |= (1 << 13);  // R2 / ZR
-              if (b[10] && b[10].pressed) mask |= (1 << 14);// L3
-              if (b[11] && b[11].pressed) mask |= (1 << 15);// R3
+            }
+            if (b[0] && b[0].pressed) mask |= (1 << 0);   // B
+            if (b[2] && b[2].pressed) mask |= (1 << 1);   // Y
+            if (b[8] && b[8].pressed) mask |= (1 << 2);   // Select
+            if (b[9] && b[9].pressed) mask |= (1 << 3);   // Start
+            if (b[12] && b[12].pressed) mask |= (1 << 4); // Up
+            if (b[13] && b[13].pressed) mask |= (1 << 5); // Down
+            if (b[14] && b[14].pressed) mask |= (1 << 6); // Left
+            if (b[15] && b[15].pressed) mask |= (1 << 7); // Right
+            if (b[1] && b[1].pressed) mask |= (1 << 8);   // A
+            if (b[3] && b[3].pressed) mask |= (1 << 9);   // X
+            if (b[4] && b[4].pressed) mask |= (1 << 10);  // L
+            if (b[5] && b[5].pressed) mask |= (1 << 11);  // R
+            if (b[6] && b[6].pressed) mask |= (1 << 12);  // L2 / ZL
+            if (b[7] && b[7].pressed) mask |= (1 << 13);  // R2 / ZR
+            if (b[10] && b[10].pressed) mask |= (1 << 14);// L3
+            if (b[11] && b[11].pressed) mask |= (1 << 15);// R3
 
-              if (gp.axes && gp.axes.length >= 2) {
-                axisX = Math.max(-128, Math.min(127, Math.round(gp.axes[0] * 127)));
-                axisY = Math.max(-128, Math.min(127, Math.round(gp.axes[1] * 127)));
+            if (gp.axes && gp.axes.length >= 2) {
+              axisX = Math.max(-128, Math.min(127, Math.round(gp.axes[0] * 127)));
+              axisY = Math.max(-128, Math.min(127, Math.round(gp.axes[1] * 127)));
+            }
+            if (gp.axes && gp.axes.length >= 4) {
+              rightAxisX = Math.max(-128, Math.min(127, Math.round(gp.axes[2] * 127)));
+              rightAxisY = Math.max(-128, Math.min(127, Math.round(gp.axes[3] * 127)));
+            }
+
+            // Select + Start toggle telemetry HUD
+            const selectPressed = Boolean(b[8] && b[8].pressed);
+            const startPressed = Boolean(b[9] && b[9].pressed);
+            if (selectPressed && startPressed) {
+              if (!prevSelectStart) {
+                telemetryOverlay.classList.toggle("is-hidden");
               }
-              if (gp.axes && gp.axes.length >= 4) {
-                rightAxisX = Math.max(-128, Math.min(127, Math.round(gp.axes[2] * 127)));
-                rightAxisY = Math.max(-128, Math.min(127, Math.round(gp.axes[3] * 127)));
-              }
-
-              // Select + Start toggle telemetry HUD
-              const selectPressed = Boolean(b[8] && b[8].pressed);
-              const startPressed = Boolean(b[9] && b[9].pressed);
-              if (selectPressed && startPressed) {
-                if (!prevSelectStart) {
-                  telemetryOverlay.classList.toggle("is-hidden");
-                }
-                prevSelectStart = true;
-              } else {
-                prevSelectStart = false;
-              }
+              prevSelectStart = true;
+            } else {
+              prevSelectStart = false;
             }
+          }
 
-            // 2. Keyboard Input Overlay
-            for (const code of activeKeys) {
-              const bit = KEY_MAP[code];
-              if (bit !== undefined) {
-                mask |= (1 << bit);
-              }
+          // 2. Keyboard Input Overlay
+          for (const code of activeKeys) {
+            const bit = KEY_MAP[code];
+            if (bit !== undefined) {
+              mask |= (1 << bit);
             }
+          }
 
-            // 3. Virtual Touch Controller Overlay (Buttons + Dual Analog Thumbsticks)
-            mask |= virtualButtonsMask;
-            if (virtualLeftAxisX !== 0 || virtualLeftAxisY !== 0) {
-              axisX = virtualLeftAxisX;
-              axisY = virtualLeftAxisY;
-            }
-            if (virtualRightAxisX !== 0 || virtualRightAxisY !== 0) {
-              rightAxisX = virtualRightAxisX;
-              rightAxisY = virtualRightAxisY;
-            }
+          // 3. Virtual Touch Controller Overlay (Buttons + Dual Analog Thumbsticks)
+          mask |= virtualButtonsMask;
+          if (virtualLeftAxisX !== 0 || virtualLeftAxisY !== 0) {
+            axisX = virtualLeftAxisX;
+            axisY = virtualLeftAxisY;
+          }
+          if (virtualRightAxisX !== 0 || virtualRightAxisY !== 0) {
+            rightAxisX = virtualRightAxisX;
+            rightAxisY = virtualRightAxisY;
+          }
 
-            // D-Pad to Analog fallback if left analog stick is centered
-            if (axisX === 0 && axisY === 0) {
-              if (mask & (1 << 4)) axisY = -128; // Up
-              if (mask & (1 << 5)) axisY = 127;  // Down
-              if (mask & (1 << 6)) axisX = -128; // Left
-              if (mask & (1 << 7)) axisX = 127;  // Right
-            }
+          // D-Pad to Analog fallback if left analog stick is centered
+          if (axisX === 0 && axisY === 0) {
+            if (mask & (1 << 4)) axisY = -128; // Up
+            if (mask & (1 << 5)) axisY = 127;  // Down
+            if (mask & (1 << 6)) axisX = -128; // Left
+            if (mask & (1 << 7)) axisX = 127;  // Right
+          }
 
-            // Pack 7 bytes: [playerSlot, mask_lo, mask_hi, axisX, axisY, rightAxisX, rightAxisY]
+          const now = performance.now();
+          const changed = (mask !== lastMask || axisX !== lastAxisX || axisY !== lastAxisY ||
+                           rightAxisX !== lastRightAxisX || rightAxisY !== lastRightAxisY);
+          const heartbeat = (now - lastSendTime >= 100);
+
+          if (changed || force || heartbeat) {
             inputBuffer[0] = myPlayerSlot;
             inputBuffer[1] = mask & 0xFF;
             inputBuffer[2] = (mask >> 8) & 0xFF;
@@ -1170,8 +1338,20 @@ export function renderStreamPlayerPage({
             inputBuffer[5] = (rightAxisX < 0 ? 256 + rightAxisX : rightAxisX) & 0xFF;
             inputBuffer[6] = (rightAxisY < 0 ? 256 + rightAxisY : rightAxisY) & 0xFF;
 
-            dataChannel.send(inputBuffer);
+            try {
+              dataChannel.send(inputBuffer);
+              lastMask = mask;
+              lastAxisX = axisX;
+              lastAxisY = axisY;
+              lastRightAxisX = rightAxisX;
+              lastRightAxisY = rightAxisY;
+              lastSendTime = now;
+            } catch (_) {}
           }
+        }
+
+        function pollInput() {
+          sendInputIfChanged(false);
           requestAnimationFrame(pollInput);
         }
 

@@ -1,39 +1,30 @@
-# Handoff Sessione: Review, Ottimizzazione e Merge Pull Requests (Release v2.65.0)
+# Project Handoff: Home Arcade WebRTC Latency & Virtual Controls
 
-**Data**: 2026-10-16  
-**Stato**: Completato e Validato (100% Test Passati: 25/25 suite Vitest, 152 test, Type-check 0 errori, release v2.65.0 pubblicata)
+## Stato Corrente
+- Risolti i problemi di latenza comandi (~500ms delay) e cali di frame su ripetizione tasti nel Native Runner WebRTC per PS1 e tutte le piattaforme.
+- Disaccoppiati gli stream WebRTC audio/video (`homearcade-video` e `homearcade-audio`) per eliminare l'A/V sync blocking di Chromium durante silence/caricamenti.
+- Azzerato il playout delay e il jitter buffer (`playoutDelayHint = 0`, `jitterBufferTarget = 0`).
+- Corretto il frame timing del runner Go (`time.Second / time.Duration(fps)`) per eliminare il drift audio a 60 FPS esatti.
+- Resettato il flag di polling analogico in `nanoarch.c` a ogni frame/poll per evitare stalli nell'input.
+- Eliminati i cali di frame prevenendo lo scrolling e l'event bubbling con `e.preventDefault()` / `e.stopPropagation()` sui tasti gamepad/mappati.
+- Ottimizzato il DataChannel con invio differenziale a bassa latenza sub-1ms (solo su variazione stato o heartbeat 100ms) e backpressure check su `bufferedAmount`.
+- Implementati controlli virtuali a schermo dinamici e coerenti con la piattaforma emulata (forme PlayStation △, ◯, ✕, ▢ e dorsali L1/L2/R1/R2 per PS1/PS2/PSP; 2 tasti per NES/GB/GBA; 3 tasti per Genesis).
+- Validati con successo `pnpm check`, `pnpm test client`, `pnpm test shared` e `pnpm build`.
 
----
+## File Rilevanti
+- `cabinet_bridge/server/native-runner/main.go`: Disaccoppiamento stream ID WebRTC e correzione ticker loop nativo.
+- `cabinet_bridge/server/native-runner/pkg/encoder/vpx.go`: Correzione calcolo durata campioni VP8 a 60 FPS.
+- `cabinet_bridge/server/native-runner/pkg/emulator/nanoarch.c`: Reset di `analog_polled[port]` per prevenire blocco dell'input polling.
+- `cabinet_bridge/server/routes/streamPlayer.ts`: Zero playout delay/jitter buffer, invio differenziale DataChannel, soppressione scroll su key repeat e controlli touch contestuali alla console.
+- `docs/plans/2026-10-16_fix_webrtc_stream_latency_and_controls.md`: Piano di lavoro dettagliato e verifiche completate.
 
-### Stato Corrente
-- **Review e Merge PR Aperte**: Tutte le PR aperte sul repository GitHub sono state analizzate, validate e gestite:
-  - **PR #35 (Async debug endpoint)**: Mergiata. Sostituito I/O sincrono (`fs.existsSync`, `readFileSync`) in `/api/debug` con `fs.promises.readFile` e `fs.promises.access`.
-  - **PR #36 (Async system CPU info)**: Mergiata. Sostituito `fs.readFileSync("/proc/cpuinfo")` con `fs.readFile` asincrono e caching memoizzato in memoria su `/api/system`.
-  - **PR #37 vs PR #34 (N+1 query in `generateM3uForAllDiscGroups`)**: Mergiata PR #37 (superiore a #34 per chunking a 500 gruppi, update massivo dei `parentM3uId` in singola query con `inArray`, slug deterministico con contatore progressivo). PR #34 chiusa; incrementati i timeout nei test di decompressione archive a 15s.
-  - **PR #38 vs PR #39 (Batch XML import updates)**: Mergiata PR #38 (parsing XML single-pass e batch update via SQL CASE su LaunchBox ed EmulationStation). Eseguito refactoring Ponytail: estratto helper deduplicato `batchUpdateRomMetadata`, merge ID duplicati, supporto percorsi con backslash Windows (`/` e `\`) e gestione payload buffer/string da PR #39. Fixato `import type { Server }` in `import_perf.test.ts`. PR #39 chiusa in favore di #38.
-  - **PR #33 (Release Please)**: Aggiornata automaticamente con tutte le feature, bugfix e ottimizzazioni; mergiata per il rilascio ufficiale della versione **2.65.0**.
-- **DoD Validata**: `pnpm check` (0 errori), Vitest (25 file, 152 test passati al 100%). Nessuna PR rimasta aperta.
+## Prossimi Passi (Next Steps)
+1. Eseguire commit atomico e push su `main`.
+2. Verificare l'apertura della Release PR su GitHub da parte di Release Please e completarne il merge.
+3. Testare in ambiente reale Home Assistant Add-on con ROM PS1 (`Disney's Hercules Action Game`).
 
----
-
-### File Rilevanti
-- `cabinet_bridge/server/index.ts`: Endpoint `/api/debug` asincrono con gestione errori e promesse non bloccanti.
-- `cabinet_bridge/server/routes/system.ts` & `__tests__/system.test.ts`: Lettura asincrona e cache del modello CPU in `/api/system`.
-- `cabinet_bridge/server/storage.ts` & `__tests__/m3u_perf.test.ts`: Generazione M3U a blocchi di 500 gruppi con Drizzle `inArray` e transazioni atomiche.
-- `cabinet_bridge/server/routes/import.ts` & `__tests__/import_perf.test.ts`: Parsing tag XML single-pass e helper riutilizzabile `batchUpdateRomMetadata` con costrutti CASE SQLite.
-- `cabinet_bridge/server/__tests__/archive.test.ts`: Timeout aumentato a 15s per test di decompressione archivio.
-- `cabinet_bridge/config.yaml` & `package.json`: Versione sincronizzata a `2.65.0`.
-- `docs/plans/2026-10-16_pr_reviews_and_merges.md`: Piano operativo completato e tracciato.
-
----
-
-### Prossimi Passi (Next Steps)
-1. **Verifica GitHub Actions Build**: Monitorare la pipeline CI/CD di release scatenata dal tag `v2.65.0` per la generazione automatica delle immagini container multi-arch (`amd64`/`aarch64`) su GitHub Packages.
-2. **Test Installazione Add-on**: Eseguire un test di aggiornamento su Home Assistant per verificare la corretta installazione della versione 2.65.0 e il corretto funzionamento dello streaming WebRTC e degli import XML.
-
----
-
-### Comandi Utili
-- `cd cabinet_bridge && pnpm check`: Type-check TypeScript (0 errori).
-- `cd cabinet_bridge && pnpm test`: Esecuzione test suite Vitest completa (25 file, 152 test).
-- `gh pr list`: Verifica stato pull request su GitHub (attualmente 0 aperte).
+## Comandi Utili
+- `pnpm check`: Type check statico del progetto.
+- `pnpm test`: Esecuzione suite di test Vitest.
+- `pnpm build`: Build di produzione client Vite e server Express.
+- `git status` / `git diff`: Verifica dello stato del repository.

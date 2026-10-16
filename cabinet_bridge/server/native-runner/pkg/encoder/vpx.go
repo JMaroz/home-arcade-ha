@@ -50,7 +50,7 @@ func NewVpxVideoEncoder(width, height, fps int) (*VpxVideoEncoder, error) {
 		width:    width,
 		height:   height,
 		fps:      fps,
-		duration: time.Duration(1000/fps) * time.Millisecond,
+		duration: time.Second / time.Duration(fps),
 		ctx:      ctx,
 		yuv:      NewYUVBuffer(width, height),
 	}, nil

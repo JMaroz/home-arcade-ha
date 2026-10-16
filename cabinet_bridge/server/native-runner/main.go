@@ -181,7 +181,7 @@ func main() {
 	videoTrack, err = webrtc.NewTrackLocalStaticSample(
 		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8},
 		"video",
-		"homearcade-stream",
+		"homearcade-video",
 	)
 	if err != nil {
 		log.Fatalf("[runner] Failed to create video track: %v\n", err)
@@ -190,7 +190,7 @@ func main() {
 	audioTrack, err = webrtc.NewTrackLocalStaticSample(
 		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus},
 		"audio",
-		"homearcade-stream",
+		"homearcade-audio",
 	)
 	if err != nil {
 		log.Fatalf("[runner] Failed to create audio track: %v\n", err)
@@ -616,7 +616,7 @@ func runMediaStreamLoop() {
 	if fps <= 0 {
 		fps = 60
 	}
-	ticker := time.NewTicker(time.Duration(1000/fps) * time.Millisecond)
+	ticker := time.NewTicker(time.Second / time.Duration(fps))
 	defer ticker.Stop()
 
 	emuSession := emulator.CreateActiveSession(config.Width, config.Height, fps, 44100, config.RomPath, config.CorePath)

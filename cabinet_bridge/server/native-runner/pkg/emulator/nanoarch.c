@@ -58,6 +58,7 @@ void input_cache_set_port(unsigned port, uint32_t buttons,
         input_cache.analog[port][3] = ry;
         input_cache.triggers[port][0] = l2;
         input_cache.triggers[port][1] = r2;
+        input_cache.analog_polled[port] = 0;
     }
 }
 
@@ -216,6 +217,9 @@ void core_video_refresh_cgo(void *data, unsigned width, unsigned height, size_t 
 }
 
 void core_input_poll_cgo() {
+    for (int i = 0; i < INPUT_MAX_PORTS; i++) {
+        input_cache.analog_polled[i] = 0;
+    }
 }
 
 int16_t core_input_state_cgo(unsigned port, unsigned device, unsigned index, unsigned id) {
