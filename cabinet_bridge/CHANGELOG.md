@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.64.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.64.0...v2.64.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* stream extraction of large ZIP archives ([7cf4866](https://github.com/JMaroz/home-arcade-ha/commit/7cf48669a99df18953d5f7830e588db82503f8e4))
+
 ## [2.64.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.63.0...v2.64.0) (2026-10-15)
 
 
