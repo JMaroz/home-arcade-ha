@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.65.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.65.0...v2.65.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **stream:** eliminate webrtc latency, audio sync delay and key repeating frame drops ([72a75f0](https://github.com/JMaroz/home-arcade-ha/commit/72a75f0dc28928e77549d36872123fa28736801b))
+
 ## [2.65.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.64.1...v2.65.0) (2026-10-16)
 
 
