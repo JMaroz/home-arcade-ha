@@ -749,52 +749,79 @@ export class DatabaseStorage implements IStorage {
       .having(sql`count(*) >= 2`)
       .all() as { discGroup: string }[];
 
-    for (const { discGroup } of groups) {
-      const existingM3u = await db.select().from(uploadedRoms)
-        .where(and(eq(uploadedRoms.discGroup, discGroup), eq(uploadedRoms.isPlaylist, true)))
-        .get();
-      if (existingM3u) continue;
+    if (groups.length === 0) return;
 
-      const siblings = await db.select().from(uploadedRoms)
-        .where(and(
-          eq(uploadedRoms.discGroup, discGroup),
-          eq(uploadedRoms.isPlaylist, false),
-          sql`${uploadedRoms.parentM3uId} IS NULL`,
-        ))
-        .orderBy(uploadedRoms.discNumber)
-        .all();
+    // Batch fetch all discGroups that already have an M3U playlist
+    const existingM3uRows = await db.select({
+      discGroup: uploadedRoms.discGroup,
+    }).from(uploadedRoms)
+      .where(and(eq(uploadedRoms.isPlaylist, true), sql`${uploadedRoms.discGroup} IS NOT NULL`))
+      .all() as { discGroup: string }[];
 
-      if (siblings.length < 2) continue;
+    const existingM3uSet = new Set(existingM3uRows.map(r => r.discGroup));
 
-      const system = siblings[0].system;
-      const title = siblings[0].title;
-      const m3uLines = siblings.map((s: UploadedRom) => s.originalName).join("\n");
-      const m3uSlug = `${system}_m3u_${slugify(title)}_${Date.now().toString(36)}`;
+    const pendingGroups = new Set(
+      groups.map(g => g.discGroup).filter(g => !existingM3uSet.has(g))
+    );
 
-      const m3uRecord = db.insert(uploadedRoms).values({
-        title,
-        system,
-        slug: m3uSlug,
-        originalName: `${title}.m3u`,
-        fileName: `${m3uSlug}.m3u`,
-        filePath: `${ROM_ROOT}/${system}/${m3uSlug}.m3u`,
-        size: Buffer.byteLength(m3uLines, "utf8"),
-        mimeType: "text/plain",
-        isPlaylist: true,
-        m3uContent: m3uLines,
-        discNumber: null,
-        discGroup: discGroup,
-        parentM3uId: null,
-        romHash: null,
-        minutesPlayed: 0,
-        createdAt: Date.now(),
-      }).returning().get() as UploadedRom;
+    if (pendingGroups.size === 0) return;
 
-      // Link siblings to the new M3U
-      for (const sib of siblings) {
-        db.update(uploadedRoms).set({ parentM3uId: m3uRecord.id }).where(eq(uploadedRoms.id, sib.id)).run();
+    // Batch fetch all unlinked disc ROMs
+    const unlinkedDiscRoms = await db.select().from(uploadedRoms)
+      .where(and(
+        sql`${uploadedRoms.discGroup} IS NOT NULL`,
+        eq(uploadedRoms.isPlaylist, false),
+        sql`${uploadedRoms.parentM3uId} IS NULL`,
+      ))
+      .orderBy(uploadedRoms.discNumber)
+      .all() as UploadedRom[];
+
+    // Group siblings by discGroup while preserving order by discNumber
+    const siblingsByGroup = new Map<string, UploadedRom[]>();
+    for (const rom of unlinkedDiscRoms) {
+      if (!rom.discGroup || !pendingGroups.has(rom.discGroup)) continue;
+      let list = siblingsByGroup.get(rom.discGroup);
+      if (!list) {
+        list = [];
+        siblingsByGroup.set(rom.discGroup, list);
       }
+      list.push(rom);
     }
+
+    db.transaction((tx: typeof db) => {
+      for (const [discGroup, siblings] of siblingsByGroup.entries()) {
+        if (siblings.length < 2) continue;
+
+        const system = siblings[0].system;
+        const title = siblings[0].title;
+        const m3uLines = siblings.map((s: UploadedRom) => s.originalName).join("\n");
+        const m3uSlug = `${system}_m3u_${slugify(title)}_${Date.now().toString(36)}`;
+
+        const m3uRecord = tx.insert(uploadedRoms).values({
+          title,
+          system,
+          slug: m3uSlug,
+          originalName: `${title}.m3u`,
+          fileName: `${m3uSlug}.m3u`,
+          filePath: `${ROM_ROOT}/${system}/${m3uSlug}.m3u`,
+          size: Buffer.byteLength(m3uLines, "utf8"),
+          mimeType: "text/plain",
+          isPlaylist: true,
+          m3uContent: m3uLines,
+          discNumber: null,
+          discGroup: discGroup,
+          parentM3uId: null,
+          romHash: null,
+          minutesPlayed: 0,
+          createdAt: Date.now(),
+        }).returning().get() as UploadedRom;
+
+        // Link siblings to the new M3U
+        for (const sib of siblings) {
+          tx.update(uploadedRoms).set({ parentM3uId: m3uRecord.id }).where(eq(uploadedRoms.id, sib.id)).run();
+        }
+      }
+    });
   }
   async listRomFilenames(): Promise<string[]> {
     const rows = db.select({ fileName: uploadedRoms.fileName }).from(uploadedRoms).all();
