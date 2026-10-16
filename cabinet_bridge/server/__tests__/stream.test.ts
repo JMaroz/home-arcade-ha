@@ -115,6 +115,29 @@ describe("Native Stream & Co-Op Routes", () => {
     expect(html).toContain('id="v-stick-right"');
     expect(html).toContain("new Uint8Array(7)");
     expect(html).toContain(".v-btn-pill {\n        position: relative;");
+    expect(html).toContain("wasm-fallback-link");
+  });
+
+  it("renderStreamPlayerPage respects wasmMode setting", async () => {
+    const { renderStreamPlayerPage } = await import("../routes/streamPlayer");
+    const htmlDisabled = renderStreamPlayerPage({
+      title: "Gran Turismo",
+      returnTo: "/",
+      romId: 99,
+      system: "ps1",
+      wasmMode: "disabled",
+    });
+    expect(htmlDisabled).not.toContain("wasm-fallback-link");
+
+    const htmlFallback = renderStreamPlayerPage({
+      title: "Gran Turismo",
+      returnTo: "/",
+      romId: 99,
+      system: "ps1",
+      wasmMode: "fallback",
+    });
+    expect(htmlFallback).toContain("wasm-fallback-link");
+    expect(htmlFallback).toContain("const wasmAutoFallback = true;");
   });
 });
 

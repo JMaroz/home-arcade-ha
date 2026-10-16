@@ -72,6 +72,19 @@ describe("integrationSettingsSchema", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it("validates wasmMode defaults and enum values", () => {
+    const defaultRes = integrationSettingsSchema.safeParse({});
+    expect(defaultRes.success).toBe(true);
+    if (defaultRes.success) {
+      expect(defaultRes.data.wasmMode).toBe("fallback");
+    }
+
+    expect(integrationSettingsSchema.safeParse({ wasmMode: "always" }).success).toBe(true);
+    expect(integrationSettingsSchema.safeParse({ wasmMode: "fallback" }).success).toBe(true);
+    expect(integrationSettingsSchema.safeParse({ wasmMode: "disabled" }).success).toBe(true);
+    expect(integrationSettingsSchema.safeParse({ wasmMode: "invalid" }).success).toBe(false);
+  });
 });
 
 describe("insertUserSchema", () => {

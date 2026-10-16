@@ -11,7 +11,8 @@ WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential \
       pkg-config \
-      libvpx-dev
+      libvpx-dev \
+      libopus-dev
 
 COPY server/native-runner/go.mod server/native-runner/go.sum ./
 RUN go mod download
@@ -99,6 +100,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libsqlite3-0 \
       libstdc++6 \
       libvpx7 \
+      libopus0 \
       unzip \
       7zip \
       && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \

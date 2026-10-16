@@ -179,6 +179,7 @@ export const integrationSettingsSchema = z.object({
   dashboardTheme: z.string().max(32).default("nostalgia"),
   globalAspectRatio: z.string().max(16).default("auto"),
   globalShader: z.string().max(64).default("none"),
+  wasmMode: z.enum(["always", "fallback", "disabled"]).default("fallback"),
   showSystemLabels: z.boolean().default(true),
   systemDisplay: z.record(z.string(), z.object({
     aspectRatio: z.string().max(16).optional(),
@@ -241,6 +242,7 @@ export const DEFAULT_INTEGRATION_SETTINGS: IntegrationSettings = {
   dashboardTheme: "nostalgia",
   globalAspectRatio: "auto",
   globalShader: "none",
+  wasmMode: "fallback",
   showSystemLabels: true,
   systemDisplay: {},
   uiGamepadMapping: {

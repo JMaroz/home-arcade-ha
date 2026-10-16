@@ -10,7 +10,7 @@ import { useIntegration, formatRelative } from "@/lib/integration";
 import { apiRequest, apiUrl, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { GameCollectionWithItems, UploadedRom, RomSaveSlot, GameCheatCode } from "@shared/schema";
-import { Heart, Play, Clock, Users, Star, Folder, Plus, ChevronDown, ChevronUp, Hash, Loader2, ImagePlus, Trash2, Save, Zap, ToggleLeft, ToggleRight, Database, Check, Wifi, Timer, QrCode, Cpu, Globe } from "lucide-react";
+import { Heart, Play, Clock, Users, Star, Folder, Plus, ChevronDown, ChevronUp, Hash, Loader2, ImagePlus, Trash2, Save, Zap, ToggleLeft, ToggleRight, Database, Check, Wifi, Timer, QrCode } from "lucide-react";
 import { Stat, HltbStat, SaveSlotCard, CheatRow } from "@/components/GameDetailSubComponents";
 
 // ── HLTB helpers ──────────────────────────────────────────────────────────────────────────────────
@@ -69,20 +69,6 @@ export function GameDetailDialog({
     setNetplayOpen(false);
   }, [game?.id]);
   const [selectedRomId, setSelectedRomId] = useState<number | null>(null);
-  const [engine, setEngine] = useState<"native" | "wasm">(() => {
-    try {
-      return (localStorage.getItem("ha_arcade_engine_preference") as "native" | "wasm") || "wasm";
-    } catch {
-      return "wasm";
-    }
-  });
-
-  const handleSetEngine = (newEngine: "native" | "wasm") => {
-    setEngine(newEngine);
-    try {
-      localStorage.setItem("ha_arcade_engine_preference", newEngine);
-    } catch {}
-  };
 
   const { data: raProgress, isLoading: loadingRa } = useQuery({
     queryKey: ["ra-progress", game?.raGameId],
@@ -236,9 +222,11 @@ export function GameDetailDialog({
     if (romId) {
       setLaunching(true);
       const returnTo = encodeURIComponent(window.location.href);
-      const effectiveEngine = isPs2 ? "native" : engine;
-      const playerPath = effectiveEngine === "native" ? `/api/roms/${romId}/stream-player` : `/api/roms/${romId}/player`;
-      const playerUrl = apiUrl(`${playerPath}?return=${returnTo}&profile=${profileId}`);
+      const wasmMode = config.wasmMode || "fallback";
+      const useWasm = !isPs2 && wasmMode === "always";
+      const fallbackParam = wasmMode === "disabled" ? "&fallback=0" : "&fallback=1";
+      const playerPath = useWasm ? `/api/roms/${romId}/player` : `/api/roms/${romId}/stream-player`;
+      const playerUrl = apiUrl(`${playerPath}?return=${returnTo}&profile=${profileId}${useWasm ? "" : fallbackParam}`);
       try {
         const probe = await fetch(playerUrl, { method: "HEAD" });
         if (!probe.ok) {
@@ -799,57 +787,6 @@ export function GameDetailDialog({
               </div>
             ) : null}
 
-            {/* Emulation Engine Selector */}
-            {game.romId ? (
-              isPs2 ? (
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-1 border-t border-border/40">
-                  <span className="text-[11px] font-mono uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
-                    <Cpu className="size-3 text-primary" /> Engine:
-                  </span>
-                  <div 
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono text-[11px] bg-primary/20 text-primary border border-primary/40 font-semibold shadow-sm"
-                    title="PS2 opera esclusivamente via Native WebRTC Streaming per garantire 60 FPS ed evitare limiti WASM."
-                  >
-                    <Zap className="size-3 fill-current" /> Native WebRTC (60 FPS)
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-1 border-t border-border/40">
-                  <span className="text-[11px] font-mono uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
-                    <Cpu className="size-3 text-primary" /> Engine:
-                  </span>
-                  <div className="inline-flex rounded-lg border border-border/60 bg-muted/30 p-0.5 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => handleSetEngine("wasm")}
-                      className={`px-2.5 py-1 rounded-md font-mono text-[11px] transition-colors flex items-center gap-1.5 ${
-                        engine === "wasm"
-                          ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                      data-testid="button-engine-wasm"
-                      title="Runs inside your client web browser via WebAssembly (EmulatorJS) — Recommended & fully stable"
-                    >
-                      <Globe className="size-3" /> WebAssembly (Consigliato)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSetEngine("native")}
-                      className={`px-2.5 py-1 rounded-md font-mono text-[11px] transition-colors flex items-center gap-1.5 ${
-                        engine === "native"
-                          ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                      data-testid="button-engine-native"
-                      title="Experimental native WebRTC runner on Raspberry Pi (Beta preview)"
-                    >
-                      <Zap className="size-3 fill-current" /> Native (Beta Preview)
-                    </button>
-                  </div>
-                </div>
-              )
-            ) : null}
-
             {/* Action buttons */}
             <div className="flex flex-wrap items-center gap-2 pt-2 pb-28 sm:pb-2">
               <Button
@@ -861,11 +798,7 @@ export function GameDetailDialog({
                 <Play className="size-4 fill-current" />{" "}
                 {launching
                   ? "Launching…"
-                  : game.romId
-                  ? isPs2 || engine === "native"
-                    ? "Play (Native)"
-                    : "Play (WASM)"
-                  : "Launch"}
+                  : "Play"}
               </Button>
               {latestSave && (
                 <Button

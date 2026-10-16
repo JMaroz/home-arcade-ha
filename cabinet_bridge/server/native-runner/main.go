@@ -564,6 +564,7 @@ func runMediaStreamLoop() {
 	defer videoEncoder.Close()
 
 	audioAccumulator := audio.NewAudioBufferAccumulator(44100)
+	defer audioAccumulator.Close()
 
 	log.Printf("[runner] Emulation & WebRTC media stream pipeline active (%dx%d @ %d FPS)\n",
 		config.Width, config.Height, fps)

@@ -97,6 +97,23 @@ export function DisplaySettings() {
               </SelectContent>
             </Select>
           </Field>
+
+          <Field 
+            label="WebAssembly & Motore di Gioco" 
+            hint="Configura la priorità di esecuzione: esecuzione diretta WebAssembly nel browser, oppure Streaming Nativo WebRTC a 60 FPS con o senza fallback."
+          >
+            <Select 
+              value={config.wasmMode || "fallback"} 
+              onValueChange={(val: "always" | "fallback" | "disabled") => setConfig({ wasmMode: val })}
+            >
+              <SelectTrigger data-testid="select-wasm-mode"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="always">Attivo (WebAssembly nel browser)</SelectItem>
+                <SelectItem value="fallback">Opzionale se native non funziona (Consigliato)</SelectItem>
+                <SelectItem value="disabled">Disabilitato (Solo Nativo)</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
         </div>
       </Section>
 

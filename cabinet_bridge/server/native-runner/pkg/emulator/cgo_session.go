@@ -72,7 +72,7 @@ func NewCgoLibretroSession(width, height, fps, sampleRate int) EmulatorSession {
 			SampleRate: sampleRate,
 		},
 		frameBuffer: make([]byte, width*height*4),
-		audioBuffer: make([]int16, (sampleRate/fps)*2),
+		audioBuffer: make([]int16, 0, (sampleRate/fps)*4),
 	}
 }
 
@@ -526,9 +526,15 @@ func (s *CgoLibretroSession) GetFrame() ([]byte, encoder.PixelFormat) {
 }
 
 func (s *CgoLibretroSession) GetAudio() []int16 {
-	s.audioMu.RLock()
-	defer s.audioMu.RUnlock()
-	return s.audioBuffer
+	s.audioMu.Lock()
+	defer s.audioMu.Unlock()
+	if len(s.audioBuffer) == 0 {
+		return nil
+	}
+	out := make([]int16, len(s.audioBuffer))
+	copy(out, s.audioBuffer)
+	s.audioBuffer = s.audioBuffer[:0]
+	return out
 }
 
 func (s *CgoLibretroSession) SetInput(player int, state RetroInputState) {
@@ -674,10 +680,11 @@ func coreAudioSampleBatch(data *C.int16_t, frames C.size_t) C.size_t {
 
 	count := int(frames) * 2 // stereo
 	srcSlice := unsafe.Slice((*int16)(unsafe.Pointer(data)), count)
-	if len(s.audioBuffer) < count {
-		s.audioBuffer = make([]int16, count)
+	// Guard against excessive buffer growth if consumer is delayed
+	if len(s.audioBuffer)+count > 48000*2 {
+		s.audioBuffer = s.audioBuffer[:0]
 	}
-	copy(s.audioBuffer, srcSlice)
+	s.audioBuffer = append(s.audioBuffer, srcSlice...)
 	return frames
 }
 

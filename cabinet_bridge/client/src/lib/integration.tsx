@@ -77,6 +77,8 @@ export interface IntegrationConfig {
   globalAspectRatio?: string;
   /** Default emulator shader */
   globalShader?: string;
+  /** WebAssembly mode: always, fallback, or disabled */
+  wasmMode?: "always" | "fallback" | "disabled";
   /** Watch paths for mounted library scanning */
   libraryWatchPaths?: string;
   /** Enable cloud (Google Drive) save sync */
@@ -165,6 +167,7 @@ const defaultConfig: IntegrationConfig = {
   showSystemLabels: true,
   globalAspectRatio: "auto",
   globalShader: "none",
+  wasmMode: "fallback",
   netplayNickname: "HomeArcadePlayer",
   netplayPort: 55435,
   netplaySyncMode: "rollback",

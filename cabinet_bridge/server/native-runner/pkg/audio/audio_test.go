@@ -43,8 +43,8 @@ func TestAudioBufferAccumulator_FrameChunks(t *testing.T) {
 	if len(samples) != 1 {
 		t.Fatalf("Expected exactly 1 media.Sample, got %d", len(samples))
 	}
-	if len(samples[0].Data) != StereoFrameSize*2 {
-		t.Fatalf("Expected byte length %d, got %d", StereoFrameSize*2, len(samples[0].Data))
+	if len(samples[0].Data) == 0 {
+		t.Fatalf("Expected non-empty media.Sample data, got 0 bytes")
 	}
 
 	// Feeding another half-frame: should accumulate with 0 output
@@ -58,5 +58,29 @@ func TestAudioBufferAccumulator_FrameChunks(t *testing.T) {
 	samples3 := acc.Push(halfInput)
 	if len(samples3) != 1 {
 		t.Fatalf("Expected 1 sample after completing buffer, got %d", len(samples3))
+	}
+	if len(samples3[0].Data) == 0 {
+		t.Fatalf("Expected non-empty media.Sample data, got 0 bytes")
+	}
+}
+
+func TestOpusAudioEncoder_Encode(t *testing.T) {
+	enc, err := NewOpusAudioEncoder(48000, 2)
+	if err != nil {
+		t.Skipf("libopus not available: %v", err)
+	}
+	defer enc.Close()
+
+	pcm := make([]int16, StereoFrameSize)
+	for i := range pcm {
+		pcm[i] = int16(i % 1000)
+	}
+
+	packet, err := enc.Encode(pcm, SamplesPerFrame)
+	if err != nil {
+		t.Fatalf("Opus encoding failed: %v", err)
+	}
+	if len(packet) == 0 || len(packet) >= StereoFrameSize*2 {
+		t.Fatalf("Expected compressed Opus packet size, got %d bytes", len(packet))
 	}
 }

@@ -8,6 +8,7 @@ interface StreamPlayerOptions {
   profileId?: number;
   ingressBase?: string;
   configuredAspectRatio?: string;
+  wasmMode?: "always" | "fallback" | "disabled";
 }
 
 export function renderStreamPlayerPage({
@@ -18,6 +19,7 @@ export function renderStreamPlayerPage({
   profileId = 1,
   ingressBase = "",
   configuredAspectRatio = "auto",
+  wasmMode = "fallback",
 }: StreamPlayerOptions): string {
   const safeTitle = escapeHtml(title);
   const safeReturnTo = JSON.stringify(returnTo);
@@ -344,6 +346,7 @@ export function renderStreamPlayerPage({
     <div id="gamepad-toast" style="display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 2000; background: rgba(16, 185, 129, 0.92); color: #fff; font-weight: 700; font-size: 12px; padding: 8px 18px; border-radius: 9999px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); pointer-events: none; backdrop-filter: blur(8px); transition: opacity 0.3s ease;"></div>
 
     <!-- Video Stream Warning / Fallback Banner -->
+    ${wasmMode !== "disabled" ? `
     <div id="stream-warning-banner" style="display: none; position: fixed; top: max(56px, calc(env(safe-area-inset-top) + 48px)); left: 50%; transform: translateX(-50%); z-index: 998; background: rgba(30, 20, 10, 0.95); border: 1px solid #f59e0b; color: #fef3c7; padding: 12px 20px; border-radius: 12px; font-size: 11px; max-width: 90vw; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.6); backdrop-filter: blur(8px);">
       <div style="font-weight: 700; margin-bottom: 4px; color: #fbbf24;">⚠️ Schermo nero? Native runner in anteprima</div>
       <div style="font-size: 10px; color: rgba(254, 243, 199, 0.85); margin-bottom: 8px; line-height: 1.4;">
@@ -352,7 +355,7 @@ export function renderStreamPlayerPage({
       <a href="${wasmPlayerUrl}" class="btn btn-primary wasm-fallback-link" style="padding: 8px 16px; font-size: 11px; margin: 0; background: #f59e0b; color: #000; font-weight: 800;">
         ▶ Gioca con WebAssembly (EmulatorJS)
       </a>
-    </div>
+    </div>` : ""}
 
     <!-- Loading / Status HUD -->
     <div id="status-hud" class="hud-overlay">
@@ -363,9 +366,10 @@ export function renderStreamPlayerPage({
           Initializing Native Libretro WebRTC engine on Raspberry Pi...
         </div>
         <div id="hud-actions" style="display: none; margin-top: 16px;">
+          ${wasmMode !== "disabled" ? `
           <a href="${wasmPlayerUrl}" class="btn btn-primary wasm-fallback-link">
             ▶ Play with WebAssembly
-          </a>
+          </a>` : ""}
           <button id="retry-btn" class="btn btn-secondary">
             Retry Connection
           </button>
@@ -451,9 +455,10 @@ export function renderStreamPlayerPage({
           <button id="btn-open-coop-menu" class="btn btn-secondary" style="border-color: rgba(56, 189, 248, 0.4);">
             👥 Invite Player 2 (Co-Op)
           </button>
+          ${wasmMode !== "disabled" ? `
           <a href="${wasmPlayerUrl}" class="btn btn-secondary wasm-fallback-link">
             🌐 Switch to WebAssembly Engine
-          </a>
+          </a>` : ""}
           <button id="btn-resume" class="btn btn-primary">Resume Game</button>
           <button id="btn-exit" class="btn btn-secondary" style="border-color: rgba(239, 68, 68, 0.3); color: #fca5a5;">
             Exit Game
@@ -632,14 +637,13 @@ export function renderStreamPlayerPage({
         const ingressBase = apiIdx !== -1 ? path.substring(0, apiIdx) : serverIngressBase;
         const wasmUrl = ingressBase + "/api/roms/" + romId + "/player?return=" + encodeURIComponent(returnUrl) + "&profile=" + ${profileId} + "&engine=wasm";
 
+        const wasmFallbackEnabled = ${wasmMode !== "disabled"};
+        const wasmAutoFallback = ${wasmMode === "fallback"};
+
+        ${wasmMode !== "disabled" ? `
         document.querySelectorAll(".wasm-fallback-link").forEach((link) => {
           link.setAttribute("href", wasmUrl);
-          link.addEventListener("click", () => {
-            try {
-              localStorage.setItem("ha_arcade_engine_preference", "wasm");
-            } catch (_) {}
-          });
-        });
+        });` : ""}
 
         function showError(title, message) {
           statusHud.classList.remove("is-hidden");
@@ -648,6 +652,12 @@ export function renderStreamPlayerPage({
           hudTitle.style.color = "#ef4444";
           hudSub.textContent = message;
           hudActions.style.display = "block";
+          if (wasmAutoFallback && !isGuest && wasmFallbackEnabled) {
+            hudSub.textContent = message + " — Switching to WebAssembly in 3s...";
+            setTimeout(() => {
+              window.location.href = wasmUrl;
+            }, 3000);
+          }
         }
 
         function updateCoopInvite() {
@@ -715,17 +725,13 @@ export function renderStreamPlayerPage({
 
             pc.ontrack = (event) => {
               console.log("[stream] Received remote track:", event.track.kind);
-              if (event.streams && event.streams[0]) {
-                video.srcObject = event.streams[0];
-              } else {
-                let stream = video.srcObject;
-                if (!(stream instanceof MediaStream)) {
-                  stream = new MediaStream();
-                  video.srcObject = stream;
-                }
-                if (!stream.getTracks().some((t) => t.id === event.track.id)) {
-                  stream.addTrack(event.track);
-                }
+              let stream = video.srcObject;
+              if (!stream || !(stream instanceof MediaStream)) {
+                stream = new MediaStream();
+                video.srcObject = stream;
+              }
+              if (!stream.getTracks().some((t) => t.id === event.track.id)) {
+                stream.addTrack(event.track);
               }
               video.play().catch(() => {});
               statusHud.classList.add("is-hidden");
@@ -795,6 +801,7 @@ export function renderStreamPlayerPage({
           audioUnlocked = true;
           if (video) {
             video.muted = false;
+            video.volume = 1.0;
             video.play().catch(() => {});
             if (btnUnmute) btnUnmute.textContent = "🔇 Mute Audio";
           }

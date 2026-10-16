@@ -74,21 +74,70 @@ func (r *Resampler) ResampleStereo(src []int16) []int16 {
 	return dst
 }
 
+// AudioEncoder abstracts encoding PCM stereo samples into WebRTC media bytes
+type AudioEncoder interface {
+	Encode(pcm []int16, frameSize int) ([]byte, error)
+	Close() error
+}
+
+// FallbackRawAudioEncoder wraps uncompressed PCM (used only as fallback if libopus is unavailable)
+type FallbackRawAudioEncoder struct{}
+
+func (f *FallbackRawAudioEncoder) Encode(pcm []int16, frameSize int) ([]byte, error) {
+	count := frameSize * 2
+	rawBytes := make([]byte, count*2)
+	for i := 0; i < count && i < len(pcm); i++ {
+		val := pcm[i]
+		rawBytes[i*2] = byte(val & 0xFF)
+		rawBytes[i*2+1] = byte((val >> 8) & 0xFF)
+	}
+	return rawBytes, nil
+}
+
+func (f *FallbackRawAudioEncoder) Close() error {
+	return nil
+}
+
+// NewActiveAudioEncoder returns native libopus encoder, or fallback if unavailable
+func NewActiveAudioEncoder(sampleRate, channels int) AudioEncoder {
+	enc, err := NewOpusAudioEncoder(sampleRate, channels)
+	if err == nil {
+		return enc
+	}
+	return &FallbackRawAudioEncoder{}
+}
+
 // AudioBufferAccumulator collects variable-size audio callbacks from Libretro
 // and emits fixed 20ms Opus/PCM frames for WebRTC streaming.
 type AudioBufferAccumulator struct {
 	mu        sync.Mutex
 	resampler *Resampler
+	encoder   AudioEncoder
 	buffer    []int16
 	duration  time.Duration
 }
 
 func NewAudioBufferAccumulator(inRate int) *AudioBufferAccumulator {
+	return NewAudioBufferAccumulatorWithEncoder(inRate, NewActiveAudioEncoder(TargetSampleRate, 2))
+}
+
+func NewAudioBufferAccumulatorWithEncoder(inRate int, enc AudioEncoder) *AudioBufferAccumulator {
 	return &AudioBufferAccumulator{
 		resampler: NewResampler(inRate),
+		encoder:   enc,
 		buffer:    make([]int16, 0, StereoFrameSize*4),
 		duration:  time.Duration(FrameDurationMs) * time.Millisecond,
 	}
+}
+
+// Close cleans up the underlying audio encoder
+func (a *AudioBufferAccumulator) Close() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.encoder != nil {
+		return a.encoder.Close()
+	}
+	return nil
 }
 
 // Push adds input samples, resamples to 48kHz and returns any complete 20ms media.Sample frames
@@ -103,15 +152,24 @@ func (a *AudioBufferAccumulator) Push(srcPCM []int16) []media.Sample {
 	for len(a.buffer) >= StereoFrameSize {
 		chunk := a.buffer[:StereoFrameSize]
 
-		// Encode chunk into raw PCM bytes (little-endian)
-		rawBytes := make([]byte, StereoFrameSize*2)
-		for i, val := range chunk {
-			rawBytes[i*2] = byte(val & 0xFF)
-			rawBytes[i*2+1] = byte((val >> 8) & 0xFF)
+		var packetData []byte
+		if a.encoder != nil {
+			encoded, err := a.encoder.Encode(chunk, SamplesPerFrame)
+			if err == nil && len(encoded) > 0 {
+				packetData = encoded
+			}
+		}
+		if len(packetData) == 0 {
+			// Fallback: raw PCM bytes
+			packetData = make([]byte, StereoFrameSize*2)
+			for i, val := range chunk {
+				packetData[i*2] = byte(val & 0xFF)
+				packetData[i*2+1] = byte((val >> 8) & 0xFF)
+			}
 		}
 
 		samples = append(samples, media.Sample{
-			Data:     rawBytes,
+			Data:     packetData,
 			Duration: a.duration,
 		})
 

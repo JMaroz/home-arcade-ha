@@ -1088,11 +1088,12 @@ export function registerRomRoutes(app: Express) {
     const returnTo = typeof req.query.return === "string" ? req.query.return : "";
     const profileId = Number(req.query.profile) || 1;
 
-    // Load integration display settings for aspect ratio
+    // Load integration display settings for aspect ratio and wasm mode
     const settings = await storage.getIntegrationSettings();
     const systemDisplay = (settings.systemDisplay ?? {}) as Record<string, any>;
     const sysLower = rom.system.toLowerCase();
     const configuredAspectRatio = systemDisplay[sysLower]?.aspectRatio || settings.globalAspectRatio || "auto";
+    const wasmMode = req.query.fallback === "0" ? "disabled" : (settings.wasmMode || "fallback");
 
     res.send(renderStreamPlayerPage({
       title: rom.title,
@@ -1102,6 +1103,7 @@ export function registerRomRoutes(app: Express) {
       profileId,
       ingressBase,
       configuredAspectRatio,
+      wasmMode,
     }));
   });
 
