@@ -94,7 +94,7 @@ export function registerImportRoutes(app: Express) {
   // ── EmulationStation gamelist.xml import ──────────────────────────────────
   app.post("/api/import/emulationstation", express.raw({ limit: "50mb", type: ["text/xml", "application/xml", "application/octet-stream", "text/plain"] }), async (req, res) => {
     try {
-      const xml = req.body.toString("utf8");
+      const xml = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : (typeof req.body === "string" ? req.body : "");
       const gameBlocks = [...xml.matchAll(/<game[^>]*>([\s\S]*?)<\/game>/gi)];
       const roms = await storage.listUploadedRoms();
 
@@ -118,11 +118,12 @@ export function registerImportRoutes(app: Express) {
       for (const block of gameBlocks) {
         const inner = block[1];
         const tags = parseXmlTags(inner);
+
         const path2 = tags.get("path") ?? null;
         const name = tags.get("name") ?? null;
         if (!path2 && !name) continue;
 
-        const baseName = path2 ? path2.split(/[\/]/).pop()?.replace(/\..*$/, "").toLowerCase() : null;
+        const baseName = path2 ? path2.split(/[\/\\]/).pop()?.replace(/\..*$/, "").toLowerCase() : null;
         let match = baseName ? baseNameMap.get(baseName) : undefined;
         if (!match && name) {
           match = titleMap.get(name.toLowerCase());
@@ -184,7 +185,7 @@ export function registerImportRoutes(app: Express) {
   // ── LaunchBox XML import ───────────────────────────────────────────────────
   app.post("/api/import/launchbox", express.raw({ limit: "50mb", type: ["text/xml", "application/xml", "application/octet-stream", "text/plain"] }), async (req, res) => {
     try {
-      const xml = req.body.toString("utf8");
+      const xml = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : (typeof req.body === "string" ? req.body : "");
       const gameBlocks = [...xml.matchAll(/<Game>([\s\S]*?)<\/Game>/gi)];
       const roms = await storage.listUploadedRoms();
 
@@ -213,7 +214,7 @@ export function registerImportRoutes(app: Express) {
         const appPath = tags.get("applicationpath") ?? null;
         if (!title && !appPath) continue;
 
-        const baseName = appPath ? appPath.split(/[\/]/).pop()?.replace(/\..*$/, "").toLowerCase() : null;
+        const baseName = appPath ? appPath.split(/[\/\\]/).pop()?.replace(/\..*$/, "").toLowerCase() : null;
         let match = baseName ? baseNameMap.get(baseName) : undefined;
         if (!match && title) {
           match = titleMap.get(title.toLowerCase());
