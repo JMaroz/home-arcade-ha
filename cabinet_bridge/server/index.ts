@@ -98,35 +98,54 @@ app.get("/api/health", (_req: Request, res: Response) => {
 });
 
 // Debug endpoint - dumps runtime environment info for troubleshooting
-app.get("/api/debug", (_req: Request, res: Response) => {
-  const distPath = path.resolve(process.cwd(), "dist", "public");
-  const indexPath = path.resolve(distPath, "index.html");
-  let entryScript: string | null = null;
-  let assetList: string[] = [];
-  if (fs.existsSync(indexPath)) {
-    const content = readFileSync(indexPath, "utf-8");
-    const scriptMatch = content.match(/src="([^"]+\.js)"/);
-    entryScript = scriptMatch?.[1] ?? null;
-    const allMatches = Array.from(content.matchAll(/src="([^"]+)"/g));
-    assetList = allMatches.map((m) => m[1]);
-  }
-  let pkgVersion = process.env.npm_package_version ?? "unknown";
+app.get("/api/debug", async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const pkg = JSON.parse(readFileSync(path.resolve(process.cwd(), "package.json"), "utf-8"));
-    if (pkg.version) pkgVersion = pkg.version;
-  } catch {}
+    const distPath = path.resolve(process.cwd(), "dist", "public");
+    const indexPath = path.resolve(distPath, "index.html");
+    let entryScript: string | null = null;
+    let assetList: string[] = [];
+    let indexExists = false;
 
-  res.json({
-    version: pkgVersion,
-    nodeEnv: process.env.NODE_ENV,
-    appReady,
-    cwd: process.cwd(),
-    romRoot: ROM_ROOT,
-    distExists: fs.existsSync(distPath),
-    indexExists: fs.existsSync(indexPath),
-    entryScript,
-    assetList,
-  });
+    try {
+      const content = await fs.promises.readFile(indexPath, "utf-8");
+      indexExists = true;
+      const scriptMatch = content.match(/src="([^"]+\.js)"/);
+      entryScript = scriptMatch?.[1] ?? null;
+      const allMatches = Array.from(content.matchAll(/src="([^"]+)"/g));
+      assetList = allMatches.map((m) => m[1]);
+    } catch {
+      indexExists = false;
+    }
+
+    let pkgVersion = process.env.npm_package_version ?? "unknown";
+    try {
+      const pkgContent = await fs.promises.readFile(
+        path.resolve(process.cwd(), "package.json"),
+        "utf-8"
+      );
+      const pkg = JSON.parse(pkgContent);
+      if (pkg.version) pkgVersion = pkg.version;
+    } catch {}
+
+    const distExists = await fs.promises
+      .access(distPath)
+      .then(() => true)
+      .catch(() => false);
+
+    res.json({
+      version: pkgVersion,
+      nodeEnv: process.env.NODE_ENV,
+      appReady,
+      cwd: process.cwd(),
+      romRoot: ROM_ROOT,
+      distExists,
+      indexExists,
+      entryScript,
+      assetList,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 const port = parseInt(process.env.PORT ?? "5000", 10);
