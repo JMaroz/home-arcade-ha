@@ -27,15 +27,15 @@ export const REQUIRED_BIOS: Record<string, BiosEntry[]> = {
   ],
   play: [
     { filename: "scph39001.bin", md5: "d5ce2c7d119f563ce04bc04dbc3a323e", label: "USA v1.60", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-39001.bin` },
-    { filename: "scph70004.bin", md5: "9a0a1a5b6c7d8e9f0a1b2c3d4e5f6a7b", label: "Europe v2.0", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-70004.bin` },
+    { filename: "scph70004.bin", md5: "dc752f160044f2ed5fc1f4964db2a095", label: "Europe v2.0", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-70004.BIN` },
   ],
   pcsx2: [
     { filename: "scph39001.bin", md5: "d5ce2c7d119f563ce04bc04dbc3a323e", label: "USA v1.60", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-39001.bin` },
-    { filename: "scph70004.bin", md5: "9a0a1a5b6c7d8e9f0a1b2c3d4e5f6a7b", label: "Europe v2.0", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-70004.bin` },
+    { filename: "scph70004.bin", md5: "dc752f160044f2ed5fc1f4964db2a095", label: "Europe v2.0", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-70004.BIN` },
   ],
   ps2: [
     { filename: "scph39001.bin", md5: "d5ce2c7d119f563ce04bc04dbc3a323e", label: "USA v1.60", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-39001.bin` },
-    { filename: "scph70004.bin", md5: "9a0a1a5b6c7d8e9f0a1b2c3d4e5f6a7b", label: "Europe v2.0", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-70004.bin` },
+    { filename: "scph70004.bin", md5: "dc752f160044f2ed5fc1f4964db2a095", label: "Europe v2.0", sourceUrl: `${RETROBIOS_BASE}/Sony/PlayStation%202/SCPH-70004.BIN` },
   ],
   segacd: [
     { filename: "bios_CD_U.bin", md5: "2efd74e3232ff260e371b99f84024f7f", label: "USA", sourceUrl: `${RETROBIOS_BASE}/Sega/Mega%20CD/bios_CD_U.bin` },

@@ -212,12 +212,17 @@ export class StreamRunnerManager {
     activeSessions.set(sessionId, session);
 
     if (runnerBin) {
+      // PS2 emulation is CPU intensive on ARM/SBCs; limit target FPS to 30 to stabilize frame pacing and prevent thermal throttling
+      const sysLower = rom.system.toLowerCase();
+      const targetFps = sysLower === "ps2" ? 30 : 60;
+
       const spawnArgs = [
         "--session", sessionId,
         "--port", String(port),
         "--rom", romPath,
         "--core", corePath,
         "--system", rom.system,
+        "--fps", String(targetFps),
       ];
       const hostIps = getHostIps();
       if (hostIps.length > 0) {

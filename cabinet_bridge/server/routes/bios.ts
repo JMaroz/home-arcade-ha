@@ -128,9 +128,22 @@ export function registerBiosRoutes(app: Express) {
       activeDownloads.add(canonicalFilename);
 
       try {
-        const response = await fetch(matchedMeta.sourceUrl, {
+        let response = await fetch(matchedMeta.sourceUrl, {
           signal: AbortSignal.timeout(60_000),
         });
+
+        // Fallback: If 404, try swapping uppercase/lowercase extension (.bin <-> .BIN)
+        if (response.status === 404 && matchedMeta.sourceUrl) {
+          const altUrl = matchedMeta.sourceUrl.endsWith(".bin")
+            ? matchedMeta.sourceUrl.slice(0, -4) + ".BIN"
+            : matchedMeta.sourceUrl.endsWith(".BIN")
+              ? matchedMeta.sourceUrl.slice(0, -4) + ".bin"
+              : null;
+          if (altUrl) {
+            const altResp = await fetch(altUrl, { signal: AbortSignal.timeout(60_000) });
+            if (altResp.ok) response = altResp;
+          }
+        }
 
         if (!response.ok) {
           throw new Error(`Server returned ${response.status} ${response.statusText}`);

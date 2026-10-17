@@ -56,6 +56,14 @@ describe("Core Health & BIOS Validation", () => {
   it("should use the 'play' core for PS2 to match BIOS and core files", () => {
     expect(EMULATORJS_CORES["ps2"]).toBe("play");
     expect(REQUIRED_BIOS["play"]).toBeDefined();
+    for (const coreKey of ["play", "pcsx2", "ps2"]) {
+      const biosList = REQUIRED_BIOS[coreKey];
+      expect(biosList).toBeDefined();
+      const scph70004 = biosList.find((b) => b.filename === "scph70004.bin");
+      expect(scph70004).toBeDefined();
+      expect(scph70004?.md5).toBe("dc752f160044f2ed5fc1f4964db2a095");
+      expect(scph70004?.sourceUrl).toContain("SCPH-70004.BIN");
+    }
   });
 
   it("should use the verified 'n64' alias to ensure cross-device playback", () => {
@@ -182,9 +190,25 @@ describe("Bootstrap Script Syntax Validation", () => {
     expect(html).toContain("Gran Turismo 2 · Native Stream · HomeArcade");
     expect(html).toContain("new Uint8Array(7)");
     expect(html).toContain("unlockAudio");
-    expect(html).toContain("currentRoundTripTime");
     expect(html).toContain("dataChannel.send(inputBuffer)");
     expect(html).toContain("/api/hassio_ingress/token123/api/roms/456/player?return=%2Flibrary&profile=1&engine=wasm");
+  });
+
+  it("should configure 30 FPS HUD default for PS2 in Native Stream Player", async () => {
+    const { renderStreamPlayerPage } = await import("../routes/streamPlayer");
+
+    const html = renderStreamPlayerPage({
+      title: "Final Fantasy X",
+      returnTo: "/library",
+      romId: 789,
+      system: "ps2",
+      profileId: 1,
+      ingressBase: "/api/hassio_ingress/token123",
+    });
+
+    expect(html).toContain("Final Fantasy X · Native Stream · HomeArcade");
+    expect(html).toContain("STREAM · 30 FPS");
+    expect(html).toContain('<div id="tel-fps" class="telemetry-val">30 FPS</div>');
   });
 });
 

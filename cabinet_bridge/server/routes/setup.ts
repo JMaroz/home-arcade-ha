@@ -325,7 +325,18 @@ export function registerSetupRoutes(app: Express) {
           const destPath = path.join(BIOS_DIR, bios.filename);
           const tmpPath = destPath + ".tmp";
           try {
-            const resp = await fetch(bios.sourceUrl, { signal: AbortSignal.timeout(60_000) });
+            let resp = await fetch(bios.sourceUrl, { signal: AbortSignal.timeout(60_000) });
+            if (resp.status === 404 && bios.sourceUrl) {
+              const altUrl = bios.sourceUrl.endsWith(".bin")
+                ? bios.sourceUrl.slice(0, -4) + ".BIN"
+                : bios.sourceUrl.endsWith(".BIN")
+                  ? bios.sourceUrl.slice(0, -4) + ".bin"
+                  : null;
+              if (altUrl) {
+                const altResp = await fetch(altUrl, { signal: AbortSignal.timeout(60_000) });
+                if (altResp.ok) resp = altResp;
+              }
+            }
             if (!resp.ok) throw new Error(`Source returned ${resp.status}`);
 
             const arrayBuf = await resp.arrayBuffer();

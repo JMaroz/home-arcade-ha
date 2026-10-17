@@ -24,6 +24,9 @@ export function renderStreamPlayerPage({
   const safeTitle = escapeHtml(title);
   const safeReturnTo = JSON.stringify(returnTo);
   const safeSystem = escapeHtml(system || "generic");
+  const isPs2 = (system || "").toLowerCase() === "ps2";
+  const defaultFps = isPs2 ? 30 : 60;
+  const defaultFpsLabel = `${defaultFps} FPS`;
   const safeIngressBase = JSON.stringify(ingressBase);
   const wasmPlayerUrl = `${ingressBase}/api/roms/${romId}/player?return=${encodeURIComponent(returnTo)}&profile=${profileId}&engine=wasm`;
 
@@ -352,7 +355,7 @@ export function renderStreamPlayerPage({
     </div>
 
     <button id="menu-trigger" class="menu-btn">Menu</button>
-    <div id="stats" class="stats-badge" title="Click or press 'H' / Select+Start to toggle HUD">STREAM · 60 FPS</div>
+    <div id="stats" class="stats-badge" title="Click or press 'H' / Select+Start to toggle HUD">STREAM · ${defaultFpsLabel}</div>
     <div id="gamepad-toast" style="display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 2000; background: rgba(16, 185, 129, 0.92); color: #fff; font-weight: 700; font-size: 12px; padding: 8px 18px; border-radius: 9999px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); pointer-events: none; backdrop-filter: blur(8px); transition: opacity 0.3s ease;"></div>
 
     <!-- Video Stream Warning / Fallback Banner -->
@@ -437,7 +440,7 @@ export function renderStreamPlayerPage({
           </div>
           <div class="telemetry-item">
             <div class="telemetry-label">Display Framerate</div>
-            <div id="tel-fps" class="telemetry-val">60 FPS</div>
+            <div id="tel-fps" class="telemetry-val">${defaultFpsLabel}</div>
           </div>
           <div class="telemetry-item">
             <div class="telemetry-label">Inbound Bitrate</div>
@@ -779,7 +782,7 @@ export function renderStreamPlayerPage({
         if (isGuest) {
           if (saveLoadSection) saveLoadSection.style.display = "none";
           if (btnOpenCoopMenu) btnOpenCoopMenu.style.display = "none";
-          statsBadge.textContent = "P2 · GUEST · 60 FPS";
+          statsBadge.textContent = "P2 · GUEST · " + ${JSON.stringify(defaultFpsLabel)};
           telSlot.textContent = "Player 2 (Guest)";
           telSlot.style.color = "#38bdf8";
         }
@@ -920,7 +923,7 @@ export function renderStreamPlayerPage({
               console.log("[stream] WebRTC connection state:", pc.connectionState);
               if (pc.connectionState === "connected") {
                 statusHud.classList.add("is-hidden");
-                statsBadge.textContent = (isGuest ? "P2" : "P1") + " · CONNECTED · 60 FPS";
+                statsBadge.textContent = (isGuest ? "P2" : "P1") + " · CONNECTED · " + ${JSON.stringify(defaultFpsLabel)};
                 try {
                   pc.getReceivers().forEach(applyZeroDelay);
                 } catch (_) {}
@@ -1410,7 +1413,7 @@ export function renderStreamPlayerPage({
 
             const parts = [];
             parts.push(isGuest ? "P2" : "P1");
-            parts.push(fps ? (fps + " FPS") : "60 FPS");
+            parts.push(fps ? (fps + " FPS") : ${JSON.stringify(defaultFpsLabel)});
             if (rttMs !== null) parts.push(rttMs + "ms RTT");
             if (mbps !== null) parts.push(mbps + " Mbps");
             statsBadge.textContent = parts.join(" · ");
