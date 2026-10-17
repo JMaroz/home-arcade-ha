@@ -4,8 +4,9 @@
  * Wraps the `howlongtobeat` npm package with a SQLite-backed cache so we only
  * hit the HLTB servers once per ROM (refreshed after 7 days or on demand).
  *
- * Times from HLTB come back in fractional hours; we store them as whole
- * minutes to match the existing `minutes_played` convention throughout the app.
+ * Negative responses (403, 404, or no matches) are cached for 24 hours to prevent
+ * hammering the upstream service and avoid spamming server logs.
+ * An in-memory circuit breaker backs off for 15 minutes when HLTB blocks requests (403).
  */
 
 import { createRequire } from 'module';
@@ -17,8 +18,29 @@ const { HowLongToBeatService } = require('howlongtobeat') as any;
 
 const hltbService = new HowLongToBeatService();
 
-/** 7-day TTL for cached results */
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** 7-day TTL for successful cached results */
+export const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** 24-hour TTL for negative results (no match, blocked, or network failure) */
+export const NEGATIVE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Circuit breaker cooldown duration (15 minutes) when upstream is blocked or down */
+export const CIRCUIT_BREAKER_COOLDOWN_MS = 15 * 60 * 1000;
+
+let circuitBreakerUntil = 0;
+
+export function isHltbCircuitBreakerOpen(): boolean {
+  return Date.now() < circuitBreakerUntil;
+}
+
+export function tripHltbCircuitBreaker(reason: string) {
+  circuitBreakerUntil = Date.now() + CIRCUIT_BREAKER_COOLDOWN_MS;
+  console.warn(`[HLTB] Upstream service unavailable (${reason}). Pausing remote lookups for 15 minutes.`);
+}
+
+export function resetHltbCircuitBreakerForTest() {
+  circuitBreakerUntil = 0;
+}
 
 export interface HltbResult {
   romId: number;
@@ -30,6 +52,15 @@ export interface HltbResult {
   /** Minutes for 100% completion */
   completionist: number | null;
   cachedAt: number;
+}
+
+/** Strips release tags like (USA), [T-En], etc. to increase search hit rates */
+export function cleanTitleForHltb(title: string): string {
+  return title
+    .replace(/\s*\([^)]*\)/g, '')
+    .replace(/\s*\[[^\]]*\]/g, '')
+    .replace(/[_]+/g, ' ')
+    .trim();
 }
 
 /**
@@ -44,17 +75,41 @@ export async function getHltbData(
   // Check cache first
   if (!forceRefresh) {
     const cached = await storage.getHltbCache(romId);
-    if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
-      return cached;
+    if (cached) {
+      const isNegative = !cached.hltbTitle && !cached.mainStory && !cached.mainExtra && !cached.completionist;
+      const ttl = isNegative ? NEGATIVE_CACHE_TTL_MS : CACHE_TTL_MS;
+      if (Date.now() - cached.cachedAt < ttl) {
+        return cached;
+      }
     }
+  }
+
+  // If circuit breaker is active, skip remote call
+  if (isHltbCircuitBreakerOpen()) {
+    return null;
+  }
+
+  const query = cleanTitleForHltb(title);
+  if (!query) {
+    return null;
   }
 
   // Fetch from HLTB
   try {
-    const results = await hltbService.search(title);
+    const results = await hltbService.search(query);
     if (!Array.isArray(results) || results.length === 0) {
-      return null;
+      const emptyData: HltbResult = {
+        romId,
+        hltbTitle: null,
+        mainStory: null,
+        mainExtra: null,
+        completionist: null,
+        cachedAt: Date.now(),
+      };
+      await storage.saveHltbCache(emptyData);
+      return emptyData;
     }
+
     const best = results[0];
     const data: HltbResult = {
       romId,
@@ -66,9 +121,28 @@ export async function getHltbData(
     };
     await storage.saveHltbCache(data);
     return data;
-  } catch (err) {
-    console.error('[HLTB] fetch error:', err);
-    return null;
+  } catch (err: any) {
+    const is403 = err?.response?.status === 403 || String(err).includes('403');
+    if (is403) {
+      tripHltbCircuitBreaker('HTTP 403 Forbidden - anti-bot challenge active');
+    } else {
+      console.warn(`[HLTB] Fetch error for "${query}":`, err?.message || err);
+    }
+
+    // Cache negative result so we don't repeat the failing request for this ROM
+    const emptyData: HltbResult = {
+      romId,
+      hltbTitle: null,
+      mainStory: null,
+      mainExtra: null,
+      completionist: null,
+      cachedAt: Date.now(),
+    };
+    try {
+      await storage.saveHltbCache(emptyData);
+    } catch {}
+
+    return emptyData;
   }
 }
 

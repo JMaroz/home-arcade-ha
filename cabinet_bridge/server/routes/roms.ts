@@ -660,10 +660,12 @@ export function registerRomRoutes(app: Express) {
       if (!rom) return res.status(404).json({ message: "ROM not found." });
 
       const data = await getHltbData(rom.id, rom.title);
-      if (!data) return res.json({ found: false });
+      if (!data || (!data.mainStory && !data.mainExtra && !data.completionist)) {
+        return res.json({ found: false });
+      }
       res.json({ ...data, found: true });
-    } catch (err) {
-      console.error("[HLTB] Proxy error:", err);
+    } catch (err: any) {
+      console.warn("[HLTB] Proxy error:", err?.message || err);
       res.status(500).json({ found: false });
     }
   });

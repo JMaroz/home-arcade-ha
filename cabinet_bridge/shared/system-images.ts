@@ -34,7 +34,7 @@ export interface SystemImage {
  * https://github.com/KyleBing/retro-game-console-icons
  *
  * These provide a cleaner, consistent aesthetic for system tiles.
- * We fall back to Wikimedia Commons photos only for systems not in the set (e.g. PS2).
+ * We fall back to Libretro / RetroArch assets for systems not in the KyleBing set (e.g. PS2).
  */
 export const SYSTEM_IMAGES: Record<SystemImageId, SystemImage> = {
   nes: {
@@ -81,10 +81,10 @@ export const SYSTEM_IMAGES: Record<SystemImageId, SystemImage> = {
   },
   ps2: {
     id: "ps2",
-    url: "https://raw.githubusercontent.com/KyleBing/retro-game-console-icons/main/series_trimui/600w@2x/PS2.png",
-    source: "KyleBing",
-    sourceUrl: "https://github.com/KyleBing/retro-game-console-icons",
-    license: "CC-BY-NC-4.0",
+    url: "https://raw.githubusercontent.com/libretro/retroarch-assets/master/xmb/retrosystem/png/Sony%20-%20PlayStation%202.png",
+    source: "Libretro / RetroArch",
+    sourceUrl: "https://github.com/libretro/retroarch-assets",
+    license: "CC-BY-4.0",
   },
   arcade: {
     id: "arcade",
