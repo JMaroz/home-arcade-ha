@@ -32,13 +32,24 @@ function fmtBytes(bytes: number): string {
   return `${bytes} B`;
 }
 
+export function getDownloadRefetchInterval(jobs: DownloadJob[] | undefined): number | false {
+  const hasActive = jobs?.some(
+    (j) =>
+      j.status === "downloading" ||
+      j.status === "extracting" ||
+      j.status === "indexing" ||
+      j.status === "pending"
+  );
+  return hasActive ? 1500 : false;
+}
+
 export function GlobalDownloadBanner() {
   const { toast } = useToast();
   const prevStatusesRef = useRef<Record<string, string>>({});
 
   const { data: downloadJobs = [] } = useQuery<DownloadJob[]>({
     queryKey: ["/api/archive/downloads"],
-    refetchInterval: 1500,
+    refetchInterval: (query) => getDownloadRefetchInterval(query.state.data),
   });
 
   // Track status changes and trigger toasts

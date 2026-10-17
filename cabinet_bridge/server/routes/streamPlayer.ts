@@ -129,10 +129,26 @@ export function renderStreamPlayerPage({
       .btn-secondary { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.15); }
       .btn-secondary:hover { background: rgba(255, 255, 255, 0.18); }
       .btn-xs { padding: 6px 12px; font-size: 10px; border-radius: 8px; margin: 0; }
+      .btn:focus, .btn:focus-visible, .menu-btn:focus, .copy-input:focus, .slot-actions button:focus {
+        outline: 3px solid #ec4899 !important;
+        outline-offset: 2px !important;
+        box-shadow: 0 0 22px rgba(236, 72, 153, 0.9) !important;
+        transform: scale(1.04) !important;
+        background: rgba(236, 72, 153, 0.3) !important;
+      }
+      .btn-primary:focus, .btn-primary:focus-visible {
+        background: #db2777 !important;
+        box-shadow: 0 0 25px rgba(236, 72, 153, 1) !important;
+      }
       .slot-row {
         display: flex; align-items: center; justify-content: space-between;
         background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 12px; padding: 10px 14px; gap: 8px;
+        transition: all 180ms ease;
+      }
+      .slot-row:focus-within {
+        border-color: rgba(236, 72, 153, 0.6);
+        background: rgba(236, 72, 153, 0.12);
       }
       .slot-info { display: flex; flex-direction: column; text-align: left; flex: 1; }
       .slot-title { font-size: 12px; font-weight: 800; color: #fff; }
@@ -507,7 +523,9 @@ export function renderStreamPlayerPage({
 
           <!-- Keyboard & Gamepad Legend -->
           <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; font-size: 11px; text-align: left; line-height: 1.6; color: rgba(255,255,255,0.85); margin-top: 4px;">
-            <div style="font-weight: 800; color: #ec4899; text-transform: uppercase; margin-bottom: 4px; font-size: 10px; letter-spacing: 0.08em;">🎮 Mappatura Comandi</div>
+            <div style="font-weight: 800; color: #ec4899; text-transform: uppercase; margin-bottom: 4px; font-size: 10px; letter-spacing: 0.08em;">🎮 Mappatura Comandi & TV</div>
+            <div>• <b style="color: #ec4899;">Select + Start</b> (o tasto <b style="color: #ec4899;">Home / L3+R3</b>): Apri/Chiudi Menu</div>
+            <div>• Nel menu: <b style="color: #fff;">D-Pad</b> per scorrere, <b style="color: #fff;">Tasto A</b> conferma, <b style="color: #fff;">Tasto B</b> indietro</div>
             <div>• <b style="color: #fff;">Enter</b>: START &nbsp;|&nbsp; <b style="color: #fff;">Shift</b>: SELECT</div>
             <div>• <b style="color: #fff;">Frecce</b>: D-Pad / Analogico</div>
             <div id="legend-actions">• <b style="color: #fff;">X / K</b>: Tasto A &nbsp;|&nbsp; <b style="color: #fff;">Z / J</b>: Tasto B</div>
@@ -557,6 +575,166 @@ export function renderStreamPlayerPage({
         const coopLinkInput = document.getElementById("coop-link-input");
         const coopQrImg = document.getElementById("coop-qr-img");
         const statsBadge = document.getElementById("stats");
+
+        // ── Modal & Spatial Gamepad Navigation State & Helpers ──
+        let prevMenuCombo = false;
+        let prevBtnA = false;
+        let prevBtnB = false;
+        let navCooldownUntil = 0;
+        let hasAutoSaved = false;
+
+        function getActiveModal() {
+          if (slotsOverlay && !slotsOverlay.classList.contains("is-hidden")) return slotsOverlay;
+          if (coopOverlay && !coopOverlay.classList.contains("is-hidden")) return coopOverlay;
+          if (telemetryOverlay && !telemetryOverlay.classList.contains("is-hidden")) return telemetryOverlay;
+          if (menuOverlay && !menuOverlay.classList.contains("is-hidden")) return menuOverlay;
+          return null;
+        }
+
+        function isAnyModalOpen() {
+          return getActiveModal() !== null;
+        }
+
+        function focusFirstModalElement(modal) {
+          if (!modal) return;
+          setTimeout(() => {
+            const focusables = Array.from(modal.querySelectorAll(
+              'button:not([disabled]), [href]:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )).filter((el) => el.offsetParent !== null && !el.disabled);
+
+            if (focusables.length > 0) {
+              const preferred = focusables.find((el) => el.id === "btn-resume" || el.id === "btn-quick-save") || focusables[0];
+              preferred.focus();
+            }
+          }, 50);
+        }
+
+        function openModal(modal) {
+          if (!modal) return;
+          modal.classList.remove("is-hidden");
+          focusFirstModalElement(modal);
+        }
+
+        function closeModal(modal) {
+          if (!modal) return;
+          modal.classList.add("is-hidden");
+          const remaining = getActiveModal();
+          if (remaining) {
+            focusFirstModalElement(remaining);
+          } else if (document.activeElement && document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
+        }
+
+        function closeAllModals() {
+          if (slotsOverlay) slotsOverlay.classList.add("is-hidden");
+          if (coopOverlay) coopOverlay.classList.add("is-hidden");
+          if (telemetryOverlay) telemetryOverlay.classList.add("is-hidden");
+          if (menuOverlay) menuOverlay.classList.add("is-hidden");
+          if (document.activeElement && document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
+        }
+
+        function moveSpatialFocus(direction) {
+          const modal = getActiveModal();
+          if (!modal) return;
+
+          const focusables = Array.from(modal.querySelectorAll(
+            'button:not([disabled]), [href]:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )).filter((el) => el.offsetParent !== null && !el.disabled);
+
+          if (focusables.length === 0) return;
+
+          const current = document.activeElement && modal.contains(document.activeElement)
+            ? document.activeElement
+            : null;
+
+          if (!current) {
+            focusables[0].focus();
+            return;
+          }
+
+          const curRect = current.getBoundingClientRect();
+          const curX = curRect.left + curRect.width / 2;
+          const curY = curRect.top + curRect.height / 2;
+
+          let best = null;
+          let bestDist = Infinity;
+
+          for (const el of focusables) {
+            if (el === current) continue;
+            const r = el.getBoundingClientRect();
+            const x = r.left + r.width / 2;
+            const y = r.top + r.height / 2;
+            const dx = x - curX;
+            const dy = y - curY;
+
+            let isValid = false;
+            let dist = 0;
+
+            if (direction === "down" && dy > 8) {
+              isValid = true;
+              dist = dy + Math.abs(dx) * 1.5;
+            } else if (direction === "up" && dy < -8) {
+              isValid = true;
+              dist = -dy + Math.abs(dx) * 1.5;
+            } else if (direction === "right" && dx > 8) {
+              isValid = true;
+              dist = dx + Math.abs(dy) * 2;
+            } else if (direction === "left" && dx < -8) {
+              isValid = true;
+              dist = -dx + Math.abs(dy) * 2;
+            }
+
+            if (isValid && dist < bestDist) {
+              bestDist = dist;
+              best = el;
+            }
+          }
+
+          if (best) {
+            best.focus();
+            best.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          } else {
+            // Cyclic wrap on up/down
+            const idx = focusables.indexOf(current);
+            if (direction === "down" && idx === focusables.length - 1) {
+              focusables[0].focus();
+              focusables[0].scrollIntoView({ behavior: "smooth", block: "nearest" });
+            } else if (direction === "up" && idx === 0) {
+              focusables[focusables.length - 1].focus();
+              focusables[focusables.length - 1].scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
+          }
+        }
+
+        async function triggerAutoSave() {
+          if (!sessionId || hasAutoSaved) return;
+          hasAutoSaved = true;
+          try {
+            console.log("[stream] Auto-saving game state to Slot 0...");
+            await fetch(ingressBase + "/api/stream/" + sessionId + "/save/0", {
+              method: "POST",
+              keepalive: true
+            });
+            console.log("[stream] Auto-save complete");
+          } catch (e) {
+            console.warn("[stream] Auto-save error:", e);
+          }
+        }
+
+        window.addEventListener("beforeunload", () => {
+          triggerAutoSave();
+        });
+
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "hidden") {
+            triggerAutoSave();
+          } else if (document.visibilityState === "visible") {
+            hasAutoSaved = false;
+          }
+        });
 
         // Aspect ratio handling & persistence
         const systemName = ${JSON.stringify(system.toLowerCase())};
@@ -1006,13 +1184,21 @@ export function renderStreamPlayerPage({
           if (e.code === "KeyH") {
             e.preventDefault();
             e.stopPropagation();
-            telemetryOverlay.classList.toggle("is-hidden");
+            if (telemetryOverlay.classList.contains("is-hidden")) {
+              openModal(telemetryOverlay);
+            } else {
+              closeModal(telemetryOverlay);
+            }
             return;
           }
           if (e.code === "Escape") {
             e.preventDefault();
             e.stopPropagation();
-            menuOverlay.classList.toggle("is-hidden");
+            if (isAnyModalOpen()) {
+              closeAllModals();
+            } else {
+              openModal(menuOverlay);
+            }
             return;
           }
           if (KEY_MAP[e.code] !== undefined) {
@@ -1032,8 +1218,6 @@ export function renderStreamPlayerPage({
             sendInputIfChanged(true);
           }
         });
-
-        let prevSelectStart = false;
         let virtualButtonsMask = 0;
         let virtualLeftAxisX = 0;
         let virtualLeftAxisY = 0;
@@ -1243,7 +1427,11 @@ export function renderStreamPlayerPage({
 
           // 1. Native Gamepad Input
           const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-          const gp = gamepads[0];
+          let gp = null;
+          for (let i = 0; i < gamepads.length; i++) {
+            if (gamepads[i]) { gp = gamepads[i]; break; }
+          }
+
           if (gp) {
             unlockAudio();
             const b = gp.buttons;
@@ -1261,42 +1449,127 @@ export function renderStreamPlayerPage({
                 }
               }
             }
-            if (b[0] && b[0].pressed) mask |= (1 << 0);   // B
-            if (b[2] && b[2].pressed) mask |= (1 << 1);   // Y
-            if (b[8] && b[8].pressed) mask |= (1 << 2);   // Select
-            if (b[9] && b[9].pressed) mask |= (1 << 3);   // Start
-            if (b[12] && b[12].pressed) mask |= (1 << 4); // Up
-            if (b[13] && b[13].pressed) mask |= (1 << 5); // Down
-            if (b[14] && b[14].pressed) mask |= (1 << 6); // Left
-            if (b[15] && b[15].pressed) mask |= (1 << 7); // Right
-            if (b[1] && b[1].pressed) mask |= (1 << 8);   // A
-            if (b[3] && b[3].pressed) mask |= (1 << 9);   // X
-            if (b[4] && b[4].pressed) mask |= (1 << 10);  // L
-            if (b[5] && b[5].pressed) mask |= (1 << 11);  // R
-            if (b[6] && b[6].pressed) mask |= (1 << 12);  // L2 / ZL
-            if (b[7] && b[7].pressed) mask |= (1 << 13);  // R2 / ZR
-            if (b[10] && b[10].pressed) mask |= (1 << 14);// L3
-            if (b[11] && b[11].pressed) mask |= (1 << 15);// R3
 
-            if (gp.axes && gp.axes.length >= 2) {
-              axisX = Math.max(-128, Math.min(127, Math.round(gp.axes[0] * 127)));
-              axisY = Math.max(-128, Math.min(127, Math.round(gp.axes[1] * 127)));
-            }
-            if (gp.axes && gp.axes.length >= 4) {
-              rightAxisX = Math.max(-128, Math.min(127, Math.round(gp.axes[2] * 127)));
-              rightAxisY = Math.max(-128, Math.min(127, Math.round(gp.axes[3] * 127)));
-            }
-
-            // Select + Start toggle telemetry HUD
+            // Universal Menu Hotkey Detection:
+            // 1) Select (b[8]) + Start (b[9])
+            // 2) Guide / Home (b[16])
+            // 3) L3 (b[10]) + R3 (b[11])
             const selectPressed = Boolean(b[8] && b[8].pressed);
             const startPressed = Boolean(b[9] && b[9].pressed);
-            if (selectPressed && startPressed) {
-              if (!prevSelectStart) {
-                telemetryOverlay.classList.toggle("is-hidden");
+            const guidePressed = Boolean(b[16] && b[16].pressed);
+            const sticksPressed = Boolean(b[10] && b[10].pressed && b[11] && b[11].pressed);
+
+            const menuCombo = (selectPressed && startPressed) || guidePressed || sticksPressed;
+
+            if (menuCombo) {
+              if (!prevMenuCombo) {
+                if (isAnyModalOpen()) {
+                  closeAllModals();
+                } else {
+                  openModal(menuOverlay);
+                }
               }
-              prevSelectStart = true;
+              prevMenuCombo = true;
             } else {
-              prevSelectStart = false;
+              prevMenuCombo = false;
+            }
+
+            // If any modal is open, intercept Gamepad input for spatial UI navigation!
+            if (isAnyModalOpen()) {
+              const nowTime = performance.now();
+              const btnAPressed = Boolean(b[0] && b[0].pressed);
+              const btnBPressed = Boolean(b[1] && b[1].pressed);
+
+              // Button A -> Click focused element
+              if (btnAPressed) {
+                if (!prevBtnA) {
+                  const modal = getActiveModal();
+                  if (modal && document.activeElement && modal.contains(document.activeElement)) {
+                    document.activeElement.click();
+                  } else if (modal) {
+                    focusFirstModalElement(modal);
+                  }
+                }
+                prevBtnA = true;
+              } else {
+                prevBtnA = false;
+              }
+
+              // Button B -> Back / Close
+              if (btnBPressed) {
+                if (!prevBtnB) {
+                  const modal = getActiveModal();
+                  if (modal === slotsOverlay || modal === coopOverlay || modal === telemetryOverlay) {
+                    closeModal(modal);
+                    openModal(menuOverlay);
+                  } else if (modal === menuOverlay) {
+                    closeModal(menuOverlay);
+                  }
+                }
+                prevBtnB = true;
+              } else {
+                prevBtnB = false;
+              }
+
+              // D-Pad & Left Analog Stick Spatial Navigation
+              const dpadUp = Boolean(b[12] && b[12].pressed) || (gp.axes && gp.axes[1] < -0.5);
+              const dpadDown = Boolean(b[13] && b[13].pressed) || (gp.axes && gp.axes[1] > 0.5);
+              const dpadLeft = Boolean(b[14] && b[14].pressed) || (gp.axes && gp.axes[0] < -0.5);
+              const dpadRight = Boolean(b[15] && b[15].pressed) || (gp.axes && gp.axes[0] > 0.5);
+
+              let dir = null;
+              if (dpadUp) dir = "up";
+              else if (dpadDown) dir = "down";
+              else if (dpadLeft) dir = "left";
+              else if (dpadRight) dir = "right";
+
+              if (dir) {
+                if (nowTime >= navCooldownUntil) {
+                  moveSpatialFocus(dir);
+                  navCooldownUntil = nowTime + 220; // 220ms repeat cooldown
+                }
+              } else {
+                navCooldownUntil = 0; // Instant response on new press
+              }
+
+              // Do NOT send gameplay inputs while menu is open! Neutral state to emulator.
+              mask = 0;
+              axisX = 0;
+              axisY = 0;
+              rightAxisX = 0;
+              rightAxisY = 0;
+            } else {
+              // Reset modal navigation button states when playing
+              prevBtnA = false;
+              prevBtnB = false;
+              navCooldownUntil = 0;
+
+              // Read gameplay buttons normally
+              if (b[0] && b[0].pressed) mask |= (1 << 0);   // B
+              if (b[2] && b[2].pressed) mask |= (1 << 1);   // Y
+              if (b[8] && b[8].pressed) mask |= (1 << 2);   // Select
+              if (b[9] && b[9].pressed) mask |= (1 << 3);   // Start
+              if (b[12] && b[12].pressed) mask |= (1 << 4); // Up
+              if (b[13] && b[13].pressed) mask |= (1 << 5); // Down
+              if (b[14] && b[14].pressed) mask |= (1 << 6); // Left
+              if (b[15] && b[15].pressed) mask |= (1 << 7); // Right
+              if (b[1] && b[1].pressed) mask |= (1 << 8);   // A
+              if (b[3] && b[3].pressed) mask |= (1 << 9);   // X
+              if (b[4] && b[4].pressed) mask |= (1 << 10);  // L
+              if (b[5] && b[5].pressed) mask |= (1 << 11);  // R
+              if (b[6] && b[6].pressed) mask |= (1 << 12);  // L2 / ZL
+              if (b[7] && b[7].pressed) mask |= (1 << 13);  // R2 / ZR
+              if (b[10] && b[10].pressed) mask |= (1 << 14);// L3
+              if (b[11] && b[11].pressed) mask |= (1 << 15);// R3
+
+              if (gp.axes && gp.axes.length >= 2) {
+                axisX = Math.max(-128, Math.min(127, Math.round(gp.axes[0] * 127)));
+                axisY = Math.max(-128, Math.min(127, Math.round(gp.axes[1] * 127)));
+              }
+              if (gp.axes && gp.axes.length >= 4) {
+                rightAxisX = Math.max(-128, Math.min(127, Math.round(gp.axes[2] * 127)));
+                rightAxisY = Math.max(-128, Math.min(127, Math.round(gp.axes[3] * 127)));
+              }
             }
           }
 
@@ -1425,9 +1698,12 @@ export function renderStreamPlayerPage({
           } catch (_) {}
         }, 1000);
 
-        // Periodically poll active peers count
+        // Periodically poll active peers count (only when telemetry or coop modal is open to avoid 300+ unnecessary calls)
         setInterval(async () => {
           if (!sessionId) return;
+          const telVisible = telemetryOverlay && !telemetryOverlay.classList.contains("is-hidden");
+          const coopVisible = coopOverlay && !coopOverlay.classList.contains("is-hidden");
+          if (!telVisible && !coopVisible) return;
           try {
             const res = await fetch(ingressBase + "/api/stream/peers/" + sessionId);
             if (res.ok) {
@@ -1467,8 +1743,7 @@ export function renderStreamPlayerPage({
               throw new Error(err.message || err.error || "Errore caricamento");
             }
             showGamepadToast("📂 " + (slot === 0 ? "Salvataggio Rapido" : "Slot " + slot) + " caricato!");
-            menuOverlay.classList.add("is-hidden");
-            if (slotsOverlay) slotsOverlay.classList.add("is-hidden");
+            closeAllModals();
           } catch (e) {
             showGamepadToast("❌ " + (e.message || String(e)));
           }
@@ -1522,13 +1797,14 @@ export function renderStreamPlayerPage({
 
               slotsList.appendChild(row);
             }
+            focusFirstModalElement(slotsOverlay);
           } catch (e) {
             slotsList.innerHTML = '<div style="color: #ef4444; font-size: 12px; padding: 12px;">Impossibile recuperare gli slot</div>';
           }
         }
 
         // UI Event Listeners
-        menuBtn.addEventListener("click", () => menuOverlay.classList.remove("is-hidden"));
+        menuBtn.addEventListener("click", () => openModal(menuOverlay));
 
         if (btnQuickSave) {
           btnQuickSave.addEventListener("click", async () => {
@@ -1542,42 +1818,54 @@ export function renderStreamPlayerPage({
         }
         if (btnOpenSlotsMenu) {
           btnOpenSlotsMenu.addEventListener("click", () => {
-            menuOverlay.classList.add("is-hidden");
+            closeModal(menuOverlay);
             refreshSlotsModal();
-            if (slotsOverlay) slotsOverlay.classList.remove("is-hidden");
+            openModal(slotsOverlay);
           });
         }
         if (btnCloseSlots) {
           btnCloseSlots.addEventListener("click", () => {
-            if (slotsOverlay) slotsOverlay.classList.add("is-hidden");
-            menuOverlay.classList.remove("is-hidden");
+            closeModal(slotsOverlay);
+            openModal(menuOverlay);
           });
         }
 
         if (btnTogglePad) {
           btnTogglePad.addEventListener("click", () => {
             toggleVirtualPad();
-            menuOverlay.classList.add("is-hidden");
+            closeModal(menuOverlay);
           });
         }
         if (btnOpenCoopMenu) {
           btnOpenCoopMenu.addEventListener("click", () => {
-            menuOverlay.classList.add("is-hidden");
+            closeModal(menuOverlay);
             updateCoopInvite();
-            coopOverlay.classList.remove("is-hidden");
+            openModal(coopOverlay);
           });
         }
         if (btnOpenTelemetryMenu) {
           btnOpenTelemetryMenu.addEventListener("click", () => {
-            menuOverlay.classList.add("is-hidden");
-            telemetryOverlay.classList.remove("is-hidden");
+            closeModal(menuOverlay);
+            openModal(telemetryOverlay);
           });
         }
-        statsBadge.addEventListener("click", () => telemetryOverlay.classList.toggle("is-hidden"));
+        statsBadge.addEventListener("click", () => {
+          if (telemetryOverlay.classList.contains("is-hidden")) {
+            openModal(telemetryOverlay);
+          } else {
+            closeModal(telemetryOverlay);
+          }
+        });
 
-        btnResume.addEventListener("click", () => menuOverlay.classList.add("is-hidden"));
-        btnCloseCoop.addEventListener("click", () => coopOverlay.classList.add("is-hidden"));
-        btnCloseTelemetry.addEventListener("click", () => telemetryOverlay.classList.add("is-hidden"));
+        btnResume.addEventListener("click", () => closeModal(menuOverlay));
+        btnCloseCoop.addEventListener("click", () => {
+          closeModal(coopOverlay);
+          openModal(menuOverlay);
+        });
+        btnCloseTelemetry.addEventListener("click", () => {
+          closeModal(telemetryOverlay);
+          openModal(menuOverlay);
+        });
         retryBtn.addEventListener("click", () => initWebRTC());
 
         btnCopyCoop.addEventListener("click", async () => {
@@ -1610,9 +1898,10 @@ export function renderStreamPlayerPage({
         });
 
         btnExit.addEventListener("click", () => {
+          triggerAutoSave();
           // Only the host stops the stream session; guests cleanly leave
           if (!isGuest && sessionId) {
-            fetch(ingressBase + "/api/stream/stop/" + sessionId, { method: "POST" }).catch(() => {});
+            fetch(ingressBase + "/api/stream/stop/" + sessionId, { method: "POST", keepalive: true }).catch(() => {});
           }
           window.location.href = returnUrl || (ingressBase + "/");
         });
