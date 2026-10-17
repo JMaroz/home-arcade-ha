@@ -2,6 +2,14 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.65.2](https://github.com/JMaroz/home-arcade-ha/compare/v2.65.1...v2.65.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* correct PS2 BIOS download metadata ([64538bc](https://github.com/JMaroz/home-arcade-ha/commit/64538bcbdf08c79182851766c97c271cef63a7a2))
+* improve PS2 image and HLTB resilience ([41afd81](https://github.com/JMaroz/home-arcade-ha/commit/41afd818c0a1afe13d87f44053e9abc333fe44ad))
+
 ## [2.65.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.65.0...v2.65.1) (2026-10-16)
 
 
