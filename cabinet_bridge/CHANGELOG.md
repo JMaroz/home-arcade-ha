@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.66.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.65.2...v2.66.0) (2026-10-17)
+
+
+### Features
+
+* add TV gamepad menu and auto-save ([069ca51](https://github.com/JMaroz/home-arcade-ha/commit/069ca51531107cddf1a347b1b3f80b003694ef59))
+
 ## [2.65.2](https://github.com/JMaroz/home-arcade-ha/compare/v2.65.1...v2.65.2) (2026-10-17)
 
 
