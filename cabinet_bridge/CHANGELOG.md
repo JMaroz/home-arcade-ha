@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.66.2](https://github.com/JMaroz/home-arcade-ha/compare/v2.66.1...v2.66.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* stabilize WebRTC gameplay across devices ([a346dbe](https://github.com/JMaroz/home-arcade-ha/commit/a346dbe8c970c1625340360e53acefd10a52bbbd))
+
 ## [2.66.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.66.0...v2.66.1) (2026-10-18)
 
 
