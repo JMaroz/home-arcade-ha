@@ -7,15 +7,17 @@ OpusContext opus_create_encoder(int sample_rate, int channels) {
     if (channels <= 0) channels = 2;
 
     int err = 0;
-    OpusEncoder *enc = opus_encoder_create(sample_rate, channels, OPUS_APPLICATION_AUDIO, &err);
+    OpusEncoder *enc = opus_encoder_create(sample_rate, channels, OPUS_APPLICATION_RESTRICTED_LOWDELAY, &err);
     if (err != OPUS_OK || !enc) {
         return NULL;
     }
 
-    // Configure for low-latency gaming audio
+    // Configure for low-latency gaming audio with packet loss resilience
     opus_encoder_ctl(enc, OPUS_SET_SIGNAL(OPUS_SIGNAL_MUSIC));
     opus_encoder_ctl(enc, OPUS_SET_COMPLEXITY(4));
     opus_encoder_ctl(enc, OPUS_SET_BITRATE(96000));
+    opus_encoder_ctl(enc, OPUS_SET_INBAND_FEC(1));
+    opus_encoder_ctl(enc, OPUS_SET_PACKET_LOSS_PERC(5));
     return (OpusContext)enc;
 }
 

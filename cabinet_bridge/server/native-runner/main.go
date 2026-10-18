@@ -633,11 +633,16 @@ func runMediaStreamLoop() {
 	videoEncoder := encoder.NewActiveVideoEncoder(config.Width, config.Height, fps)
 	defer videoEncoder.Close()
 
-	audioAccumulator := audio.NewAudioBufferAccumulator(44100)
+	geom := emuSession.GetGeometry()
+	coreSampleRate := geom.SampleRate
+	if coreSampleRate <= 0 {
+		coreSampleRate = 44100
+	}
+	audioAccumulator := audio.NewAudioBufferAccumulator(coreSampleRate)
 	defer audioAccumulator.Close()
 
-	log.Printf("[runner] Emulation & WebRTC media stream pipeline active (%dx%d @ %d FPS)\n",
-		config.Width, config.Height, fps)
+	log.Printf("[runner] Emulation & WebRTC media stream pipeline active (%dx%d @ %d FPS, Audio In: %d Hz -> Opus 48000 Hz)\n",
+		config.Width, config.Height, fps, coreSampleRate)
 
 	idleTicks := 0
 	maxIdleTicks := fps * 30

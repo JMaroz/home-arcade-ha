@@ -41,6 +41,20 @@ export function renderStreamPlayerPage({
         width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #000;
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
         color: #fff;
+        user-select: none; -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        touch-action: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      * {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      input, textarea {
+        -webkit-user-select: text;
+        user-select: text;
       }
       #video-container {
         position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -129,14 +143,25 @@ export function renderStreamPlayerPage({
       .btn-secondary { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.15); }
       .btn-secondary:hover { background: rgba(255, 255, 255, 0.18); }
       .btn-xs { padding: 6px 12px; font-size: 10px; border-radius: 8px; margin: 0; }
-      .btn:focus, .btn:focus-visible, .menu-btn:focus, .copy-input:focus, .slot-actions button:focus {
+      .btn:focus, .menu-btn:focus, .copy-input:focus, .slot-actions button:focus {
+        outline: none;
+      }
+      .gamepad-nav-active .btn:focus,
+      .gamepad-nav-active .menu-btn:focus,
+      .gamepad-nav-active .copy-input:focus,
+      .gamepad-nav-active .slot-actions button:focus,
+      .btn:focus-visible,
+      .menu-btn:focus-visible,
+      .copy-input:focus-visible,
+      .slot-actions button:focus-visible {
         outline: 3px solid #ec4899 !important;
         outline-offset: 2px !important;
         box-shadow: 0 0 22px rgba(236, 72, 153, 0.9) !important;
         transform: scale(1.04) !important;
         background: rgba(236, 72, 153, 0.3) !important;
       }
-      .btn-primary:focus, .btn-primary:focus-visible {
+      .gamepad-nav-active .btn-primary:focus,
+      .btn-primary:focus-visible {
         background: #db2777 !important;
         box-shadow: 0 0 25px rgba(236, 72, 153, 1) !important;
       }
@@ -155,14 +180,19 @@ export function renderStreamPlayerPage({
       .slot-time { font-size: 10px; color: rgba(255, 255, 255, 0.5); margin-top: 2px; }
       .slot-actions { display: flex; gap: 6px; }
       .menu-btn {
-        position: fixed; z-index: 999; top: max(12px, env(safe-area-inset-top));
+        position: fixed; z-index: 999;
         background: rgba(10, 10, 18, 0.75); border: 1px solid rgba(255, 255, 255, 0.2);
-        color: #fff; padding: 8px 16px; border-radius: 999px; font-weight: 800; font-size: 11px;
+        color: #fff; padding: 8px 18px; border-radius: 999px; font-weight: 800; font-size: 11px;
         letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; backdrop-filter: blur(12px);
         transition: all 180ms ease;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
       }
       .menu-btn:hover { background: rgba(236, 72, 153, 0.4); border-color: #ec4899; }
-      #menu-trigger { left: max(12px, env(safe-area-inset-left)); }
+      #menu-trigger {
+        top: max(10px, env(safe-area-inset-top));
+        left: 50%; transform: translateX(-50%);
+      }
 
       /* Touch & On-Screen Gamepad Overlay */
       .virtual-controller {
@@ -189,10 +219,11 @@ export function renderStreamPlayerPage({
       }
       .v-dpad {
         position: absolute; left: max(20px, env(safe-area-inset-left)); bottom: max(24px, env(safe-area-inset-bottom));
-        width: 144px; height: 144px; pointer-events: none;
+        width: 144px; height: 144px; pointer-events: auto; touch-action: none;
       }
       .v-dpad-btn {
         position: absolute; width: 46px; height: 46px; border-radius: 12px; font-size: 16px;
+        pointer-events: none;
       }
       .v-dpad-up    { top: 0; left: 49px; }
       .v-dpad-down  { bottom: 0; left: 49px; }
@@ -338,7 +369,7 @@ export function renderStreamPlayerPage({
       </div>
 
       <!-- D-Pad (Left) -->
-      <div class="v-dpad">
+      <div id="v-dpad" class="v-dpad">
         <div class="v-btn v-dpad-btn v-dpad-up" data-btn="4">▲</div>
         <div class="v-btn v-dpad-btn v-dpad-down" data-btn="5">▼</div>
         <div class="v-btn v-dpad-btn v-dpad-left" data-btn="6">◀</div>
@@ -582,6 +613,28 @@ export function renderStreamPlayerPage({
         let prevBtnB = false;
         let navCooldownUntil = 0;
         let hasAutoSaved = false;
+        let isGamepadNavActive = false;
+
+        function setGamepadNavActive(active) {
+          if (isGamepadNavActive === active) return;
+          isGamepadNavActive = active;
+          if (active) {
+            document.body.classList.add("gamepad-nav-active");
+          } else {
+            document.body.classList.remove("gamepad-nav-active");
+          }
+        }
+
+        // Pointer (mouse or touch) clears TV gamepad navigation focus ring
+        window.addEventListener("pointerdown", () => {
+          setGamepadNavActive(false);
+        }, { passive: true });
+
+        // Global prevention of context menu / copy selection toast on mobile & desktop
+        window.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          return false;
+        });
 
         function getActiveModal() {
           if (slotsOverlay && !slotsOverlay.classList.contains("is-hidden")) return slotsOverlay;
@@ -609,10 +662,18 @@ export function renderStreamPlayerPage({
           }, 50);
         }
 
-        function openModal(modal) {
+        function openModal(modal, byGamepad = false) {
           if (!modal) return;
           modal.classList.remove("is-hidden");
-          focusFirstModalElement(modal);
+          if (byGamepad) {
+            setGamepadNavActive(true);
+            focusFirstModalElement(modal);
+          } else {
+            setGamepadNavActive(false);
+            if (document.activeElement && document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+          }
         }
 
         function closeModal(modal) {
@@ -620,9 +681,14 @@ export function renderStreamPlayerPage({
           modal.classList.add("is-hidden");
           const remaining = getActiveModal();
           if (remaining) {
-            focusFirstModalElement(remaining);
-          } else if (document.activeElement && document.activeElement instanceof HTMLElement) {
-            document.activeElement.blur();
+            if (isGamepadNavActive) {
+              focusFirstModalElement(remaining);
+            }
+          } else {
+            setGamepadNavActive(false);
+            if (document.activeElement && document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
           }
         }
 
@@ -631,12 +697,14 @@ export function renderStreamPlayerPage({
           if (coopOverlay) coopOverlay.classList.add("is-hidden");
           if (telemetryOverlay) telemetryOverlay.classList.add("is-hidden");
           if (menuOverlay) menuOverlay.classList.add("is-hidden");
+          setGamepadNavActive(false);
           if (document.activeElement && document.activeElement instanceof HTMLElement) {
             document.activeElement.blur();
           }
         }
 
         function moveSpatialFocus(direction) {
+          setGamepadNavActive(true);
           const modal = getActiveModal();
           if (!modal) return;
 
@@ -1046,23 +1114,35 @@ export function renderStreamPlayerPage({
               iceServers: startData.iceServers || [{ urls: "stun:stun.l.google.com:19302" }]
             });
 
-            function applyZeroDelay(receiver) {
+            function configureReceiverBuffering(receiver, defaultKind = "") {
               if (!receiver) return;
+              const kind = (receiver.track && receiver.track.kind) || defaultKind;
               try {
-                if ("playoutDelayHint" in receiver) {
-                  receiver.playoutDelayHint = 0;
-                }
-                if ("jitterBufferTarget" in receiver) {
-                  receiver.jitterBufferTarget = 0;
+                if (kind === "video") {
+                  // Low-latency video playback: zero buffer delay
+                  if ("playoutDelayHint" in receiver) {
+                    receiver.playoutDelayHint = 0;
+                  }
+                  if ("jitterBufferTarget" in receiver) {
+                    receiver.jitterBufferTarget = 0;
+                  }
+                } else if (kind === "audio") {
+                  // NetEQ resilience: 40ms buffer to absorb Wi-Fi jitter & avoid underruns/crackling
+                  if ("playoutDelayHint" in receiver) {
+                    receiver.playoutDelayHint = 0.04;
+                  }
+                  if ("jitterBufferTarget" in receiver) {
+                    receiver.jitterBufferTarget = 0.04;
+                  }
                 }
               } catch (_) {}
             }
 
-            // 3. Setup transceivers for receiving video and audio with zero playout delay
+            // 3. Setup transceivers for receiving video and audio with tuned buffering
             const videoTransceiver = pc.addTransceiver("video", { direction: "recvonly" });
             const audioTransceiver = pc.addTransceiver("audio", { direction: "recvonly" });
-            applyZeroDelay(videoTransceiver.receiver);
-            applyZeroDelay(audioTransceiver.receiver);
+            configureReceiverBuffering(videoTransceiver.receiver, "video");
+            configureReceiverBuffering(audioTransceiver.receiver, "audio");
 
             // 4. Create DataChannel for low-latency gamepad & keyboard input
             dataChannel = pc.createDataChannel("input", { ordered: false, maxRetransmits: 0 });
@@ -1073,7 +1153,7 @@ export function renderStreamPlayerPage({
 
             pc.ontrack = (event) => {
               console.log("[stream] Received remote track:", event.track.kind);
-              applyZeroDelay(event.receiver);
+              configureReceiverBuffering(event.receiver, event.track.kind);
               let stream = video.srcObject;
               if (!stream || !(stream instanceof MediaStream)) {
                 stream = new MediaStream();
@@ -1103,7 +1183,7 @@ export function renderStreamPlayerPage({
                 statusHud.classList.add("is-hidden");
                 statsBadge.textContent = (isGuest ? "P2" : "P1") + " · CONNECTED · " + ${JSON.stringify(defaultFpsLabel)};
                 try {
-                  pc.getReceivers().forEach(applyZeroDelay);
+                  pc.getReceivers().forEach(r => configureReceiverBuffering(r));
                 } catch (_) {}
               } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
                 showError("Stream Disconnected", "The connection to the native emulation runner was lost.");
@@ -1287,8 +1367,98 @@ export function renderStreamPlayerPage({
           }
         });
 
-        // Virtual Touch Button handlers with Pointer Events
-        document.querySelectorAll(".v-btn").forEach((btn) => {
+        // Continuous Sliding Virtual D-Pad handler
+        const vDpad = document.getElementById("v-dpad");
+        if (vDpad) {
+          const btnUp = vDpad.querySelector(".v-dpad-up");
+          const btnDown = vDpad.querySelector(".v-dpad-down");
+          const btnLeft = vDpad.querySelector(".v-dpad-left");
+          const btnRight = vDpad.querySelector(".v-dpad-right");
+          let dpadPointerId = null;
+
+          const updateDpad = (clientX, clientY) => {
+            const rect = vDpad.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const dx = clientX - centerX;
+            const dy = clientY - centerY;
+            const deadzone = 12;
+
+            const isUp = dy < -deadzone;
+            const isDown = dy > deadzone;
+            const isLeft = dx < -deadzone;
+            const isRight = dx > deadzone;
+
+            // Clear old dpad bits (4: up, 5: down, 6: left, 7: right)
+            virtualButtonsMask &= ~((1 << 4) | (1 << 5) | (1 << 6) | (1 << 7));
+
+            if (isUp) {
+              virtualButtonsMask |= (1 << 4);
+              if (btnUp) btnUp.classList.add("is-pressed");
+            } else if (btnUp) {
+              btnUp.classList.remove("is-pressed");
+            }
+
+            if (isDown) {
+              virtualButtonsMask |= (1 << 5);
+              if (btnDown) btnDown.classList.add("is-pressed");
+            } else if (btnDown) {
+              btnDown.classList.remove("is-pressed");
+            }
+
+            if (isLeft) {
+              virtualButtonsMask |= (1 << 6);
+              if (btnLeft) btnLeft.classList.add("is-pressed");
+            } else if (btnLeft) {
+              btnLeft.classList.remove("is-pressed");
+            }
+
+            if (isRight) {
+              virtualButtonsMask |= (1 << 7);
+              if (btnRight) btnRight.classList.add("is-pressed");
+            } else if (btnRight) {
+              btnRight.classList.remove("is-pressed");
+            }
+
+            sendInputIfChanged(true);
+          };
+
+          const releaseDpad = (e) => {
+            if (dpadPointerId !== null && e.pointerId !== dpadPointerId) return;
+            e.preventDefault();
+            e.stopPropagation();
+            dpadPointerId = null;
+            try { vDpad.releasePointerCapture(e.pointerId); } catch (_) {}
+            virtualButtonsMask &= ~((1 << 4) | (1 << 5) | (1 << 6) | (1 << 7));
+            if (btnUp) btnUp.classList.remove("is-pressed");
+            if (btnDown) btnDown.classList.remove("is-pressed");
+            if (btnLeft) btnLeft.classList.remove("is-pressed");
+            if (btnRight) btnRight.classList.remove("is-pressed");
+            sendInputIfChanged(true);
+          };
+
+          vDpad.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            unlockAudio();
+            dpadPointerId = e.pointerId;
+            try { vDpad.setPointerCapture(e.pointerId); } catch (_) {}
+            updateDpad(e.clientX, e.clientY);
+          });
+
+          vDpad.addEventListener("pointermove", (e) => {
+            if (dpadPointerId !== e.pointerId) return;
+            e.preventDefault();
+            e.stopPropagation();
+            updateDpad(e.clientX, e.clientY);
+          });
+
+          vDpad.addEventListener("pointerup", releaseDpad);
+          vDpad.addEventListener("pointercancel", releaseDpad);
+        }
+
+        // Virtual Touch Button handlers with Pointer Events (Action, Shoulders, Start/Select)
+        document.querySelectorAll(".virtual-controller .v-btn:not(.v-dpad-btn)").forEach((btn) => {
           const btnCode = parseInt(btn.getAttribute("data-btn") || "-1", 10);
           if (btnCode < 0) return;
 
@@ -1466,7 +1636,7 @@ export function renderStreamPlayerPage({
                 if (isAnyModalOpen()) {
                   closeAllModals();
                 } else {
-                  openModal(menuOverlay);
+                  openModal(menuOverlay, true);
                 }
               }
               prevMenuCombo = true;
@@ -1483,6 +1653,7 @@ export function renderStreamPlayerPage({
               // Button A -> Click focused element
               if (btnAPressed) {
                 if (!prevBtnA) {
+                  setGamepadNavActive(true);
                   const modal = getActiveModal();
                   if (modal && document.activeElement && modal.contains(document.activeElement)) {
                     document.activeElement.click();
@@ -1501,7 +1672,7 @@ export function renderStreamPlayerPage({
                   const modal = getActiveModal();
                   if (modal === slotsOverlay || modal === coopOverlay || modal === telemetryOverlay) {
                     closeModal(modal);
-                    openModal(menuOverlay);
+                    openModal(menuOverlay, true);
                   } else if (modal === menuOverlay) {
                     closeModal(menuOverlay);
                   }
@@ -1797,14 +1968,16 @@ export function renderStreamPlayerPage({
 
               slotsList.appendChild(row);
             }
-            focusFirstModalElement(slotsOverlay);
+            if (isGamepadNavActive) {
+              focusFirstModalElement(slotsOverlay);
+            }
           } catch (e) {
             slotsList.innerHTML = '<div style="color: #ef4444; font-size: 12px; padding: 12px;">Impossibile recuperare gli slot</div>';
           }
         }
 
         // UI Event Listeners
-        menuBtn.addEventListener("click", () => openModal(menuOverlay));
+        menuBtn.addEventListener("click", () => openModal(menuOverlay, false));
 
         if (btnQuickSave) {
           btnQuickSave.addEventListener("click", async () => {
@@ -1820,13 +1993,13 @@ export function renderStreamPlayerPage({
           btnOpenSlotsMenu.addEventListener("click", () => {
             closeModal(menuOverlay);
             refreshSlotsModal();
-            openModal(slotsOverlay);
+            openModal(slotsOverlay, isGamepadNavActive);
           });
         }
         if (btnCloseSlots) {
           btnCloseSlots.addEventListener("click", () => {
             closeModal(slotsOverlay);
-            openModal(menuOverlay);
+            openModal(menuOverlay, isGamepadNavActive);
           });
         }
 
@@ -1840,18 +2013,18 @@ export function renderStreamPlayerPage({
           btnOpenCoopMenu.addEventListener("click", () => {
             closeModal(menuOverlay);
             updateCoopInvite();
-            openModal(coopOverlay);
+            openModal(coopOverlay, isGamepadNavActive);
           });
         }
         if (btnOpenTelemetryMenu) {
           btnOpenTelemetryMenu.addEventListener("click", () => {
             closeModal(menuOverlay);
-            openModal(telemetryOverlay);
+            openModal(telemetryOverlay, isGamepadNavActive);
           });
         }
         statsBadge.addEventListener("click", () => {
           if (telemetryOverlay.classList.contains("is-hidden")) {
-            openModal(telemetryOverlay);
+            openModal(telemetryOverlay, false);
           } else {
             closeModal(telemetryOverlay);
           }
@@ -1860,11 +2033,11 @@ export function renderStreamPlayerPage({
         btnResume.addEventListener("click", () => closeModal(menuOverlay));
         btnCloseCoop.addEventListener("click", () => {
           closeModal(coopOverlay);
-          openModal(menuOverlay);
+          openModal(menuOverlay, isGamepadNavActive);
         });
         btnCloseTelemetry.addEventListener("click", () => {
           closeModal(telemetryOverlay);
-          openModal(menuOverlay);
+          openModal(menuOverlay, isGamepadNavActive);
         });
         retryBtn.addEventListener("click", () => initWebRTC());
 

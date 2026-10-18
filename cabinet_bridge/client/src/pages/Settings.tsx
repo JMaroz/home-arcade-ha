@@ -29,7 +29,7 @@ import { NetplaySettings } from "./settings/NetplaySettings";
 
 import { BiosManager } from "@/components/BiosManager";
 import { openSetupWizard } from "@/components/SetupWizardDialog";
-import { Section, Step, Code } from "./settings/SettingsShared";
+import { Step, Code } from "./settings/SettingsShared";
 
 // ── Category Configuration ───────────────────────────────────────────────────
 
@@ -228,9 +228,7 @@ export default function Settings() {
                 <TabsContent value="controls" className="m-0 focus-visible:outline-none"><ControlsSettings /></TabsContent>
                 <TabsContent value="library" className="m-0 focus-visible:outline-none"><GamesStorageSettings /></TabsContent>
                 <TabsContent value="health" className="m-0 focus-visible:outline-none">
-                  <Section title={t("settings.sections.health.title")} description={t("settings.sections.health.description")}>
-                    <BiosManager />
-                  </Section>
+                  <BiosManager />
                 </TabsContent>
                 <TabsContent value="services" className="m-0 focus-visible:outline-none"><ServicesSettings /></TabsContent>
                 <TabsContent value="netplay" className="m-0 focus-visible:outline-none"><NetplaySettings /></TabsContent>
