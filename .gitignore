@@ -4,6 +4,7 @@ dist/
 rom-storage/
 system-image-cache/
 art-cache/
+upload-chunks/
 
 # SQLite database files — never commit; exposes demo data at rest
 data.db

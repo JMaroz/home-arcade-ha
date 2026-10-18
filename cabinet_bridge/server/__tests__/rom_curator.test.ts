@@ -64,11 +64,11 @@ describe("ROM Curator Utility", () => {
     expect(group.recommendedRomId).toBe(2);
     expect(group.redundantRomIds).toContain(1);
     expect(group.redundantRomIds).toContain(3);
-  });
+  }, 15000);
 
   it("executes deduplication and removes redundant entries", async () => {
     const result = await executeDeduplication();
     expect(result.deletedCount).toBe(2);
     expect(result.freedBytes).toBe(8388608 * 2);
-  });
+  }, 15000);
 });

@@ -5,7 +5,7 @@ ARG BUILD_FROM=ghcr.io/home-assistant/base-debian:bookworm
 # ==============================================================================
 # Stage 1: Build native WebRTC runner binary with Go + Cgo + GStreamer
 # ==============================================================================
-FROM golang:1.24-bookworm AS runner-builder
+FROM golang:1.26-bookworm AS runner-builder
 WORKDIR /build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       make \
       g++ \
       libsqlite3-dev \
-      && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+      && curl -fsSL https://deb.nodesource.com/setup_26.x | bash - \
       && apt-get install -y --no-install-recommends nodejs \
       && npm install -g pnpm@9 \
       && rm -rf /var/lib/apt/lists/*
@@ -93,7 +93,7 @@ ENV LANG=C.UTF-8 \
     PORT=5000 \
     NODE_ENV=production
 
-# Install runtime dependencies: Node.js 20 + glibc SQLite + libvpx for WebRTC streaming + archive tools (unzip, 7zip)
+# Install runtime dependencies: Node.js 26 + glibc SQLite + libvpx for WebRTC streaming + archive tools (unzip, 7zip)
 RUN apt-get update && apt-get install -y --no-install-recommends \
       curl \
       ca-certificates \
@@ -103,7 +103,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libopus0 \
       unzip \
       7zip \
-      && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+      && curl -fsSL https://deb.nodesource.com/setup_26.x | bash - \
       && apt-get install -y --no-install-recommends nodejs \
       && apt-get purge -y curl \
       && apt-get autoremove -y \

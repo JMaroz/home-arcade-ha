@@ -1,28 +1,30 @@
 # Handoff Sessione — 2026-10-18
 
 ## Stato Corrente
-- Risolto il bug delle statistiche bloccate a zero: implementato il gestore centralizzato delle sessioni (`gameSession.ts`) con avvio automatico (WASM + Streaming), chiusura pulita (`POST /api/roms/exit`, `pagehide` beacon) e timeout server di sicurezza a 30 minuti di inattività.
-- Risolto il layer di integrazione Home Assistant: abilitato `homeassistant_api: true` in `config.yaml`, corretto il proxy Supervisor in `http://supervisor/core`, aggiunta la pubblicazione automatica degli eventi `homearcade_game_started` / `homearcade_game_ended` e arricchiti gli attributi dei sensori.
-- Rinnovata la dashboard `PlayStats.tsx` con supporto Ingress, KPI arricchiti (Total Play Time, Sessions, Games Played, Avg Duration), barre per Top Systems/Games e timeline cronologica.
-- Arricchita la pagina `AutomationsSettings.tsx` con ricette YAML pronte per Home Assistant (luci RGB per console, HDMI TV, power plug, alert tempo).
+- Completato l'upgrade dell'ecosistema di build e runtime su **Node.js 26** e **Go 1.26**:
+  - `cabinet_bridge/Dockerfile`: allineato lo stage builder e runtime a NodeSource `setup_26.x` e Go builder a `golang:1.26-bookworm`.
+  - `.github/workflows/ci.yml`: aggiornato `node-version: 26`.
+  - `.github/workflows/build.yml`: aggiornato `docker/build-push-action@v7`.
+  - `cabinet_bridge/package.json`: bump di `better-sqlite3` a `^13.0.3` (migrazione a Node-API / N-API per piena stabilità ABI su Node 26), rimossa la voce ridondante `motion` a favore del pacchetto utilizzato `framer-motion`.
+  - `chunk_upload.test.ts`: aggiornato il mock request per usare `http.IncomingMessage(socket)` compatibile con la gestione abort stream di Node 26.
+  - `rom_curator.test.ts`: aumentato il timeout a 15s per garantire resilienza nei run paralleli.
+  - Verifica completata: `pnpm check` (0 errori) e `pnpm test` (28/28 test suite passate, 175/175 test verdi), `pnpm build` riuscito.
 
 ## File Rilevanti
-- `cabinet_bridge/server/gameSession.ts`: Gestore unificato del ciclo di vita delle sessioni di gioco e auto-pulizia inattività.
-- `cabinet_bridge/server/__tests__/gameSession.test.ts`: Suite di test unitari (4/4 passed) per il ciclo sessioni e timeout.
-- `cabinet_bridge/server/haPublisher.ts`: Base URL proxy corretto a `http://supervisor/core` ed emissione eventi HA con metadati ricchi.
-- `cabinet_bridge/config.yaml`: Aggiunto permesso `homeassistant_api: true` per autorizzare le chiamate REST Core.
-- `cabinet_bridge/server/routes/profiles.ts` & `stats.ts`: Integrazione `gameSession`, registrazione `POST /api/roms/exit`, normalizzazione output sessioni.
-- `cabinet_bridge/server/storage.ts`: Estensione metriche riassuntive `getPlayStatsSummary`.
-- `cabinet_bridge/server/routes/player.ts` & `stream/runner-manager.ts`: Trigger avvio sessione ed exit su EmulatorJS e streaming.
-- `cabinet_bridge/client/src/components/PlayStats.tsx`: Nuova dashboard statistiche compatibile con Ingress e normalizzata.
-- `cabinet_bridge/client/src/components/NowPlayingBar.tsx`: Chiamata `POST /api/roms/exit` con invalidazione query TanStack.
-- `cabinet_bridge/client/src/pages/settings/AutomationsSettings.tsx`: Esempi moderni di automazioni Home Assistant.
+- `cabinet_bridge/Dockerfile`: Runtime e builder allineati a Node.js 26 e Go 1.26.
+- `.github/workflows/ci.yml`: CI configurata con Node.js 26.
+- `.github/workflows/build.yml`: Build multi-arch aggiornato con action `@v7`.
+- `cabinet_bridge/package.json`: Aggiornato `better-sqlite3` a `13.0.3`, rimosso duplicato `motion`.
+- `cabinet_bridge/server/__tests__/chunk_upload.test.ts`: Fix compatibilità `IncomingMessage(socket)` per stream pipeline su Node 26.
+- `cabinet_bridge/server/__tests__/rom_curator.test.ts`: Timeout safe a 15s per suite parallela.
+- `.gitignore`: Aggiunto `upload-chunks/` per prevenire il tracciamento dei file di chunk temporanei.
+- `docs/plans/2026-10-18_upgrade_node26_and_dependencies.md`: Piano di lavoro strutturato completato al 100%.
 
 ## Prossimi Passi (Next Steps)
-- Test end-to-end all'interno dell'ambiente reale Home Assistant (avvio gioco da interfaccia Ingress, verifica sensori e card Lovelace).
-- Opzionale: Creazione di Blueprint Home Assistant ufficiali da distribuire con il repository GitHub.
+- Eseguire il commit delle modifiche seguendo le convenzioni (`chore: upgrade runtime to node 26 and better-sqlite3 to v13`).
+- Eseguire `git push` su `origin/main` per triggerare i workflow CI aggiornati.
 
 ## Comandi Utili
 - Type-check: `cd cabinet_bridge && pnpm check`
-- Unit tests: `cd cabinet_bridge && pnpm test client`
-- Test sessioni: `cd cabinet_bridge && pnpm vitest run server/__tests__/gameSession.test.ts`
+- Unit tests: `cd cabinet_bridge && pnpm test`
+- Build produzione: `cd cabinet_bridge && pnpm build`

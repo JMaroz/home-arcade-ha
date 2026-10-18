@@ -3,7 +3,8 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { Readable } from "node:stream";
+import http from "node:http";
+import net from "node:net";
 
 const TEST_DATA_DIR = path.join("/tmp", "chunk-upload-test-" + Date.now());
 if (!fs.existsSync(TEST_DATA_DIR)) {
@@ -48,9 +49,8 @@ describe("Chunked Upload API — Init, Chunks, Sequential Assembly & Cancel", ()
       let statusCode = 200;
       const responseHeaders: Record<string, string> = {};
 
-      const req = new Readable({
-        read() {},
-      }) as any;
+      const socket = new net.Socket();
+      const req = new http.IncomingMessage(socket) as any;
 
       req.method = method;
       req.url = urlPath;
