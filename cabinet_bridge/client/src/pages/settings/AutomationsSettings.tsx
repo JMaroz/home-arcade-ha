@@ -68,20 +68,90 @@ const ENTITIES = [
 
 const EXAMPLES = [
   {
-    title: "Dim lights when a game starts",
+    title: "Console-matched RGB lighting",
     yaml: `automation:
-  alias: "HomeArcade — Gaming scene"
+  alias: "HomeArcade — Ambient console lighting"
   trigger:
     - platform: state
       entity_id: binary_sensor.homearcade_active
       to: "on"
   action:
-    - service: scene.turn_on
-      target:
-        entity_id: scene.gaming_mode`,
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: sensor.homearcade_system
+              state: "NES"
+          sequence:
+            - service: light.turn_on
+              target:
+                entity_id: light.arcade_lights
+              data:
+                rgb_color: [255, 0, 0]
+                brightness: 180
+        - conditions:
+            - condition: state
+              entity_id: sensor.homearcade_system
+              state: "SNES"
+          sequence:
+            - service: light.turn_on
+              target:
+                entity_id: light.arcade_lights
+              data:
+                rgb_color: [128, 0, 255]
+                brightness: 180
+        - conditions:
+            - condition: state
+              entity_id: sensor.homearcade_system
+              state: "GENESIS"
+          sequence:
+            - service: light.turn_on
+              target:
+                entity_id: light.arcade_lights
+              data:
+                rgb_color: [0, 100, 255]
+                brightness: 180
+        - conditions:
+            - condition: state
+              entity_id: sensor.homearcade_system
+              state: "PS1"
+          sequence:
+            - service: light.turn_on
+              target:
+                entity_id: light.arcade_lights
+              data:
+                rgb_color: [180, 180, 200]
+                brightness: 180
+      default:
+        - service: light.turn_on
+          target:
+            entity_id: light.arcade_lights
+          data:
+            rgb_color: [236, 72, 153]
+            brightness: 180`,
   },
   {
-    title: "Restore lights when game ends",
+    title: "Turn on Smart Plug & switch TV HDMI",
+    yaml: `automation:
+  alias: "HomeArcade — Switch TV to gaming input"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.homearcade_active
+      to: "on"
+  action:
+    - service: switch.turn_on
+      target:
+        entity_id: switch.arcade_power_plug
+    - service: media_player.turn_on
+      target:
+        entity_id: media_player.living_room_tv
+    - service: media_player.select_source
+      target:
+        entity_id: media_player.living_room_tv
+      data:
+        source: "HDMI 1"`,
+  },
+  {
+    title: "Restore lights & standby when game ends",
     yaml: `automation:
   alias: "HomeArcade — Restore scene"
   trigger:
@@ -94,7 +164,22 @@ const EXAMPLES = [
         entity_id: scene.living_room_normal`,
   },
   {
-    title: "Notify after 2 hours of play",
+    title: "Notify summary on session completed (Event)",
+    yaml: `automation:
+  alias: "HomeArcade — Session completion alert"
+  trigger:
+    - platform: event
+      event_type: homearcade_game_ended
+  action:
+    - service: notify.notify
+      data:
+        title: "Arcade Session Ended"
+        message: >
+          {{ trigger.event.data.profile }} played {{ trigger.event.data.game }}
+          ({{ trigger.event.data.system }}) for {{ trigger.event.data.duration_minutes }} min!`,
+  },
+  {
+    title: "Notify after 2 hours of continuous play",
     yaml: `automation:
   alias: "HomeArcade — Long session alert"
   trigger:
@@ -107,28 +192,7 @@ const EXAMPLES = [
     - service: notify.mobile_app
       data:
         message: >
-          You've been playing
-          {{ states('sensor.homearcade_game') }}
-          for 2 hours!`,
-  },
-  {
-    title: "Turn on TV input when NES game starts",
-    yaml: `automation:
-  alias: "HomeArcade — Switch TV to gaming input"
-  trigger:
-    - platform: state
-      entity_id: binary_sensor.homearcade_active
-      to: "on"
-  condition:
-    - condition: state
-      entity_id: sensor.homearcade_system
-      state: "NES"
-  action:
-    - service: media_player.select_source
-      target:
-        entity_id: media_player.living_room_tv
-      data:
-        source: "HDMI 1"`,
+          You've been playing {{ states('sensor.homearcade_game') }} for 2 hours! Time for a break.`,
   },
 ];
 

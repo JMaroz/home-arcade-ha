@@ -863,9 +863,26 @@ export class DatabaseStorage implements IStorage {
       .where(eq(uploadedRoms.favorite, true))
       .get();
 
+    const playedCount = db.select({ count: count(uploadedRoms.id) })
+      .from(uploadedRoms)
+      .where(sql`${uploadedRoms.playCount} > 0 OR ${uploadedRoms.minutesPlayed} > 0`)
+      .get();
+
+    const sessionStats = db.select({
+      sessionCount: count(playSessions.id),
+      totalDurationSeconds: sum(playSessions.durationSeconds),
+    }).from(playSessions).get();
+
+    const totalMinutes = Number(summary?.totalMinutes || 0);
+    const sessionCount = Number(sessionStats?.sessionCount || 0);
+    const avgSessionMinutes = sessionCount > 0 ? Math.round((totalMinutes / sessionCount) * 10) / 10 : 0;
+
     return { 
-      totalMinutes: Number(summary?.totalMinutes || 0),
+      totalMinutes,
       totalGames: Number(summary?.totalGames || 0),
+      playedGamesCount: Number(playedCount?.count || 0),
+      sessionCount,
+      avgSessionMinutes,
       favoriteCount: Number(favCount?.count || 0) 
     };
   }

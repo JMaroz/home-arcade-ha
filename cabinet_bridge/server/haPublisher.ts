@@ -55,9 +55,32 @@ async function getToken(): Promise<string | null> {
 
 async function getBaseUrl(): Promise<string> {
   // Inside the add-on, always use the Supervisor proxy
-  if (getSupervisorToken()) return "http://supervisor/homeassistant";
+  if (getSupervisorToken()) return "http://supervisor/core";
   const settings = await storage.getIntegrationSettings();
   return settings.haBaseUrl || "https://homeassistant.local:8123";
+}
+
+async function pushEvent(eventType: string, eventData: Record<string, unknown> = {}): Promise<boolean> {
+  const token = await getToken();
+  if (!token) return false;
+
+  const baseUrl = await getBaseUrl();
+  const url = `${baseUrl}/api/events/${eventType}`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(eventData),
+      signal: AbortSignal.timeout(5000),
+    });
+    return res.ok;
+  } catch (err) {
+    log(`Network error pushing event ${eventType}: ${err instanceof Error ? err.message : String(err)}`, "ha");
+    return false;
+  }
 }
 
 async function pushState(
@@ -114,6 +137,13 @@ export async function publishGameStarted(payload: GameStartedPayload): Promise<v
     pushState("binary_sensor.homearcade_active", "on", {
       friendly_name: "HomeArcade Active",
       device_class: "running",
+      game: payload.title,
+      system: payload.system.toUpperCase(),
+      profile: payload.profileName,
+      art_url: payload.artUrl ?? "",
+      genre: payload.genre ?? "Unknown",
+      developer: payload.developer ?? "Unknown",
+      release_year: payload.releaseYear ?? null,
       netplay_nickname: settings.netplayNickname,
       netplay_port: settings.netplayPort,
     }),
@@ -121,11 +151,13 @@ export async function publishGameStarted(payload: GameStartedPayload): Promise<v
       friendly_name: "HomeArcade Game",
       icon: "mdi:gamepad-variant",
       rom_id: payload.romId,
-      system: payload.system,
+      system: payload.system.toUpperCase(),
+      system_id: payload.system,
       genre: payload.genre ?? "Unknown",
       developer: payload.developer ?? "Unknown",
       release_year: payload.releaseYear ?? null,
       art_url: payload.artUrl ?? "",
+      profile: payload.profileName,
       netplay_nickname: settings.netplayNickname,
       netplay_port: settings.netplayPort,
     }),
@@ -149,6 +181,17 @@ export async function publishGameStarted(payload: GameStartedPayload): Promise<v
       unit_of_measurement: "plays",
       state_class: "total_increasing",
     }),
+    pushEvent("homearcade_game_started", {
+      game: payload.title,
+      system: payload.system.toUpperCase(),
+      system_id: payload.system,
+      rom_id: payload.romId,
+      profile: payload.profileName,
+      genre: payload.genre ?? "Unknown",
+      developer: payload.developer ?? "Unknown",
+      release_year: payload.releaseYear ?? null,
+      art_url: payload.artUrl ?? "",
+    }),
   ]);
 }
 
@@ -163,7 +206,7 @@ export async function publishGameEnded(payload: GameEndedPayload): Promise<void>
       friendly_name: "HomeArcade Active",
       device_class: "running",
       last_game: payload.title,
-      last_system: payload.system,
+      last_system: payload.system.toUpperCase(),
       last_duration_seconds: payload.durationSeconds,
       last_duration_minutes: Math.round(payload.durationSeconds / 60),
     }),
@@ -171,7 +214,9 @@ export async function publishGameEnded(payload: GameEndedPayload): Promise<void>
       friendly_name: "HomeArcade Game",
       icon: "mdi:gamepad-variant-outline",
       last_game: payload.title,
-      last_system: payload.system,
+      last_system: payload.system.toUpperCase(),
+      last_duration_seconds: payload.durationSeconds,
+      last_duration_minutes: Math.round(payload.durationSeconds / 60),
     }),
     pushState("sensor.homearcade_system", "idle", {
       friendly_name: "HomeArcade System",
@@ -180,6 +225,15 @@ export async function publishGameEnded(payload: GameEndedPayload): Promise<void>
     pushState("sensor.homearcade_session_start", "unavailable", {
       friendly_name: "HomeArcade Session Start",
       icon: "mdi:clock-start",
+    }),
+    pushEvent("homearcade_game_ended", {
+      game: payload.title,
+      system: payload.system.toUpperCase(),
+      system_id: payload.system,
+      rom_id: payload.romId,
+      profile: payload.profileName,
+      duration_seconds: payload.durationSeconds,
+      duration_minutes: Math.round(payload.durationSeconds / 60),
     }),
   ]);
 }

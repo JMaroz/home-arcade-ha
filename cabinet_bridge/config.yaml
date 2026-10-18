@@ -23,6 +23,7 @@ backup_exclude:
 panel_icon: mdi:gamepad-variant
 panel_title: HomeArcade
 hassio_api: true
+homeassistant_api: true
 options:
   max_upload_mb: 8192
   steamgriddb_api_key: ''

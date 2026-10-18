@@ -1312,7 +1312,19 @@ function cabinetSetupMenu() {
       });
   });
   safeOnClick("cabinet-save-manager-close", function() { var panel = document.getElementById("cabinet-save-panel"); if (panel) panel.classList.remove("is-open"); });
-  safeOnClick("cabinet-exit", function() { window.location.href = window.CABINET_RETURN_TO || "/"; });
+  safeOnClick("cabinet-exit", function() {
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(window.CABINET_INGRESS_BASE + "/api/roms/exit");
+    } else {
+      fetch(window.CABINET_INGRESS_BASE + "/api/roms/exit", { method: "POST", keepalive: true }).catch(function(){});
+    }
+    window.location.href = window.CABINET_RETURN_TO || "/";
+  });
+  window.addEventListener("pagehide", function() {
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(window.CABINET_INGRESS_BASE + "/api/roms/exit");
+    }
+  });
   safeOnClick("cabinet-warp-open", function() {
     toggleMenu(false);
     var warpPanel = document.getElementById("cabinet-warp-panel");
@@ -1580,6 +1592,12 @@ window.EJS_onGameStart = function () {
   cabinetSetupVirtualPad();
   cabinetSetupGamepad();
   
+  fetch(window.CABINET_INGRESS_BASE + "/api/roms/" + window.CABINET_ROM_ID + "/play-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event: "started" })
+  }).catch(function(e) { console.warn("[Session] Could not start session:", e); });
+
   fetch(window.CABINET_INGRESS_BASE + "/api/roms/" + window.CABINET_ROM_ID + "/save-states")
     .then(function(r) { return r.json(); })
     .then(function(slots) {

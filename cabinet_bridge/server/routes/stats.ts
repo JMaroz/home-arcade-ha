@@ -5,7 +5,18 @@ export function registerStatsRoutes(app: Express) {
   app.get("/api/sessions", async (_req, res) => {
     try {
       const sessions = await storage.listRecentSessions(100);
-      res.json(sessions);
+      const normalized = sessions.map((s: any) => ({
+        id: s.id,
+        romId: s.romId,
+        title: s.romTitle || s.title || "Unknown Game",
+        romTitle: s.romTitle || s.title || "Unknown Game",
+        system: s.romSystem || s.system || "generic",
+        romSystem: s.romSystem || s.system || "generic",
+        startedAt: s.startedAt,
+        endedAt: s.endedAt,
+        durationSeconds: s.durationSeconds,
+      }));
+      res.json(normalized);
     } catch (err) {
       res.status(500).json({ message: String(err) });
     }

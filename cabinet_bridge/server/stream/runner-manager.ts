@@ -11,6 +11,7 @@ import { storage } from "../storage";
 import { SAVE_BACKUP_DIR } from "../routes/shared";
 import { uploadToDrive } from "../google-drive";
 import { uploadToOneDrive } from "../onedrive";
+import { startGameSession, endGameSession } from "../gameSession";
 
 export interface StreamSession {
   sessionId: string;
@@ -210,6 +211,7 @@ export class StreamRunnerManager {
     };
 
     activeSessions.set(sessionId, session);
+    startGameSession(romId).catch(() => {});
 
     if (runnerBin) {
       // PS2 emulation is CPU intensive on ARM/SBCs; limit target FPS to 30 to stabilize frame pacing and prevent thermal throttling
@@ -256,6 +258,7 @@ export class StreamRunnerManager {
         appendRunnerLog(`[${sessionId.slice(0, 8)}] ${text}`);
         session.status = "stopped";
         activeSessions.delete(sessionId);
+        endGameSession().catch(() => {});
       });
 
       session.process = child;
@@ -394,6 +397,7 @@ export class StreamRunnerManager {
     }
 
     activeSessions.delete(sessionId);
+    endGameSession().catch(() => {});
   }
 
   static async saveState(

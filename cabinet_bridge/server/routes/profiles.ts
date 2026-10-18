@@ -1,17 +1,14 @@
 import { Express } from "express";
 import { storage } from "../storage";
 import { 
-  getUserFromRequest, SAVE_BACKUP_DIR, 
-  nowPlayingRom, updateNowPlaying, 
-  activeSessionId, updateActiveSession,
-  activeSessionStart
+  getUserFromRequest, SAVE_BACKUP_DIR
 } from "./shared";
 import { insertUserProfileSchema, insertRomSaveSlotSchema } from "@shared/schema";
 import { z } from "zod";
 import path from "node:path";
 import fs from "node:fs/promises";
 import express from "express";
-import { publishGameStarted, publishGameEnded } from "../haPublisher";
+import { startGameSession, endGameSession, touchSessionActivity, getActiveSession } from "../gameSession";
 import { uploadToDrive, downloadFromDrive } from "../google-drive";
 
 export function registerProfileRoutes(app: Express) {
@@ -354,106 +351,53 @@ export function registerProfileRoutes(app: Express) {
   app.post("/api/roms/:id/play-session", express.json(), async (req, res) => {
     try {
       const id = Number(req.params.id);
-      const rom = await storage.getUploadedRom(id);
-      if (!rom) return res.status(404).json({ message: "ROM not found." });
-
       const { event, durationSeconds } = z.object({
-        event: z.enum(["started", "ended"]),
+        event: z.enum(["started", "ended", "touch"]),
         durationSeconds: z.number().int().min(0).optional(),
       }).parse(req.body);
 
-      let resolvedDuration: number | undefined;
-      if (event === "started") {
-        updateNowPlaying({ id: rom.id, title: rom.title, system: rom.system, startedAt: Date.now() });
-        const start = Date.now();
-        const sessionId = await storage.createPlaySession(rom.id, rom.title, rom.system, start).catch(() => null);
-        updateActiveSession(sessionId, start);
-      } else {
-        updateNowPlaying(null);
-        if (activeSessionId) {
-          const endedAt = Date.now();
-          resolvedDuration = durationSeconds ?? Math.round((endedAt - activeSessionStart) / 1000);
-          await storage.endPlaySession(activeSessionId, endedAt, resolvedDuration).catch(() => {});
-          updateActiveSession(null, 0);
-        } else {
-          resolvedDuration = durationSeconds;
-        }
-      }
-
-      const settings = await storage.getIntegrationSettings();
-      if (event === "ended" && resolvedDuration && resolvedDuration > 0) {
-        await storage.incrementRomMinutesPlayed(id, resolvedDuration / 60).catch(() => {});
-      }
-
-      if (settings.haBaseUrl && settings.haToken) {
-        const eventType = event === "started" ? "homearcade_game_started" : "homearcade_game_ended";
-        const payload: any = {
-          game: rom.title, system: rom.system, rom_id: rom.id,
-          art_url: rom.artUrl ?? "", players: rom.players ?? 1,
-          developer: rom.developer ?? "Unknown", genre: rom.genre ?? "Action",
-          release_year: rom.releaseYear ?? null,
-        };
-        if (event === "ended" && resolvedDuration !== undefined) {
-          payload.duration_seconds = resolvedDuration;
-          payload.duration_minutes = Math.round(resolvedDuration / 60);
-        }
-        try {
-          await fetch(`${settings.haBaseUrl}/api/events/${eventType}`, {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${settings.haToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(4000),
-          });
-          const nowPlayingValue = event === "started" ? `${rom.title} (${rom.system})` : "";
-          await fetch(`${settings.haBaseUrl}/api/states/input_text.homearcade_now_playing`, {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${settings.haToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ state: nowPlayingValue }),
-            signal: AbortSignal.timeout(4000),
-          }).catch(() => {});
-        } catch {}
-      }
-
-      // Publish rich sensor entities to HA (uses Supervisor token automatically)
-      const { getUserFromRequest: _getUser } = await import("./shared");
       const { userId } = getUserFromRequest(req);
       const profiles = await storage.listProfiles();
       const activeProfile = profiles.find(p => String(p.id) === String(userId)) ?? profiles[0];
       const profileName = activeProfile?.name ?? "Player 1";
-      if (event === "started") {
-        publishGameStarted({
-          romId: rom.id, title: rom.title, system: rom.system,
-          profileName, playCount: rom.playCount ?? 0,
-          genre: rom.genre ?? undefined, developer: rom.developer ?? undefined,
-          releaseYear: rom.releaseYear ?? undefined, artUrl: rom.artUrl ?? undefined,
-        }).catch(() => {});
-      } else {
-        publishGameEnded({
-          romId: rom.id, title: rom.title, system: rom.system,
-          profileName, durationSeconds: resolvedDuration ?? 0,
-        }).catch(() => {});
-      }
 
-      res.json({ ok: true });
+      if (event === "started") {
+        const result = await startGameSession(id, profileName);
+        return res.json(result);
+      } else if (event === "ended") {
+        const result = await endGameSession(durationSeconds);
+        return res.json(result);
+      } else {
+        touchSessionActivity();
+        return res.json({ ok: true });
+      }
     } catch (err: any) {
       console.error("POST /api/roms/:id/play-session error:", err);
-      res.status(500).json({ message: err.message, stack: err.stack });
+      res.status(500).json({ message: err.message });
     }
   });
 
-  app.get("/api/sessions", async (_req, res) => {
+  app.post("/api/roms/exit", async (_req, res) => {
     try {
-      const sessions = await storage.listRecentSessions(100);
-      res.json(sessions);
+      const result = await endGameSession();
+      res.json(result);
     } catch (err: any) {
-      console.error("GET /api/sessions error:", err);
-      res.json([]);
+      console.error("POST /api/roms/exit error:", err);
+      res.status(500).json({ message: err.message });
     }
   });
 
   app.get("/api/now-playing", (_req, res) => {
-    if (nowPlayingRom) {
-      res.json({ playing: true, ...nowPlayingRom });
+    const session = getActiveSession();
+    if (session.romId && session.title) {
+      res.json({
+        playing: true,
+        id: session.romId,
+        title: session.title,
+        system: session.system,
+        startedAt: session.startedAt,
+        profileName: session.profileName,
+      });
     } else {
       res.json({ playing: false });
     }

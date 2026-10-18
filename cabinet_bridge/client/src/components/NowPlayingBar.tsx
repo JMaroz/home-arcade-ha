@@ -1,7 +1,6 @@
 import React, { useEffect, useState, memo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiUrl } from "@/lib/queryClient";
-import { apiRequest } from "@/lib/queryClient";
+import { apiUrl, apiRequest, queryClient } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, X, Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -82,6 +81,11 @@ export const NowPlayingBar = memo(function NowPlayingBar() {
     } catch {
       // Fallback: navigate home
       window.location.href = "/";
+    } finally {
+      queryClient.invalidateQueries({ queryKey: ["/api/now-playing"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/summary"] });
+      setDismissed(true);
     }
   };
 
