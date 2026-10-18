@@ -82,7 +82,7 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (p.startsWith("/api") && p !== "/api/health" && p !== "/api/debug") {
+    if (p.startsWith("/api") && p !== "/api/health" && p !== "/api/debug" && p !== "/api/now-playing") {
       let logLine = `${req.method} ${p} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       log(logLine);

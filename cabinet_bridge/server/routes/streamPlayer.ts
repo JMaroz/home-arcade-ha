@@ -498,6 +498,10 @@ export function renderStreamPlayerPage({
             <div id="tel-slot" class="telemetry-val" style="color: #ec4899;">P1 (Host)</div>
           </div>
           <div class="telemetry-item">
+            <div class="telemetry-label">Platform Profile</div>
+            <div id="tel-platform" class="telemetry-val" style="color: #38bdf8;">Detecting...</div>
+          </div>
+          <div class="telemetry-item">
             <div class="telemetry-label">Video / Audio Codec</div>
             <div class="telemetry-val" style="font-size: 12px;">VP8 / Opus 48kHz</div>
           </div>
@@ -572,6 +576,13 @@ export function renderStreamPlayerPage({
       (function() {
         const returnUrl = ${safeReturnTo};
         const romId = ${romId};
+
+        // ── Device & Platform Verticalization ──
+        const ua = navigator.userAgent || "";
+        const isTV = /Android TV|Google TV|SmartTV|SMART-TV|HbbTV|NetCast|Tizen|Web0S|webOS|AFT[B-N]|FireTV|BRAVIA/i.test(ua) ||
+                     (window.location.search.includes("tv=1") || window.location.search.includes("platform=tv"));
+        const isMobile = (/Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints > 1 && !/Windows|Macintosh|Linux/i.test(ua))) && !isTV;
+
         const video = document.getElementById("remote-video");
         const statusHud = document.getElementById("status-hud");
         const hudTitle = document.getElementById("hud-title");
@@ -606,6 +617,10 @@ export function renderStreamPlayerPage({
         const coopLinkInput = document.getElementById("coop-link-input");
         const coopQrImg = document.getElementById("coop-qr-img");
         const statsBadge = document.getElementById("stats");
+        const telPlatform = document.getElementById("tel-platform");
+        if (telPlatform) {
+          telPlatform.textContent = isTV ? "TV (40ms buffer)" : (isMobile ? "Mobile (20ms buffer)" : "Desktop (0ms buffer)");
+        }
 
         // ── Modal & Spatial Gamepad Navigation State & Helpers ──
         let prevMenuCombo = false;
@@ -1119,20 +1134,27 @@ export function renderStreamPlayerPage({
               const kind = (receiver.track && receiver.track.kind) || defaultKind;
               try {
                 if (kind === "video") {
-                  // Low-latency video playback: zero buffer delay
-                  if ("playoutDelayHint" in receiver) {
-                    receiver.playoutDelayHint = 0;
-                  }
-                  if ("jitterBufferTarget" in receiver) {
-                    receiver.jitterBufferTarget = 0;
+                  if (isTV) {
+                    // Smart TV: hardware/software decoders need ~40ms (2-frame slack) to prevent frame drops
+                    if ("playoutDelayHint" in receiver) receiver.playoutDelayHint = 0.04;
+                    if ("jitterBufferTarget" in receiver) receiver.jitterBufferTarget = 40;
+                  } else if (isMobile) {
+                    // Mobile on Wi-Fi: 20ms buffer absorbs packet jitter while preserving touch responsiveness
+                    if ("playoutDelayHint" in receiver) receiver.playoutDelayHint = 0.02;
+                    if ("jitterBufferTarget" in receiver) receiver.jitterBufferTarget = 20;
+                  } else {
+                    // Desktop: zero buffer delay for instantaneous display
+                    if ("playoutDelayHint" in receiver) receiver.playoutDelayHint = 0;
+                    if ("jitterBufferTarget" in receiver) receiver.jitterBufferTarget = 0;
                   }
                 } else if (kind === "audio") {
                   // NetEQ resilience: 40ms buffer to absorb Wi-Fi jitter & avoid underruns/crackling
+                  // Note: playoutDelayHint is in SECONDS (0.04s = 40ms), jitterBufferTarget is in MILLISECONDS (40ms)
                   if ("playoutDelayHint" in receiver) {
                     receiver.playoutDelayHint = 0.04;
                   }
                   if ("jitterBufferTarget" in receiver) {
-                    receiver.jitterBufferTarget = 0.04;
+                    receiver.jitterBufferTarget = 40;
                   }
                 }
               } catch (_) {}

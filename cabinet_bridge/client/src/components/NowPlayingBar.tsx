@@ -34,7 +34,10 @@ export const NowPlayingBar = memo(function NowPlayingBar() {
 
   const { data, isLoading } = useQuery<NowPlayingData>({
     queryKey: ["/api/now-playing"],
-    refetchInterval: 10_000,
+    refetchInterval: (query) => {
+      if (typeof document !== "undefined" && document.hidden) return false;
+      return query.state.data?.playing ? 5_000 : 30_000;
+    },
   });
 
   // Reset elapsed and dismissed state when a new game starts

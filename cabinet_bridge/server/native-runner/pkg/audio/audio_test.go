@@ -84,3 +84,44 @@ func TestOpusAudioEncoder_Encode(t *testing.T) {
 		t.Fatalf("Expected compressed Opus packet size, got %d bytes", len(packet))
 	}
 }
+
+func TestResampler_MultiFrameContinuous(t *testing.T) {
+	// Test 1 second of 44100Hz audio fed in 60 frames (735 samples each)
+	accPS1 := NewAudioBufferAccumulatorWithEncoder(44100, &FallbackRawAudioEncoder{})
+	defer accPS1.Close()
+
+	totalPacketsPS1 := 0
+	framePS1 := make([]int16, 735*2)
+	for i := range framePS1 {
+		framePS1[i] = 500
+	}
+	for f := 0; f < 60; f++ {
+		samples := accPS1.Push(framePS1)
+		totalPacketsPS1 += len(samples)
+	}
+	if totalPacketsPS1 != 50 {
+		t.Fatalf("Expected 50 20ms packets (1000ms) for 1s of 44100Hz audio, got %d", totalPacketsPS1)
+	}
+
+	// Test 1 second of 65536Hz audio fed in 60 frames (variable sample count totaling 65536)
+	accGBA := NewAudioBufferAccumulatorWithEncoder(65536, &FallbackRawAudioEncoder{})
+	defer accGBA.Close()
+
+	totalPacketsGBA := 0
+	for f := 0; f < 60; f++ {
+		count := 1092
+		if f < 16 {
+			count = 1093
+		}
+		frameGBA := make([]int16, count*2)
+		for i := range frameGBA {
+			frameGBA[i] = 500
+		}
+		samples := accGBA.Push(frameGBA)
+		totalPacketsGBA += len(samples)
+	}
+	if totalPacketsGBA != 50 {
+		t.Fatalf("Expected 50 20ms packets (1000ms) for 1s of 65536Hz audio, got %d", totalPacketsGBA)
+	}
+}
+

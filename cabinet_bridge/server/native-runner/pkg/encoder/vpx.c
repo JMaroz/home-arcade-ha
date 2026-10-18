@@ -82,8 +82,8 @@ void* vpx_encode_yuv(VpxContext c, const uint8_t *yuv420, size_t *out_size, int 
     memcpy(ctx->raw.planes[VPX_PLANE_V], yuv420 + y_size + uv_size, uv_size);
 
     vpx_enc_frame_flags_t flags = 0;
-    // Always force keyframe on first frame or every 120 frames (~2 seconds at 60 FPS)
-    if (force_keyframe || ctx->frame_count == 1 || (ctx->frame_count % 120 == 0)) {
+    // Always force keyframe on first frame or every 300 frames (~5 seconds at 60 FPS)
+    if (force_keyframe || ctx->frame_count == 1 || (ctx->frame_count % 300 == 0)) {
         flags |= VPX_EFLAG_FORCE_KF;
     }
 

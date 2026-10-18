@@ -7,7 +7,7 @@ OpusContext opus_create_encoder(int sample_rate, int channels) {
     if (channels <= 0) channels = 2;
 
     int err = 0;
-    OpusEncoder *enc = opus_encoder_create(sample_rate, channels, OPUS_APPLICATION_RESTRICTED_LOWDELAY, &err);
+    OpusEncoder *enc = opus_encoder_create(sample_rate, channels, OPUS_APPLICATION_AUDIO, &err);
     if (err != OPUS_OK || !enc) {
         return NULL;
     }

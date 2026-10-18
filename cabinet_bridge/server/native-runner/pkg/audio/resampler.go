@@ -20,6 +20,7 @@ type Resampler struct {
 	InRate  int
 	OutRate int
 	ratio   float64
+	phase   float64
 }
 
 // NewResampler creates a resampler instance targeting 48000Hz stereo
@@ -31,10 +32,11 @@ func NewResampler(inRate int) *Resampler {
 		InRate:  inRate,
 		OutRate: TargetSampleRate,
 		ratio:   float64(inRate) / float64(TargetSampleRate),
+		phase:   0,
 	}
 }
 
-// ResampleStereo resamples interleaved stereo 16-bit PCM samples
+// ResampleStereo resamples interleaved stereo 16-bit PCM samples with phase continuity
 func (r *Resampler) ResampleStereo(src []int16) []int16 {
 	if r.InRate == r.OutRate {
 		out := make([]int16, len(src))
@@ -43,32 +45,42 @@ func (r *Resampler) ResampleStereo(src []int16) []int16 {
 	}
 
 	srcFrames := len(src) / 2
-	if srcFrames < 2 {
+	if srcFrames == 0 {
 		return nil
 	}
 
-	dstFrames := int(float64(srcFrames) / r.ratio)
-	dst := make([]int16, dstFrames*2)
+	estDstFrames := int((float64(srcFrames) - r.phase) / r.ratio) + 2
+	if estDstFrames < 0 {
+		estDstFrames = 0
+	}
+	dst := make([]int16, 0, estDstFrames*2)
 
-	for i := 0; i < dstFrames; i++ {
-		srcIdx := float64(i) * r.ratio
-		baseIdx := int(srcIdx)
-		frac := srcIdx - float64(baseIdx)
+	for r.phase < float64(srcFrames) {
+		baseIdx := int(r.phase)
+		frac := r.phase - float64(baseIdx)
 
-		if baseIdx+1 >= srcFrames {
-			baseIdx = srcFrames - 2
-			frac = 1.0
+		s0L := float64(src[baseIdx*2])
+		s0R := float64(src[baseIdx*2+1])
+
+		var s1L, s1R float64
+		if baseIdx+1 < srcFrames {
+			s1L = float64(src[(baseIdx+1)*2])
+			s1R = float64(src[(baseIdx+1)*2+1])
+		} else {
+			s1L = s0L
+			s1R = s0R
 		}
 
-		// Channel 0 (Left)
-		s0L := float64(src[baseIdx*2])
-		s1L := float64(src[(baseIdx+1)*2])
-		dst[i*2] = int16(s0L + frac*(s1L-s0L))
+		outL := int16(s0L + frac*(s1L-s0L))
+		outR := int16(s0R + frac*(s1R-s0R))
+		dst = append(dst, outL, outR)
 
-		// Channel 1 (Right)
-		s0R := float64(src[baseIdx*2+1])
-		s1R := float64(src[(baseIdx+1)*2+1])
-		dst[i*2+1] = int16(s0R + frac*(s1R-s0R))
+		r.phase += r.ratio
+	}
+
+	r.phase -= float64(srcFrames)
+	if r.phase < 0 {
+		r.phase = 0
 	}
 
 	return dst
