@@ -2,6 +2,14 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.66.1](https://github.com/JMaroz/home-arcade-ha/compare/v2.66.0...v2.66.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* restore play stats and HA session events ([7328c31](https://github.com/JMaroz/home-arcade-ha/commit/7328c31fe6ffe35ecb5a5045485db06ec3202d52))
+* **stream:** improve audio and touch controls ([c3f60f4](https://github.com/JMaroz/home-arcade-ha/commit/c3f60f4562973bde224859d47cba890ab664ee73))
+
 ## [2.66.0](https://github.com/JMaroz/home-arcade-ha/compare/v2.65.2...v2.66.0) (2026-10-17)
 
 
