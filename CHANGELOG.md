@@ -2,6 +2,18 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.66.3](https://github.com/JMaroz/home-arcade-ha/compare/v2.66.2...v2.66.3) (2026-10-25)
+
+
+### Bug Fixes
+
+* **stream:** set wasm as default engine and harden native runner safety ([c51529a](https://github.com/JMaroz/home-arcade-ha/commit/c51529a24b71aa77568d2122d522053eb859010c))
+
+
+### Performance
+
+* **stream:** decouple video encoding loop, add vp8 token partitions and wasm core tuning ([b448131](https://github.com/JMaroz/home-arcade-ha/commit/b448131401ba2049ea22a9fb48408a6ec578de57))
+
 ## [2.66.2](https://github.com/JMaroz/home-arcade-ha/compare/v2.66.1...v2.66.2) (2026-10-18)
 
 
