@@ -40,7 +40,7 @@ func NewVpxVideoEncoder(width, height, fps int) (*VpxVideoEncoder, error) {
 		height = 480
 	}
 
-	ctx := C.vpx_create_encoder(C.int(width), C.int(height), C.int(fps), 2500)
+	ctx := C.vpx_create_encoder(C.int(width), C.int(height), C.int(fps), 1500)
 	if ctx == nil {
 		return nil, fmt.Errorf("failed to initialize libvpx VP8 encoder (%dx%d @ %d FPS)", width, height, fps)
 	}
@@ -64,7 +64,7 @@ func (v *VpxVideoEncoder) reconfigure(w, h int) error {
 		C.vpx_destroy_encoder(v.ctx)
 		v.ctx = nil
 	}
-	newCtx := C.vpx_create_encoder(C.int(w), C.int(h), C.int(v.fps), 2500)
+	newCtx := C.vpx_create_encoder(C.int(w), C.int(h), C.int(v.fps), 1500)
 	if newCtx == nil {
 		return fmt.Errorf("failed to reconfigure libvpx encoder for %dx%d", w, h)
 	}

@@ -1667,7 +1667,22 @@ if (${JSON.stringify(core)} === "n64") {
 }
 if (${JSON.stringify(core)} === "pcsx_rearmed" || ${JSON.stringify(core)} === "psx") {
   window.EJS_defaultOptions = Object.assign({}, window.EJS_defaultOptions || {}, {
-    "pcsx_rearmed_neon_enhancement_enable": "disabled"
+    "pcsx_rearmed_neon_enhancement_enable": "disabled",
+    "pcsx_rearmed_dithering": "disabled",
+    "pcsx_rearmed_spu_interpolation": "simple",
+    "pcsx_rearmed_show_bios_bootmenu": "disabled",
+    "pcsx_rearmed_display_internal_fps": "disabled"
+  });
+}
+if (${JSON.stringify(core)} === "gba" || ${JSON.stringify(core)} === "mgba") {
+  window.EJS_defaultOptions = Object.assign({}, window.EJS_defaultOptions || {}, {
+    "mgba_frameskip": "auto",
+    "mgba_solar_sensor": "disabled"
+  });
+}
+if (${JSON.stringify(core)} === "snes") {
+  window.EJS_defaultOptions = Object.assign({}, window.EJS_defaultOptions || {}, {
+    "snes9x_overclock_cycles": "disabled"
   });
 }
 

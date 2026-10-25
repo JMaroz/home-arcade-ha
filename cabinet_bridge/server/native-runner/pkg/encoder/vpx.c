@@ -15,7 +15,7 @@ typedef struct {
 VpxContext vpx_create_encoder(int width, int height, int fps, int bitrate_kbps) {
     if (width <= 0 || height <= 0) return NULL;
     if (fps <= 0) fps = 60;
-    if (bitrate_kbps <= 0) bitrate_kbps = 2500;
+    if (bitrate_kbps <= 0) bitrate_kbps = 1500;
 
     // libvpx requires even dimensions for I420
     if (width % 2 != 0) width++;
@@ -56,6 +56,7 @@ VpxContext vpx_create_encoder(int width, int height, int fps, int bitrate_kbps) 
     vpx_codec_control(&ctx->codec, VP8E_SET_CPUUSED, 8);
     vpx_codec_control(&ctx->codec, VP8E_SET_STATIC_THRESHOLD, 1);
     vpx_codec_control(&ctx->codec, VP8E_SET_NOISE_SENSITIVITY, 0);
+    vpx_codec_control(&ctx->codec, VP8E_SET_TOKEN_PARTITIONS, VP8_FOUR_TOKENPARTITION);
 
     if (!vpx_img_alloc(&ctx->raw, VPX_IMG_FMT_I420, width, height, 1)) {
         vpx_codec_destroy(&ctx->codec);

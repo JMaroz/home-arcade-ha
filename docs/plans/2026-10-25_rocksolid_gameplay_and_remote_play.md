@@ -1,7 +1,7 @@
 # Piano di Lavoro: Soluzione Definitiva Playing Giochi (Locale & Remoto) e Protezione Home Assistant
 
 - **Data**: 2026-10-25
-- **Stato**: In corso
+- **Stato**: Completato
 - **Obiettivo**: Risolvere definitivamente i problemi di playing (video a scatti, audio non ottimizzato in locale e fallimento/blocco totale di Home Assistant da remoto) allineando l'architettura ai benchmark moderni (RomM / EmulatorJS / WebAssembly client-side first) e blindando il native runner.
 
 ---
@@ -75,12 +75,18 @@
 - [x] Gestire lo stato `connecting` persistente: interrompere la chiamata e inviare `POST /api/stream/stop/:sessionId` se non connesso entro 4 secondi.
 - [x] In `streamPlayer.ts`, aggiungere `navigator.sendBeacon` per `stopSession` su `beforeunload` per evitare accumulo di processi orfani.
 
-### Fase 4: Verifica & Test
+### Fase 4: Ottimizzazioni Avanzate Performance (WASM Core Tuning & Native Runner Decoupling)
+- [x] In `cabinet_bridge/server/routes/player.ts`, configurare profili di performance ad hoc per i core WASM (PS1 con SPU interpolation simple e dithering disabilitato; GBA con auto-frameskip; SNES overclock cicli disabilitato).
+- [x] In `cabinet_bridge/server/native-runner/main.go`, pre-dimensionare l'encoder video tramite `emuSession.GetGeometry()` all'avvio per eliminare la riconfigurazione distruttiva sul primo frame.
+- [x] In `cabinet_bridge/server/native-runner/main.go`, disaccoppiare l'encoding video VP8 dall'emulazione tramite goroutine worker dedicata e canale a 1-slot: l'emulatore e l'audio mantengono i 60 FPS costanti prevenendo audio underrun.
+- [x] In `cabinet_bridge/server/native-runner/pkg/encoder/vpx.c` e `vpx.go`, abilitare partizioni di token VP8 (`VP8E_SET_TOKEN_PARTITIONS, VP8_FOUR_TOKENPARTITION`) e tarare il bitrate standard a 1500 kbps.
+
+### Fase 5: Verifica & Test
 - [x] Eseguire type check TypeScript (`pnpm check`).
 - [x] Eseguire unit test Jest/Vitest pertinenti (`schema.test.ts`, `core-health.test.ts`).
 - [x] Eseguire test Go del native runner (`go test -v ./...`).
 - [x] Verificare che il build di produzione vada a buon fine (`pnpm build`).
-- [ ] Aggiornare e sovrascrivere `docs/HANDOFF.md`.
+- [x] Aggiornare e sovrascrivere `docs/HANDOFF.md`.
 
 ---
 

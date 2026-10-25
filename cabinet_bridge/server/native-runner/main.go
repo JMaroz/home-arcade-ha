@@ -642,10 +642,46 @@ func runMediaStreamLoop() {
 		emuSession.Close()
 	}()
 
-	videoEncoder := encoder.NewActiveVideoEncoder(config.Width, config.Height, fps)
+	geom := emuSession.GetGeometry()
+	initW := config.Width
+	initH := config.Height
+	if geom.Width > 0 && geom.Height > 0 {
+		initW = geom.Width
+		initH = geom.Height
+	}
+
+	videoEncoder := encoder.NewActiveVideoEncoder(initW, initH, fps)
 	defer videoEncoder.Close()
 
-	geom := emuSession.GetGeometry()
+	type videoQueueItem struct {
+		rawRGB []byte
+		format encoder.PixelFormat
+		width  int
+		height int
+	}
+
+	videoQueue := make(chan videoQueueItem, 1)
+	videoDone := make(chan struct{})
+	defer close(videoDone)
+
+	// Decoupled asynchronous video encoding worker: ensures audio and emulation pacing never stall
+	go func() {
+		for {
+			select {
+			case <-videoDone:
+				return
+			case item, ok := <-videoQueue:
+				if !ok {
+					return
+				}
+				sample, err := videoEncoder.Encode(item.rawRGB, item.format, item.width, item.height)
+				if err == nil && videoTrack != nil {
+					_ = videoTrack.WriteSample(sample)
+				}
+			}
+		}
+	}()
+
 	coreSampleRate := geom.SampleRate
 	if coreSampleRate <= 0 {
 		coreSampleRate = 44100
@@ -654,7 +690,7 @@ func runMediaStreamLoop() {
 	defer audioAccumulator.Close()
 
 	log.Printf("[runner] Emulation & WebRTC media stream pipeline active (%dx%d @ %d FPS, Audio In: %d Hz -> Opus 48000 Hz)\n",
-		config.Width, config.Height, fps, coreSampleRate)
+		initW, initH, fps, coreSampleRate)
 
 	idleTicks := 0
 	maxIdleTicks := fps * 6 // 6 seconds of disconnect tolerance
@@ -693,21 +729,28 @@ func runMediaStreamLoop() {
 		// 2. Step emulator frame
 		emuSession.Step()
 
-		// 3. Encode & write video sample (fan-out via WebRTC track to all peers)
+		// 3. Queue video frame for async encoding (decoupled worker prevents ticker latency)
 		if videoTrack != nil {
 			rawRGB, pixFmt := emuSession.GetFrame()
 			geom := emuSession.GetGeometry()
-			sample, err := videoEncoder.Encode(rawRGB, pixFmt, geom.Width, geom.Height)
-			if err != nil {
-				if frameCounter%180 == 0 {
-					log.Printf("[runner:video] Encode error at frame %d: %v\n", frameCounter, err)
+			if len(rawRGB) > 0 {
+				buf := make([]byte, len(rawRGB))
+				copy(buf, rawRGB)
+				item := videoQueueItem{
+					rawRGB: buf,
+					format: pixFmt,
+					width:  geom.Width,
+					height: geom.Height,
 				}
-			} else {
-				videoSentBytes += len(sample.Data)
-				if wsErr := videoTrack.WriteSample(sample); wsErr != nil {
-					if frameCounter%180 == 0 {
-						log.Printf("[runner:video] WriteSample error at frame %d: %v\n", frameCounter, wsErr)
+				select {
+				case videoQueue <- item:
+				default:
+					// Drop older frame to keep pipeline strictly real-time
+					select {
+					case <-videoQueue:
+					default:
 					}
+					videoQueue <- item
 				}
 			}
 		}
