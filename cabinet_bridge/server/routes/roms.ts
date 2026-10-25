@@ -1095,7 +1095,7 @@ export function registerRomRoutes(app: Express) {
     const systemDisplay = (settings.systemDisplay ?? {}) as Record<string, any>;
     const sysLower = rom.system.toLowerCase();
     const configuredAspectRatio = systemDisplay[sysLower]?.aspectRatio || settings.globalAspectRatio || "auto";
-    const wasmMode = req.query.fallback === "0" ? "disabled" : (settings.wasmMode || "fallback");
+    const wasmMode = req.query.fallback === "0" ? "disabled" : (settings.wasmMode || "always");
 
     res.send(renderStreamPlayerPage({
       title: rom.title,

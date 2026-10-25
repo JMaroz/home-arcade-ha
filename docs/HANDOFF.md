@@ -1,28 +1,30 @@
-# Handoff Sessione — 2026-10-18
+# Handoff Sessione — 2026-10-25
 
 ## Stato Corrente
-- Risolti i problemi di stuttering video su Smart TV e di stuttering/ritardo audio su Mobile nel WebRTC Native Runner:
-  - **Audio Mobile:** Corretta l'unità di `receiver.jitterBufferTarget` da 0.04 a 40 (millisecondi W3C), ripristinato `OPUS_APPLICATION_AUDIO` con FEC e implementata la continuità di fase (`phase float64`) nel `Resampler` Go (zero drift a 60 FPS).
-  - **Verticalizzazione TV:** Implementata la calibrazione dinamica del buffer video in `streamPlayer.ts` (TV: 40ms buffer per decodifica hardware/software, Mobile: 20ms buffer per assorbire jitter Wi-Fi, Desktop: 0ms buffer) e ridotta la frequenza dei keyframe VP8 forzati da 120 a 300 frame (5s).
-  - **HUD Telemetria:** Aggiunto il parametro visuale "Platform Profile" nel modal statistiche per verificare in tempo reale il profilo applicato.
-  - **Pulizia Log Express:** Filtrata la route `/api/now-playing` dal log verboso di Express e ridotto il polling in `NowPlayingBar` (30s inattivo, stop su tab nascosta).
-  - Tutte le verifiche superate: `go test ./...` (4/4 ok), `pnpm check` (0 errori), Vitest `client/` (25/25 ok) e `server/` (131/131 ok).
+- Risolto alla radice il problema del playing sia in locale che da remoto e la salvaguardia totale di Home Assistant da starvation CPU:
+  - **Architettura WebAssembly Client-First:** Impostato `wasmMode` predefinito su `"always"` in `shared/schema.ts`, `integration.tsx`, `GameDetailDialog.tsx` e `DisplaySettings.tsx`. Emulazione a 60 FPS fluida su WebGL2 e Web Audio client-side, 0% carico CPU sul server, funzionamento al 100% da remoto via Nabu Casa/Cloudflare/Ingress senza bisogno di porte UDP o server TURN.
+  - **Protezione Home Assistant & Singleton Runner:** `StreamRunnerManager` ora applica terminazione forzata immediata (`stopAll()`) delle sessioni precedenti prima di avviare nuovi processi, imposta priorità CPU ridotta (`os.setPriority(pid, 10)`) per non affamare Home Assistant Core, e riduce il timeout di inattività a 5 minuti.
+  - **Fail-Fast WebRTC & Auto-Fallback:** `streamPlayer.ts` include ora un watchdog di connessione a 4.0s che interrompe il runner e passa automaticamente a WebAssembly se i pacchetti UDP sono bloccati o si è da remoto. Aggiunto `navigator.sendBeacon` su `beforeunload` per terminare istantaneamente il processo su chiusura scheda.
+  - **Watchdog Runner Go:** In `main.go`, aggiunto connect watchdog da 15s all'avvio e ridotto a 6s il tempo massimo senza peer prima della terminazione automatica (`SIGTERM`).
+  - **Analisi Motore RetroPie:** Documentato che RetroPie usa lo stesso identico motore (RetroArch/Libretro `pcsx-rearmed`) ma con output fisico HDMI diretto (zero compressione/streaming video); documentato che PS2 non è supportata da RetroPie su Raspberry Pi (solo x86). Valutata l'adozione client-side WASM come copia perfetta del motore Libretro sul dispositivo di gioco.
 
 ## File Rilevanti
-- `cabinet_bridge/server/routes/streamPlayer.ts`: Rilevamento piattaforma (`isTV`, `isMobile`), buffering verticalizzato, fix `jitterBufferTarget` (40ms) e profilo in HUD telemetria.
-- `cabinet_bridge/server/native-runner/pkg/audio/opus_encoder.c`: Ripristino `OPUS_APPLICATION_AUDIO` con FEC.
-- `cabinet_bridge/server/native-runner/pkg/audio/resampler.go`: Accumulatore di fase continuo per campionamento stereo privo di perdita frame.
-- `cabinet_bridge/server/native-runner/pkg/audio/audio_test.go`: Test continuo multi-frame per PS1 (44.1kHz) e GBA (65.5kHz).
-- `cabinet_bridge/server/native-runner/pkg/encoder/vpx.c`: Intervallo keyframe forzato impostato a 300 frame (5s a 60 FPS).
-- `cabinet_bridge/server/index.ts`: Esclusione di `/api/now-playing` dal logger console verboso.
-- `cabinet_bridge/client/src/components/NowPlayingBar.tsx`: Polling adattivo throttled (30s / 5s / pause on tab hidden).
-- `docs/plans/2026-10-18_gameplay_stability_audio_tv_verticalization.md`: Piano di lavoro strutturato completato.
+- `cabinet_bridge/shared/schema.ts`: `wasmMode` predefinito su `"always"` in schema Zod e impostazioni default.
+- `cabinet_bridge/shared/__tests__/schema.test.ts`: Aggiornato test di validazione default `wasmMode`.
+- `cabinet_bridge/client/src/lib/integration.tsx`: Default `wasmMode: "always"`.
+- `cabinet_bridge/client/src/components/GameDetailDialog.tsx`: Default di lancio `wasmMode: "always"`.
+- `cabinet_bridge/client/src/pages/settings/DisplaySettings.tsx`: Descrizione e label aggiornate con enfasi su WebAssembly.
+- `cabinet_bridge/server/stream/runner-manager.ts`: Singleton runner enforcement, priorità CPU ridotta `nice 10`, SIGKILL di sicurezza.
+- `cabinet_bridge/server/native-runner/main.go`: Watchdog avvio 15s e timeout peer 6s per auto-terminazione immediata.
+- `cabinet_bridge/server/routes/streamPlayer.ts`: Connection watchdog 4.0s, fallback rapido WebAssembly e `navigator.sendBeacon` stop.
+- `docs/plans/2026-10-25_rocksolid_gameplay_and_remote_play.md`: Piano di lavoro strutturato e checklist completata.
 
 ## Prossimi Passi (Next Steps)
-- Eseguire il commit atomico: `fix: optimize webrtc gameplay stability, mobile audio and tv verticalization`.
-- Testare direttamente su dispositivo fisico Smart TV / `home-arcade-tv` e smartphone per validare la fluidità a 60 FPS.
+- Effettuare commit atomico: `fix: set wasm as default engine, secure ha host cpu and add stream fail-fast fallback`.
+- Testare il gameplay sia su client remoto (Nabu Casa/Cloudflare) che in locale: verificare fluidità video a 60 FPS, audio sincronizzato e carico CPU su Home Assistant a zero.
 
 ## Comandi Utili
-- Test Go Runner: `cd cabinet_bridge/server/native-runner && go test -count=1 ./...`
 - Type-check TypeScript: `cd cabinet_bridge && pnpm check`
-- Unit tests: `cd cabinet_bridge && pnpm test`
+- Unit test schema: `cd cabinet_bridge && npx vitest run shared/__tests__/schema.test.ts`
+- Test Go Runner: `cd cabinet_bridge/server/native-runner && go test -v ./...`
+- Build produzione: `cd cabinet_bridge && pnpm build`

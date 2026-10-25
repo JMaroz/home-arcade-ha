@@ -218,6 +218,18 @@ func main() {
 		}
 	}()
 
+	// Startup connect watchdog: If no peer connects within 15 seconds, exit cleanly
+	go func() {
+		time.Sleep(15 * time.Second)
+		if !hasConnectedPeers() {
+			log.Println("[runner] No peers connected within 15s of startup, terminating runner to free resources.")
+			p, err := os.FindProcess(os.Getpid())
+			if err == nil {
+				_ = p.Signal(syscall.SIGTERM)
+			}
+		}
+	}()
+
 	// Graceful shutdown handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -645,7 +657,7 @@ func runMediaStreamLoop() {
 		config.Width, config.Height, fps, coreSampleRate)
 
 	idleTicks := 0
-	maxIdleTicks := fps * 30
+	maxIdleTicks := fps * 6 // 6 seconds of disconnect tolerance
 	frameCounter := 0
 	videoSentBytes := 0
 	audioSentBytes := 0
@@ -654,7 +666,11 @@ func runMediaStreamLoop() {
 		if !hasConnectedPeers() {
 			idleTicks++
 			if idleTicks > maxIdleTicks {
-				log.Println("[runner] No peers connected for 30s, pausing media loop")
+				log.Println("[runner] No peers connected for 6s, terminating runner.")
+				p, err := os.FindProcess(os.Getpid())
+				if err == nil {
+					_ = p.Signal(syscall.SIGTERM)
+				}
 				return
 			}
 			continue

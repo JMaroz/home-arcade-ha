@@ -100,17 +100,17 @@ export function DisplaySettings() {
 
           <Field 
             label="WebAssembly & Motore di Gioco" 
-            hint="Configura la priorità di esecuzione: esecuzione diretta WebAssembly nel browser, oppure Streaming Nativo WebRTC a 60 FPS con o senza fallback."
+            hint="Configura il motore di gioco: WebAssembly esegue l'emulatore direttamente nel browser (60 FPS fluidi, zero carico su Home Assistant, affidabile 100% da remoto via Nabu Casa/Cloudflare). Lo Streaming Nativo WebRTC esegue invece l'emulatore sul server (consigliato solo su host potenti e rete locale)."
           >
             <Select 
-              value={config.wasmMode || "fallback"} 
+              value={config.wasmMode || "always"} 
               onValueChange={(val: "always" | "fallback" | "disabled") => setConfig({ wasmMode: val })}
             >
               <SelectTrigger data-testid="select-wasm-mode"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="always">Attivo (WebAssembly nel browser)</SelectItem>
-                <SelectItem value="fallback">Opzionale se native non funziona (Consigliato)</SelectItem>
-                <SelectItem value="disabled">Disabilitato (Solo Nativo)</SelectItem>
+                <SelectItem value="always">WebAssembly nel browser (Consigliato: 60 FPS, Zero carico HA, Remoto OK)</SelectItem>
+                <SelectItem value="fallback">Streaming Nativo con fallback WebAssembly</SelectItem>
+                <SelectItem value="disabled">Solo Streaming Nativo (Sperimentale / Solo host potenti)</SelectItem>
               </SelectContent>
             </Select>
           </Field>

@@ -177,7 +177,7 @@ const defaultConfig: IntegrationConfig = {
   showSystemLabels: true,
   globalAspectRatio: "auto",
   globalShader: "none",
-  wasmMode: "fallback",
+  wasmMode: "always",
   netplayNickname: "HomeArcadePlayer",
   netplayPort: 55435,
   netplaySyncMode: "rollback",

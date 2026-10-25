@@ -194,6 +194,10 @@ export class StreamRunnerManager {
       }
     }
 
+    // Singleton session enforcement: immediately terminate any existing runner processes
+    // to prevent CPU starvation on Raspberry Pi / SBC hosts running Home Assistant
+    this.stopAll();
+
     const sessionId = crypto.randomUUID();
     const port = await getAvailablePort();
     const runnerBin = getRunnerBinaryPath();
@@ -240,6 +244,13 @@ export class StreamRunnerManager {
         }
       );
 
+      // Prioritize Home Assistant Core / OS processes over the emulation runner
+      if (child.pid) {
+        try {
+          os.setPriority(child.pid, 10);
+        } catch {}
+      }
+
       child.stdout?.on("data", (d) => {
         const text = d.toString().trim();
         console.log(`[native-runner:${sessionId.slice(0, 8)}] ${text}`);
@@ -273,13 +284,13 @@ export class StreamRunnerManager {
       session.status = "ready";
     }
 
-    // Auto-cleanup stale session after 15 minutes of inactivity
+    // Auto-cleanup stale session after 5 minutes of inactivity
     setTimeout(() => {
       const s = activeSessions.get(sessionId);
-      if (s && Date.now() - s.lastHeartbeat > 15 * 60 * 1000) {
+      if (s && Date.now() - s.lastHeartbeat > 5 * 60 * 1000) {
         this.stopSession(sessionId);
       }
-    }, 15 * 60 * 1000);
+    }, 5 * 60 * 1000);
 
     return { sessionId, port };
   }
@@ -393,6 +404,12 @@ export class StreamRunnerManager {
     if (session.process && !session.process.killed) {
       try {
         session.process.kill("SIGTERM");
+        const pid = session.process.pid;
+        setTimeout(() => {
+          if (pid) {
+            try { process.kill(pid, "SIGKILL"); } catch {}
+          }
+        }, 1500);
       } catch {}
     }
 

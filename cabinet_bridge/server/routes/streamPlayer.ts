@@ -809,6 +809,13 @@ export function renderStreamPlayerPage({
 
         window.addEventListener("beforeunload", () => {
           triggerAutoSave();
+          if (sessionId) {
+            try {
+              navigator.sendBeacon(ingressBase + "/api/stream/stop/" + sessionId);
+            } catch (_) {
+              fetch(ingressBase + "/api/stream/stop/" + sessionId, { method: "POST", keepalive: true }).catch(() => {});
+            }
+          }
         });
 
         document.addEventListener("visibilitychange", () => {
@@ -1055,7 +1062,7 @@ export function renderStreamPlayerPage({
         const wasmUrl = ingressBase + "/api/roms/" + romId + "/player?return=" + encodeURIComponent(returnUrl) + "&profile=" + ${profileId} + "&engine=wasm";
 
         const wasmFallbackEnabled = ${wasmMode !== "disabled"};
-        const wasmAutoFallback = ${wasmMode === "fallback"};
+        const wasmAutoFallback = ${wasmMode === "fallback" || wasmMode === "always"};
 
         ${wasmMode !== "disabled" ? `
         document.querySelectorAll(".wasm-fallback-link").forEach((link) => {
@@ -1070,10 +1077,10 @@ export function renderStreamPlayerPage({
           hudSub.textContent = message;
           hudActions.style.display = "block";
           if (wasmAutoFallback && !isGuest && wasmFallbackEnabled) {
-            hudSub.textContent = message + " — Switching to WebAssembly in 3s...";
+            hudSub.textContent = message + " — Passaggio automatico a WebAssembly...";
             setTimeout(() => {
               window.location.href = wasmUrl;
-            }, 3000);
+            }, 1200);
           }
         }
 
@@ -1199,15 +1206,33 @@ export function renderStreamPlayerPage({
               }
             };
 
+            let connectWatchdog = setTimeout(() => {
+              if (pc && pc.connectionState !== "connected") {
+                console.warn("[stream] WebRTC connection timeout after 4s (likely remote Ingress proxy or blocked UDP). Terminating runner and switching to WebAssembly.");
+                if (sessionId) {
+                  fetch(ingressBase + "/api/stream/stop/" + sessionId, { method: "POST" }).catch(() => {});
+                }
+                showError("Stream non raggiungibile", "Connessione WebRTC diretta non stabilita (tipico da remoto su Nabu Casa/Cloudflare o firewall). Passaggio a WebAssembly...");
+              }
+            }, 4000);
+
             pc.onconnectionstatechange = () => {
               console.log("[stream] WebRTC connection state:", pc.connectionState);
               if (pc.connectionState === "connected") {
+                if (connectWatchdog) {
+                  clearTimeout(connectWatchdog);
+                  connectWatchdog = null;
+                }
                 statusHud.classList.add("is-hidden");
                 statsBadge.textContent = (isGuest ? "P2" : "P1") + " · CONNECTED · " + ${JSON.stringify(defaultFpsLabel)};
                 try {
                   pc.getReceivers().forEach(r => configureReceiverBuffering(r));
                 } catch (_) {}
               } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+                if (connectWatchdog) {
+                  clearTimeout(connectWatchdog);
+                  connectWatchdog = null;
+                }
                 showError("Stream Disconnected", "The connection to the native emulation runner was lost.");
               }
             };
