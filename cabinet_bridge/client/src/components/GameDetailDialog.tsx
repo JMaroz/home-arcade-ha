@@ -222,7 +222,7 @@ export function GameDetailDialog({
     if (romId) {
       setLaunching(true);
       const returnTo = encodeURIComponent(window.location.href);
-      const wasmMode = config.wasmMode || "always";
+      const wasmMode = config.wasmMode || "disabled";
       const useWasm = !isPs2 && wasmMode === "always";
       const fallbackParam = wasmMode === "disabled" ? "&fallback=0" : "&fallback=1";
       const playerPath = useWasm ? `/api/roms/${romId}/player` : `/api/roms/${romId}/stream-player`;

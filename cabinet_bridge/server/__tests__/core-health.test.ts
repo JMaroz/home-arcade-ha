@@ -185,6 +185,7 @@ describe("Bootstrap Script Syntax Validation", () => {
       system: "ps1",
       profileId: 1,
       ingressBase: "/api/hassio_ingress/token123",
+      wasmMode: "fallback",
     });
 
     expect(html).toContain("Gran Turismo 2 · Native Stream · HomeArcade");

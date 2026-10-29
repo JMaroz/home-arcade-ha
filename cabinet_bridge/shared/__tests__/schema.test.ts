@@ -77,7 +77,7 @@ describe("integrationSettingsSchema", () => {
     const defaultRes = integrationSettingsSchema.safeParse({});
     expect(defaultRes.success).toBe(true);
     if (defaultRes.success) {
-      expect(defaultRes.data.wasmMode).toBe("always");
+      expect(defaultRes.data.wasmMode).toBe("disabled");
     }
 
     expect(integrationSettingsSchema.safeParse({ wasmMode: "always" }).success).toBe(true);

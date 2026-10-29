@@ -969,6 +969,7 @@ export function registerRomRoutes(app: Express) {
       .filter(Boolean);
     const safeRoots = [
       `${ROM_ROOT}${path.sep}`,
+      ...(settings.defaultRomDirectory ? [`${path.resolve(settings.defaultRomDirectory)}${path.sep}`] : []),
       ...watchPaths.map((p) => `${p}${path.sep}`)
     ];
     const resolvedPath = getAbsoluteFilePath(rom, watchPaths);
@@ -1041,7 +1042,10 @@ export function registerRomRoutes(app: Express) {
     const id = Number(req.params.id);
     const rom = await storage.getUploadedRom(id);
     if (!rom) return res.status(404).send(renderPlayerError("Uploaded ROM not found."));
-    if (rom.system === "ps2") {
+
+    const settings = await storage.getIntegrationSettings();
+    const wasmMode = settings.wasmMode || "disabled";
+    if (wasmMode === "disabled" || rom.system === "ps2") {
       const ingressMatch = req.originalUrl.match(/^\/api\/(?:hassio_)?ingress\/[^\/]+/);
       const resolvedBase = ingressMatch ? ingressMatch[0] : "";
       const qString = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
@@ -1095,7 +1099,7 @@ export function registerRomRoutes(app: Express) {
     const systemDisplay = (settings.systemDisplay ?? {}) as Record<string, any>;
     const sysLower = rom.system.toLowerCase();
     const configuredAspectRatio = systemDisplay[sysLower]?.aspectRatio || settings.globalAspectRatio || "auto";
-    const wasmMode = req.query.fallback === "0" ? "disabled" : (settings.wasmMode || "always");
+    const wasmMode = req.query.fallback === "0" ? "disabled" : (settings.wasmMode || "disabled");
 
     res.send(renderStreamPlayerPage({
       title: rom.title,

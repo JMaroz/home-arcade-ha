@@ -105,6 +105,7 @@ describe("Native Stream & Co-Op Routes", () => {
       returnTo: "/",
       romId: 42,
       system: "ps1",
+      wasmMode: "fallback",
     });
 
     expect(html).toContain('id="v-shoulders-left"');

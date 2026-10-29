@@ -99,18 +99,18 @@ export function DisplaySettings() {
           </Field>
 
           <Field 
-            label="WebAssembly & Motore di Gioco" 
-            hint="Configura il motore di gioco: WebAssembly esegue l'emulatore direttamente nel browser (60 FPS fluidi, zero carico su Home Assistant, affidabile 100% da remoto via Nabu Casa/Cloudflare). Lo Streaming Nativo WebRTC esegue invece l'emulatore sul server (consigliato solo su host potenti e rete locale)."
+            label="Motore di Gioco & Streaming Nativo" 
+            hint="Configura il motore di gioco: lo Streaming Nativo WebRTC esegue Libretro a 60 FPS direttamente su Home Assistant con latenza ultra-bassa, audio Opus sincronizzato, salvataggi istantanei e multiplayer. Con EmulatorJS disattivato i giochi partono sempre sul motore nativo senza richiedere il caricamento della ROM nel browser."
           >
             <Select 
-              value={config.wasmMode || "always"} 
+              value={config.wasmMode || "disabled"} 
               onValueChange={(val: "always" | "fallback" | "disabled") => setConfig({ wasmMode: val })}
             >
               <SelectTrigger data-testid="select-wasm-mode"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="always">WebAssembly nel browser (Consigliato: 60 FPS, Zero carico HA, Remoto OK)</SelectItem>
-                <SelectItem value="fallback">Streaming Nativo con fallback WebAssembly</SelectItem>
-                <SelectItem value="disabled">Solo Streaming Nativo (Sperimentale / Solo host potenti)</SelectItem>
+                <SelectItem value="disabled">Streaming Nativo WebRTC (Consigliato: 60 FPS, EmulatorJS disattivato)</SelectItem>
+                <SelectItem value="fallback">Streaming Nativo con fallback browser di emergenza</SelectItem>
+                <SelectItem value="always">Solo Browser Web (Legacy EmulatorJS)</SelectItem>
               </SelectContent>
             </Select>
           </Field>

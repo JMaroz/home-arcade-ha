@@ -19,7 +19,7 @@ export function renderStreamPlayerPage({
   profileId = 1,
   ingressBase = "",
   configuredAspectRatio = "auto",
-  wasmMode = "fallback",
+  wasmMode = "disabled",
 }: StreamPlayerOptions): string {
   const safeTitle = escapeHtml(title);
   const safeReturnTo = JSON.stringify(returnTo);
@@ -1208,13 +1208,19 @@ export function renderStreamPlayerPage({
 
             let connectWatchdog = setTimeout(() => {
               if (pc && pc.connectionState !== "connected") {
-                console.warn("[stream] WebRTC connection timeout after 4s (likely remote Ingress proxy or blocked UDP). Terminating runner and switching to WebAssembly.");
-                if (sessionId) {
-                  fetch(ingressBase + "/api/stream/stop/" + sessionId, { method: "POST" }).catch(() => {});
+                if (wasmFallbackEnabled && wasmAutoFallback) {
+                  console.warn("[stream] WebRTC connection timeout after 15s (likely remote Ingress proxy or blocked UDP). Terminating runner and switching to WebAssembly.");
+                  if (sessionId) {
+                    fetch(ingressBase + "/api/stream/stop/" + sessionId, { method: "POST" }).catch(() => {});
+                  }
+                  showError("Stream non raggiungibile", "Connessione WebRTC diretta non stabilita (tipico da remoto su Nabu Casa/Cloudflare o firewall). Passaggio a WebAssembly...");
+                } else {
+                  console.warn("[stream] WebRTC connection taking longer than expected. Showing retry options.");
+                  hudSub.textContent = "Connessione in corso... Il server sta caricando la ROM o attendendo il collegamento WebRTC.";
+                  hudActions.style.display = "block";
                 }
-                showError("Stream non raggiungibile", "Connessione WebRTC diretta non stabilita (tipico da remoto su Nabu Casa/Cloudflare o firewall). Passaggio a WebAssembly...");
               }
-            }, 4000);
+            }, 15000);
 
             pc.onconnectionstatechange = () => {
               console.log("[stream] WebRTC connection state:", pc.connectionState);
