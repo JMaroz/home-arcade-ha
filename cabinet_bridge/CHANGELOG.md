@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.66.4](https://github.com/JMaroz/home-arcade-ha/compare/v2.66.3...v2.66.4) (2026-10-29)
+
+
+### Bug Fixes
+
+* **stream:** default to native WebRTC ([3507121](https://github.com/JMaroz/home-arcade-ha/commit/35071211a0945b2c3b70871e4cdc33221ae8b247))
+
 ## [2.66.3](https://github.com/JMaroz/home-arcade-ha/compare/v2.66.2...v2.66.3) (2026-10-25)
 
 
