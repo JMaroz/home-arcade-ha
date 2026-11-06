@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.66.6](https://github.com/JMaroz/home-arcade-ha/compare/v2.66.5...v2.66.6) (2026-11-06)
+
+
+### Bug Fixes
+
+* improve arcade metadata and stream pacing ([20c9043](https://github.com/JMaroz/home-arcade-ha/commit/20c9043bec0de4836b3f2d3451aa89cf6d37d697))
+
 ## [2.66.5](https://github.com/JMaroz/home-arcade-ha/compare/v2.66.4...v2.66.5) (2026-11-06)
 
 
