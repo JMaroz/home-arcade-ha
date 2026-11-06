@@ -2,6 +2,7 @@ import { Express } from "express";
 import { storage } from "../storage";
 import { LIBRETRO_PLAYLISTS } from "./shared";
 import { fetchGameMetadata } from "../metadata-fetcher";
+import { getArcadeGameInfo, isArcadeDriverName } from "@shared/arcade-catalog";
 import { dataPath } from "../data-dir";
 import path from "node:path";
 import fs from "node:fs/promises";
@@ -114,9 +115,17 @@ export async function findLibretroBoxArt(system: string, title: string): Promise
   const playlist = LIBRETRO_PLAYLISTS[system];
   if (!playlist) return { url: null, message: "No Libretro thumbnail playlist configured." };
 
-  const ext = path.extname(title);
+  // Resolve short arcade/neogeo driver stems to canonical titles
+  const arcadeInfo = getArcadeGameInfo(system, title);
+  if (arcadeInfo?.canonicalName) {
+    const directUrl = `https://thumbnails.libretro.com/${encodeURIComponent(playlist)}/Named_Boxarts/${encodeURIComponent(arcadeInfo.canonicalName)}.png`;
+    return { url: directUrl, message: `Arcade canonical Libretro Named_Boxarts match: ${arcadeInfo.canonicalName}` };
+  }
+
+  const effectiveTitle = arcadeInfo?.title || title;
+  const ext = path.extname(effectiveTitle);
   const isActualExtension = Boolean(ext && /^\.[a-zA-Z0-9]{1,7}$/.test(ext));
-  const romClean = isActualExtension ? title.slice(0, -ext.length).trim() : title.trim();
+  const romClean = isActualExtension ? effectiveTitle.slice(0, -ext.length).trim() : effectiveTitle.trim();
   // ponytail: se il titolo è canonico No-Intro con regione, genera la URL deterministica senza scraping HTML
   if (/\([A-Za-z0-9, ]+\)/.test(romClean)) {
     const directUrl = `https://thumbnails.libretro.com/${encodeURIComponent(playlist)}/Named_Boxarts/${encodeURIComponent(romClean)}.png`;
@@ -198,13 +207,18 @@ export function registerScrapeRoutes(app: Express) {
     const rom = await storage.getUploadedRom(id);
     if (!rom) return res.status(404).json({ message: "ROM not found." });
 
-    const libretro = await findLibretroBoxArt(rom.system, rom.title);
+    const lookupKey = rom.fileName || rom.originalName || rom.title;
+    const libretro = await findLibretroBoxArt(rom.system, lookupKey);
     if (libretro.url) {
-      const meta = {
+      const arcade = getArcadeGameInfo(rom.system, lookupKey);
+      const meta: Record<string, any> = {
         artUrl: libretro.url,
         scrapeStatus: "matched",
         scrapeMessage: libretro.message,
       };
+      if (arcade && isArcadeDriverName(rom.title)) {
+        meta.title = arcade.title;
+      }
       const updated = await storage.updateUploadedRomMetadata(id, meta);
       return res.json(updated);
     }
@@ -218,7 +232,7 @@ export function registerScrapeRoutes(app: Express) {
     const rom = await storage.getUploadedRom(id);
     if (!rom) return res.status(404).json({ message: "ROM not found." });
 
-    const meta = await fetchGameMetadata(rom.system, rom.title, rom.raGameId);
+    const meta = await fetchGameMetadata(rom.system, rom.title, rom.raGameId, rom.fileName || rom.originalName);
     if (!meta || meta.scrapeStatus === "failed") {
       return res.json({ success: false, message: meta?.scrapeMessage || "No metadata found." });
     }
@@ -253,12 +267,12 @@ export function registerScrapeRoutes(app: Express) {
       send({ type: "progress", phase: "meta", current: count, total: targetRoms.length, title: rom.title });
 
       try {
-        const meta = await fetchGameMetadata(rom.system, rom.title, rom.raGameId);
-        if (meta.artUrl || meta.description || meta.releaseYear) {
+        const meta = await fetchGameMetadata(rom.system, rom.title, rom.raGameId, rom.fileName || rom.originalName);
+        if (meta.artUrl || meta.description || meta.releaseYear || meta.title) {
           await storage.updateUploadedRomMetadata(rom.id, meta);
           if (meta.artUrl) artMatched++;
           if (meta.description || meta.releaseYear) metaMatched++;
-          send({ type: "result", phase: "meta", id: rom.id, title: rom.title, status: "success" });
+          send({ type: "result", phase: "meta", id: rom.id, title: meta.title || rom.title, status: "success" });
         } else {
           artFailed++;
           metaFailed++;
@@ -284,8 +298,8 @@ export function registerScrapeRoutes(app: Express) {
     } else {
       let count = 0;
       for (const rom of roms) {
-        const meta = await fetchGameMetadata(rom.system, rom.title, rom.raGameId).catch(() => null);
-        if (meta && (meta.artUrl || meta.description || meta.releaseYear)) {
+        const meta = await fetchGameMetadata(rom.system, rom.title, rom.raGameId, rom.fileName || rom.originalName).catch(() => null);
+        if (meta && (meta.artUrl || meta.description || meta.releaseYear || meta.title)) {
           await storage.updateUploadedRomMetadata(rom.id, meta);
           count++;
         }
@@ -296,7 +310,7 @@ export function registerScrapeRoutes(app: Express) {
 
   app.post("/api/roms/scrape-missing", async (req, res) => {
     const roms = await storage.listUploadedRoms();
-    const missing = roms.filter((r) => !r.artUrl || !r.description);
+    const missing = roms.filter((r) => !r.artUrl || !r.description || isArcadeDriverName(r.title));
     if (missing.length === 0) return res.json({ message: "Nessun gioco ha metadati o copertine mancanti." });
 
     if (req.headers.accept?.includes("text/event-stream")) {
@@ -304,8 +318,8 @@ export function registerScrapeRoutes(app: Express) {
     } else {
       let count = 0;
       for (const rom of missing) {
-        const meta = await fetchGameMetadata(rom.system, rom.title, rom.raGameId).catch(() => null);
-        if (meta && (meta.artUrl || meta.description || meta.releaseYear)) {
+        const meta = await fetchGameMetadata(rom.system, rom.title, rom.raGameId, rom.fileName || rom.originalName).catch(() => null);
+        if (meta && (meta.artUrl || meta.description || meta.releaseYear || meta.title)) {
           await storage.updateUploadedRomMetadata(rom.id, meta);
           count++;
         }

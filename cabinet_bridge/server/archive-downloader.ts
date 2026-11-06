@@ -11,6 +11,7 @@ import { getDeterministicBoxArtUrl, RETRO_BEST_PLATFORMS, TINY_BEST_PLATFORMS, A
 import { fetchGameMetadata, type UnifiedGameMetadata } from "./metadata-fetcher";
 import { computeFileHash } from "./scanner";
 import { titleFromFileName, slugify } from "./routes/utils";
+import { getArcadeGameInfo } from "@shared/arcade-catalog";
 import { ROM_ROOT } from "./routes/shared";
 
 export type DownloadStatus = "pending" | "downloading" | "extracting" | "indexing" | "completed" | "error" | "cancelled";
@@ -305,11 +306,12 @@ export async function startArchiveDownload(options: {
             continue;
           }
 
-          const cleanTitle = titleFromFileName(entryBase);
+          const arcade = getArcadeGameInfo(options.system, entryBase);
+          const cleanTitle = arcade?.title || titleFromFileName(entryBase);
           const slug = slugify(cleanTitle) + "-" + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 4);
 
-          const meta: UnifiedGameMetadata = await fetchGameMetadata(options.system, cleanTitle).catch(() => ({
-            artUrl: getDeterministicBoxArtUrl(options.system, cleanTitle),
+          const meta: UnifiedGameMetadata = await fetchGameMetadata(options.system, cleanTitle, null, entryBase).catch(() => ({
+            artUrl: getDeterministicBoxArtUrl(options.system, arcade?.canonicalName || cleanTitle),
             scrapeStatus: "matched" as const,
           }));
 
@@ -359,12 +361,13 @@ export async function startArchiveDownload(options: {
         job.status = "indexing";
         job.progress = 100;
 
-        const gameTitle = options.title || titleFromFileName(options.fileName);
+        const arcade = getArcadeGameInfo(options.system, options.fileName);
+        const gameTitle = arcade?.title || options.title || titleFromFileName(options.fileName);
         const baseSlug = slugify(gameTitle);
         const slug = `${options.system}_${baseSlug}_${Date.now().toString(36)}`;
 
-        const meta: UnifiedGameMetadata = await fetchGameMetadata(options.system, gameTitle).catch(() => ({
-          artUrl: getDeterministicBoxArtUrl(options.system, options.fileName),
+        const meta: UnifiedGameMetadata = await fetchGameMetadata(options.system, gameTitle, null, options.fileName).catch(() => ({
+          artUrl: getDeterministicBoxArtUrl(options.system, arcade?.canonicalName || options.fileName),
           scrapeStatus: "matched" as const,
         }));
 

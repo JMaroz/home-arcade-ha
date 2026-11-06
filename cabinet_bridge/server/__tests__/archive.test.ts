@@ -29,6 +29,21 @@ describe("Internet Archive ROM Management & Deterministic Box Art", () => {
       const url = getDeterministicBoxArtUrl("nes", "The Legend of Zelda (USA)");
       expect(url).toBe("https://thumbnails.libretro.com/Nintendo%20-%20Nintendo%20Entertainment%20System/Named_Boxarts/The%20Legend%20of%20Zelda%20(USA).png");
     });
+
+    it("resolves short Neo Geo and arcade driver stems to direct canonical URLs", async () => {
+      const mslugZip = await findLibretroBoxArt("neogeo", "mslug.zip");
+      expect(mslugZip.url).toBe("https://thumbnails.libretro.com/SNK%20-%20Neo%20Geo/Named_Boxarts/Metal%20Slug%20-%20Super%20Vehicle-001.png");
+      expect(mslugZip.message).toContain("Arcade canonical");
+
+      const mslugCap = await findLibretroBoxArt("neogeo", "Mslug");
+      expect(mslugCap.url).toBe("https://thumbnails.libretro.com/SNK%20-%20Neo%20Geo/Named_Boxarts/Metal%20Slug%20-%20Super%20Vehicle-001.png");
+
+      const sf2 = await findLibretroBoxArt("arcade", "sf2.zip");
+      expect(sf2.url).toBe("https://thumbnails.libretro.com/FBNeo%20-%20Arcade%20Games/Named_Boxarts/Street%20Fighter%20II%20-%20The%20World%20Warrior%20(World%20910522).png");
+
+      const detMslug = getDeterministicBoxArtUrl("neogeo", "mslug.zip");
+      expect(detMslug).toBe("https://thumbnails.libretro.com/SNK%20-%20Neo%20Geo/Named_Boxarts/Metal%20Slug%20-%20Super%20Vehicle-001.png");
+    });
   });
 
   describe("Archive Client Catalog & Hardware Gating", () => {

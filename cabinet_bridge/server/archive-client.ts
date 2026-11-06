@@ -1,5 +1,6 @@
 import { ROM_EXTENSIONS, LIBRETRO_PLAYLISTS } from "./routes/shared";
 import { REQUIRED_BIOS, CORE_PERFORMANCE_TIERS, type PerformanceTier } from "@shared/bios-metadata";
+import { getArcadeGameInfo } from "@shared/arcade-catalog";
 import { dataPath } from "./data-dir";
 import path from "node:path";
 import fs from "node:fs/promises";
@@ -306,7 +307,8 @@ function cleanGameTitle(rawName: string): { title: string; region: string } {
 export function getDeterministicBoxArtUrl(system: string, baseName: string): string {
   const playlist = LIBRETRO_PLAYLISTS[system];
   if (!playlist) return "";
-  const clean = baseName.replace(/\.[^.]+$/, "").trim();
+  const arcade = getArcadeGameInfo(system, baseName);
+  const clean = arcade?.canonicalName || baseName.replace(/\.[^.]+$/, "").trim();
   return `https://thumbnails.libretro.com/${encodeURIComponent(playlist)}/Named_Boxarts/${encodeURIComponent(clean)}.png`;
 }
 

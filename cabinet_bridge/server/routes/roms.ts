@@ -17,6 +17,7 @@ import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { z } from "zod";
 import { insertUploadedRomSchema, type UploadedRom } from "@shared/schema";
+import { getArcadeGameInfo } from "@shared/arcade-catalog";
 import { extractFirstRomFromZip, titleFromFileName, slugify, getAbsoluteFilePath, detectSystemFromContent } from "./utils";
 import { findLibretroBoxArt } from "./scrape";
 import { getHltbData } from "../hltb";
@@ -173,9 +174,10 @@ export function registerRomRoutes(app: Express) {
       }
 
       const romHash = hash.digest("hex");
-      const title = titleFromFileName(originalName);
+      const arcade = existing ? getArcadeGameInfo(existing.system, originalName) : null;
+      const title = arcade?.title || titleFromFileName(originalName);
       const discMatch = title.match(/\s*[\(\[](?:disc|disk|cd)\s*(\d+)[\)\]]|\s+(?:disc|disk|cd)\s*(\d+)/i);
-      const cleanTitle = discMatch ? title.replace(discMatch[0], "").trim() : title;
+      const cleanTitle = arcade?.title || (discMatch ? title.replace(discMatch[0], "").trim() : title);
 
       const updated = await storage.updateUploadedRomFile(id, {
         title: cleanTitle,
@@ -252,7 +254,11 @@ export function registerRomRoutes(app: Express) {
     let cleanTitle: string;
     let discGroup: string | null = null;
 
-    if (isM3u) {
+    const arcade = getArcadeGameInfo(system, originalName);
+    if (arcade) {
+      title = arcade.title;
+      cleanTitle = arcade.title;
+    } else if (isM3u) {
       isPlaylist = true;
       m3uContent = await fs.readFile(filePath, "utf8").catch(() => null);
       title = titleFromFileName(originalName);

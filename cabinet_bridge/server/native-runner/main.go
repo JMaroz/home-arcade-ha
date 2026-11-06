@@ -613,6 +613,26 @@ func ensureMediaStreamLoop() {
 	go runMediaStreamLoop()
 }
 
+// CalculateSampleDuration computes the sample duration based on elapsed emulation frames,
+// ensuring Pion RTP timestamps accurately advance even when intermediate frames are dropped.
+func CalculateSampleDuration(fps int, lastSentFrameNum, currentFrameNum uint64) (time.Duration, uint64) {
+	if fps <= 0 {
+		fps = 60
+	}
+	nominalDuration := time.Second / time.Duration(fps)
+	if lastSentFrameNum == 0 || currentFrameNum <= lastSentFrameNum {
+		return nominalDuration, currentFrameNum
+	}
+	frameDelta := currentFrameNum - lastSentFrameNum
+	sampleDuration := time.Duration(frameDelta) * nominalDuration
+	if sampleDuration < nominalDuration {
+		sampleDuration = nominalDuration
+	} else if sampleDuration > time.Second {
+		sampleDuration = time.Second
+	}
+	return sampleDuration, currentFrameNum
+}
+
 // Emulation and media streaming loop with fan-out to all connected peers
 func runMediaStreamLoop() {
 	defer func() {
@@ -654,10 +674,11 @@ func runMediaStreamLoop() {
 	defer videoEncoder.Close()
 
 	type videoQueueItem struct {
-		rawRGB []byte
-		format encoder.PixelFormat
-		width  int
-		height int
+		rawRGB   []byte
+		format   encoder.PixelFormat
+		width    int
+		height   int
+		frameNum uint64
 	}
 
 	videoQueue := make(chan videoQueueItem, 1)
@@ -666,6 +687,8 @@ func runMediaStreamLoop() {
 
 	// Decoupled asynchronous video encoding worker: ensures audio and emulation pacing never stall
 	go func() {
+		var lastSentFrameNum uint64
+
 		for {
 			select {
 			case <-videoDone:
@@ -676,6 +699,7 @@ func runMediaStreamLoop() {
 				}
 				sample, err := videoEncoder.Encode(item.rawRGB, item.format, item.width, item.height)
 				if err == nil && videoTrack != nil {
+					sample.Duration, lastSentFrameNum = CalculateSampleDuration(fps, lastSentFrameNum, item.frameNum)
 					_ = videoTrack.WriteSample(sample)
 				}
 			}
@@ -737,10 +761,11 @@ func runMediaStreamLoop() {
 				buf := make([]byte, len(rawRGB))
 				copy(buf, rawRGB)
 				item := videoQueueItem{
-					rawRGB: buf,
-					format: pixFmt,
-					width:  geom.Width,
-					height: geom.Height,
+					rawRGB:   buf,
+					format:   pixFmt,
+					width:    geom.Width,
+					height:   geom.Height,
+					frameNum: uint64(frameCounter),
 				}
 				select {
 				case videoQueue <- item:

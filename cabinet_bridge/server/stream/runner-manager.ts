@@ -294,10 +294,10 @@ export class StreamRunnerManager {
         }
       );
 
-      // Prioritize Home Assistant Core / OS processes over the emulation runner
+      // Standard process priority (0): do not demote to nice 10 which starves real-time emulation & video encoding
       if (child.pid) {
         try {
-          os.setPriority(child.pid, 10);
+          os.setPriority(child.pid, 0);
         } catch {}
       }
 

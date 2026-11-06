@@ -1,6 +1,8 @@
 import { storage } from "./storage";
 import { findLibretroBoxArt } from "./routes/scrape";
 import { LIBRETRO_PLAYLISTS } from "./routes/shared";
+import { getArcadeGameInfo } from "@shared/arcade-catalog";
+import { getDeterministicBoxArtUrl } from "./archive-client";
 import path from "node:path";
 
 export interface UnifiedGameMetadata {
@@ -169,7 +171,8 @@ function lookupOpenVgdbMetadata(title: string, system: string): Partial<UnifiedG
 export async function fetchGameMetadata(
   system: string,
   title: string,
-  raGameId?: number | null
+  raGameId?: number | null,
+  fileName?: string
 ): Promise<UnifiedGameMetadata> {
   const settings = await storage.getIntegrationSettings();
   const sourcePreference = settings.metadataSource || "auto";
@@ -179,19 +182,37 @@ export async function fetchGameMetadata(
     scrapeMessage: "Metadata retrieved successfully.",
   };
 
+  const arcadeInfo = getArcadeGameInfo(system, fileName || title) || getArcadeGameInfo(system, title);
+  if (arcadeInfo) {
+    result.title = arcadeInfo.title;
+    if (arcadeInfo.year) result.releaseYear = arcadeInfo.year;
+    if (arcadeInfo.developer) result.developer = arcadeInfo.developer;
+    if (arcadeInfo.publisher) result.publisher = arcadeInfo.publisher;
+    if (arcadeInfo.genre) result.genre = arcadeInfo.genre;
+    if (arcadeInfo.description) result.description = arcadeInfo.description;
+  }
+
+  const searchTitle = arcadeInfo?.canonicalName || arcadeInfo?.title || title;
+
   // 1. Box Art matching
-  const artMatch = await findLibretroBoxArt(system, title);
+  const artMatch = await findLibretroBoxArt(system, searchTitle);
   if (artMatch.url) {
     result.artUrl = artMatch.url;
+  } else if (arcadeInfo?.canonicalName) {
+    result.artUrl = getDeterministicBoxArtUrl(system, arcadeInfo.canonicalName);
   }
 
   // 2. OpenVGDB / Built-in catalog check
-  const builtinMeta = lookupOpenVgdbMetadata(title, system);
-  Object.assign(result, builtinMeta);
+  const builtinMeta = lookupOpenVgdbMetadata(searchTitle, system);
+  if (builtinMeta.releaseYear && !result.releaseYear) result.releaseYear = builtinMeta.releaseYear;
+  if (builtinMeta.developer && !result.developer) result.developer = builtinMeta.developer;
+  if (builtinMeta.publisher && !result.publisher) result.publisher = builtinMeta.publisher;
+  if (builtinMeta.genre && !result.genre) result.genre = builtinMeta.genre;
+  if (builtinMeta.description && !result.description) result.description = builtinMeta.description;
 
   // 3. Internet Archive / RA / Source preference execution
   if (sourcePreference === "archive" || (sourcePreference === "auto" && !result.description)) {
-    const archiveMeta = await fetchArchiveMetadata(title, system);
+    const archiveMeta = await fetchArchiveMetadata(searchTitle, system);
     if (archiveMeta.description && !result.description) result.description = archiveMeta.description;
     if (archiveMeta.releaseYear && !result.releaseYear) result.releaseYear = archiveMeta.releaseYear;
     if (archiveMeta.developer && !result.developer) result.developer = archiveMeta.developer;

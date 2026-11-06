@@ -1,22 +1,30 @@
 # Handoff Sessione — 2026-11-06
 
 ## Stato Corrente
-- Riscritto e completato il nuovo [README.md](file:///Users/andrea/Repository/home-arcade-ha/README.md) fondendo la visione di Product Marketing Manager e Tech Leader:
-  - **PMM Hero & Value Proposition:** Presentazione di HomeArcade non come mero add-on, ma come vera e propria console cloud retrogaming per Home Assistant, TV da salotto e cabinati arcade fai-da-te.
-  - **Showcase Tecnico di Livello Mondiale:** Valorizzata l'architettura dual-engine (Native Go/CGO Libretro Runner con WebRTC a 60 FPS e latenza sub-frame + fallback universale WebAssembly), stack moderno (React 19, Tailwind v4, Vite 8, Express 5, Drizzle ORM, better-sqlite3) e container multi-arch (`amd64`/`aarch64`).
-  - **Feature Star in Evidenza:** Downloader Internet Archive integrato, rilevamento automatico binario delle console, sintesi M3U multi-disco con disc swapping virtuale, automazioni smart home su entità HA (`sensor.homearcade_game`, `binary_sensor.homearcade_active`), Lovelace card dedicata (`homearcade-card.js`), Warp Link QR handoff a mobile/tablet, lobby Netplay P2P e RetroAchievements.
-  - **One-Click My Home Assistant:** Badge interattivo ufficiale per aggiungere il repository con un solo click.
-  - **Sincronizzazione Dati & Pulizia:** Allineata versione reale (v2.66.5 post auto-release), corretti i percorsi rotti delle immagini e spostato lo storico changelog dettagliato in `CHANGELOG.md`.
+- **Completate con successo tutte le 4 fasi del piano** [docs/plans/2026-11-06_fix_neogeo_arcade_performance_and_metadata.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-11-06_fix_neogeo_arcade_performance_and_metadata.md):
+  1. **Pacing WebRTC & Frame Duration Fix**: Implementata in `native-runner/main.go` la funzione `CalculateSampleDuration` che calcola la durata reale del sample RTP in base ai frame emulati dall'ultimo frame inviato, azzerando la deriva cumulativa video rispetto all'audio Opus quando intervengono frame drop.
+  2. **Priorità CPU Ripristinata**: Rimosso il depotenziamento `os.setPriority(child.pid, 10)` in `runner-manager.ts` e impostato priorità standard `0`.
+  3. **Catalogo Driver Arcade & Neo Geo**: Creato [cabinet_bridge/shared/arcade-catalog.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/shared/arcade-catalog.ts) con mappature canoniche No-Intro / Libretro, titoli puliti e metadati per i 140 giochi Neo Geo MVS e principali classici arcade.
+  4. **Integrazione Scraper, Downloader e Migrazione Retroattiva**: `findLibretroBoxArt`, `metadata-fetcher`, `archive-downloader` e `routes/roms.ts` risolvono automaticamente i nomi brevi (`mslug` → `Metal Slug - Super Vehicle-001`). Gli endpoint `scrape-missing` e `scrape-all` riconciliano retroattivamente i giochi esistenti nel DB.
+- Tutti i test Go (100%), Typecheck TypeScript (`tsc --noEmit`), suite Vitest (30 suite, 186 test) e build di produzione completati con successo.
 
 ## File Rilevanti
-- [README.md](file:///Users/andrea/Repository/home-arcade-ha/README.md): Documento principale completamente rinnovato con struttura standard per progetti open-source d'eccellenza.
-- [docs/plans/2026-11-06_elevate_readme_marketing_and_tech_showcase.md](file:///Users/andrea/Repository/home-arcade-ha/docs/plans/2026-11-06_elevate_readme_marketing_and_tech_showcase.md): Piano di lavoro strutturato e checklist di completamento.
+- [cabinet_bridge/server/native-runner/main.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/main.go): Fix durata sample RTP e pacing asincrono video.
+- [cabinet_bridge/server/native-runner/main_test.go](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/native-runner/main_test.go): Test unitari del calcolo della durata del sample video.
+- [cabinet_bridge/server/stream/runner-manager.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/stream/runner-manager.ts): Priorità normale CPU (0) per il Native Runner.
+- [cabinet_bridge/shared/arcade-catalog.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/shared/arcade-catalog.ts): Catalogo ufficiale MVS Neo Geo e Arcade.
+- [cabinet_bridge/shared/__tests__/arcade-catalog.test.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/shared/__tests__/arcade-catalog.test.ts): Test di risoluzione driver e alias.
+- [cabinet_bridge/server/metadata-fetcher.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/metadata-fetcher.ts): Recupero metadati canonici per driver arcade.
+- [cabinet_bridge/server/routes/scrape.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/scrape.ts): Matching copertine dirette Libretro e migrazione titoli esistenti.
+- [cabinet_bridge/server/archive-downloader.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/archive-downloader.ts): Assegnazione titolo canonico durante download o estrazione set.
+- [cabinet_bridge/server/routes/roms.ts](file:///Users/andrea/Repository/home-arcade-ha/cabinet_bridge/server/routes/roms.ts): Risoluzione titolo canonico all'upload di file zip arcade.
 
 ## Prossimi Passi (Next Steps)
-- Eseguire commit atomico convenzionale: `docs: elevate README with product marketing vision and tech architecture showcase`.
-- Presentare il nuovo README all'utente per revisione e feedback visivo.
+- Eseguire in UI "Scrape Missing" o "Scrape All" dalla sezione Manutenzione / Libreria per aggiornare le copertine e i titoli dei giochi Neo Geo già presenti nel DB.
+- Avviare Metal Slug in HomeArcade e verificare la perfetta fluidità e sincronizzazione audio/video.
 
 ## Comandi Utili
+- Test Unitari Go: `cd cabinet_bridge/server/native-runner && /usr/local/bin/go test -v ./...`
 - Typecheck TypeScript: `cd cabinet_bridge && ./node_modules/.bin/tsc --noEmit`
-- Test Unitari Vitest: `cd cabinet_bridge && ./node_modules/.bin/vitest run`
-- Verifica Git Status: `git status`
+- Test Vitest: `cd cabinet_bridge && ./node_modules/.bin/vitest run`
+- Build Produzione: `cd cabinet_bridge && ./node_modules/.bin/tsx script/build.ts`

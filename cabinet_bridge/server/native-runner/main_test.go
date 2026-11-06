@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"homearcade/runner/pkg/emulator"
 )
@@ -165,6 +166,56 @@ func TestHandleSaveAndLoad(t *testing.T) {
 	handleLoad(wEmptyLoad, reqEmptyLoad)
 	if wEmptyLoad.Code != http.StatusBadRequest {
 		t.Fatalf("Expected 400 for empty load payload, got %d", wEmptyLoad.Code)
+	}
+}
+
+func TestCalculateSampleDuration(t *testing.T) {
+	fps := 60
+
+	// 1. First frame sent: should return nominal duration
+	dur, last := CalculateSampleDuration(fps, 0, 1)
+	if dur != time.Second/60 {
+		t.Fatalf("Expected nominal duration %v, got %v", time.Second/60, dur)
+	}
+	if last != 1 {
+		t.Fatalf("Expected lastSentFrameNum 1, got %d", last)
+	}
+
+	// 2. Next consecutive frame (no drops): delta = 1 -> nominal duration
+	dur, last = CalculateSampleDuration(fps, 1, 2)
+	if dur != time.Second/60 {
+		t.Fatalf("Expected nominal duration %v, got %v", time.Second/60, dur)
+	}
+	if last != 2 {
+		t.Fatalf("Expected lastSentFrameNum 2, got %d", last)
+	}
+
+	// 3. 2 frames dropped (frame 3 and 4 dropped, frame 5 arrives): delta = 3 -> 3 * nominal duration (~50ms)
+	dur, last = CalculateSampleDuration(fps, 2, 5)
+	expectedDur := 3 * (time.Second / 60)
+	if dur != expectedDur {
+		t.Fatalf("Expected duration %v, got %v", expectedDur, dur)
+	}
+	if last != 5 {
+		t.Fatalf("Expected lastSentFrameNum 5, got %d", last)
+	}
+
+	// 4. Stale or duplicated frame number: returns nominal duration without negative/zero pacing
+	dur, last = CalculateSampleDuration(fps, 5, 5)
+	if dur != time.Second/60 {
+		t.Fatalf("Expected nominal duration for duplicate frame, got %v", dur)
+	}
+	if last != 5 {
+		t.Fatalf("Expected lastSentFrameNum 5, got %d", last)
+	}
+
+	// 5. Very large frame gap (e.g. pause/resume): capped at 1 second max
+	dur, last = CalculateSampleDuration(fps, 5, 1000)
+	if dur != time.Second {
+		t.Fatalf("Expected clamped duration 1s, got %v", dur)
+	}
+	if last != 1000 {
+		t.Fatalf("Expected lastSentFrameNum 1000, got %d", last)
 	}
 }
 
