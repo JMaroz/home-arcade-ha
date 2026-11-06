@@ -15,6 +15,7 @@ type StandaloneSession struct {
 	geometry    RetroGeometry
 	romPath     string
 	corePath    string
+	system      string
 	isRunning   bool
 	frameBuffer []byte
 	audioBuffer []int16
@@ -66,10 +67,23 @@ func (s *StandaloneSession) Load(romPath, corePath string) error {
 	return nil
 }
 
+func (s *StandaloneSession) SetSystem(system string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.system = system
+}
+
 // CreateActiveSession initializes an emulator session with Cgo Libretro if available, or StandaloneSession
-func CreateActiveSession(width, height, fps, sampleRate int, romPath, corePath string) EmulatorSession {
+func CreateActiveSession(width, height, fps, sampleRate int, romPath, corePath string, system ...string) EmulatorSession {
+	var targetSystem string
+	if len(system) > 0 {
+		targetSystem = system[0]
+	}
 	if corePath != "" && romPath != "" {
 		cgoSess := NewCgoLibretroSession(width, height, fps, sampleRate)
+		if targetSystem != "" {
+			cgoSess.SetSystem(targetSystem)
+		}
 		if err := cgoSess.Load(romPath, corePath); err == nil {
 			return cgoSess
 		} else {
@@ -77,6 +91,9 @@ func CreateActiveSession(width, height, fps, sampleRate int, romPath, corePath s
 		}
 	}
 	fallback := NewStandaloneSession(width, height, fps, sampleRate)
+	if targetSystem != "" {
+		fallback.SetSystem(targetSystem)
+	}
 	_ = fallback.Load(romPath, corePath)
 	return fallback
 }

@@ -48,6 +48,9 @@ export const REQUIRED_BIOS: Record<string, BiosEntry[]> = {
     { filename: "dc_boot.bin", md5: "e10c53c2f8b90bab96ead2d368858623", label: "Dreamcast Boot", sourceUrl: `${RETROBIOS_BASE}/Sega/Dreamcast/dc_boot.bin` },
     { filename: "dc_flash.bin", md5: "0a93f7940c455905bea6e392dfde92a4", label: "Dreamcast Flash", sourceUrl: `${RETROBIOS_BASE}/Sega/Dreamcast/dc_flash.bin` },
   ],
+  neogeo: [
+    { filename: "neogeo.zip", md5: "00000000000000000000000000000000", label: "SNK Neo Geo BIOS" },
+  ],
 };
 
 export const CORE_PERFORMANCE_TIERS: Record<string, { arm64: PerformanceTier; x64: PerformanceTier }> = {
@@ -65,6 +68,7 @@ export const CORE_PERFORMANCE_TIERS: Record<string, { arm64: PerformanceTier; x6
   nes: { arm64: "excellent", x64: "excellent" },
   segaMD: { arm64: "excellent", x64: "excellent" },
   fbneo: { arm64: "excellent", x64: "excellent" },
+  mame2003_plus: { arm64: "excellent", x64: "excellent" },
   melonds: { arm64: "playable", x64: "good" },
   ppsspp: { arm64: "excellent", x64: "excellent" },
 };

@@ -134,6 +134,18 @@ export class StreamRunnerManager {
 
     const coresDir = path.resolve(dataPath("cores"));
     await ensureDir(coresDir);
+
+    // For arcade, prefer mame2003_plus if available for MAME 2003-Plus romsets, otherwise fbneo
+    if (rom.system.toLowerCase() === "arcade") {
+      const mamePlusPath = path.join(coresDir, "mame2003_plus_libretro.so");
+      try {
+        await fs.access(mamePlusPath);
+        coreFilename = "mame2003_plus_libretro.so";
+      } catch {
+        // Fall back to configured coreFilename (fbneo_libretro.so)
+      }
+    }
+
     let corePath = path.join(coresDir, coreFilename);
 
     try {
@@ -152,6 +164,16 @@ export class StreamRunnerManager {
         }
       } else if (rom.system.toLowerCase() === "ps2") {
         const altCore = coreFilename === "pcsx2_libretro.so" ? "play_libretro.so" : "pcsx2_libretro.so";
+        const altPath = path.join(coresDir, altCore);
+        try {
+          await fs.access(altPath);
+          coreFilename = altCore;
+          corePath = altPath;
+        } catch {
+          throw new Error(`Native core '${coreFilename}' is not installed in ${coresDir}. Please run First-Run Setup.`);
+        }
+      } else if (rom.system.toLowerCase() === "arcade" || rom.system.toLowerCase() === "mame") {
+        const altCore = coreFilename === "mame2003_plus_libretro.so" ? "fbneo_libretro.so" : "mame2003_plus_libretro.so";
         const altPath = path.join(coresDir, altCore);
         try {
           await fs.access(altPath);
@@ -180,6 +202,34 @@ export class StreamRunnerManager {
       await fs.access(romPath);
     } catch {
       throw new Error(`ROM file not found at path: ${romPath}`);
+    }
+
+    // Neo Geo auto-BIOS sync: ensure neogeo.zip is copied to biosDir if present in ROM dir
+    if (rom.system.toLowerCase() === "neogeo") {
+      try {
+        const biosDir = path.resolve(dataPath("bios"));
+        await ensureDir(biosDir);
+        const biosDest = path.join(biosDir, "neogeo.zip");
+        const romDirBios = path.join(path.dirname(romPath), "neogeo.zip");
+
+        let hasBiosInBiosDir = false;
+        try {
+          await fs.access(biosDest);
+          hasBiosInBiosDir = true;
+        } catch {}
+
+        if (!hasBiosInBiosDir) {
+          try {
+            await fs.access(romDirBios);
+            await fs.copyFile(romDirBios, biosDest);
+            console.log(`[native-runner] Synced neogeo.zip from ROM dir to BIOS dir: ${biosDest}`);
+          } catch {
+            // neogeo.zip not found in ROM dir; runner will search standard libretro bios paths
+          }
+        }
+      } catch (err) {
+        console.warn(`[native-runner] Could not sync neogeo.zip BIOS:`, err);
+      }
     }
 
     // If still an M3U playlist (e.g. multi-disc), sanitize CRLF to LF so cores parse filenames cleanly

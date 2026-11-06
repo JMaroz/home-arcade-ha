@@ -70,3 +70,106 @@ func TestExtractZippedRom(t *testing.T) {
 		t.Errorf("Extracted content mismatch: got %v, want %v", content, expectedData)
 	}
 }
+
+func TestShouldExtractZippedRom(t *testing.T) {
+	tests := []struct {
+		name         string
+		blockExtract bool
+		corePath     string
+		system       string
+		romPath      string
+		validExts    string
+		needFullPath bool
+		wantExtract  bool
+	}{
+		{
+			name:         "N64 console ROM should be extracted",
+			blockExtract: false,
+			corePath:     "/data/cores/parallel_n64_libretro.so",
+			system:       "n64",
+			romPath:      "/media/Roms/n64/mario.zip",
+			validExts:    "z64|n64|v64",
+			needFullPath: false,
+			wantExtract:  true,
+		},
+		{
+			name:         "SNES console ROM should be extracted",
+			blockExtract: false,
+			corePath:     "/data/cores/snes9x_libretro.so",
+			system:       "snes",
+			romPath:      "/media/Roms/snes/smw.zip",
+			validExts:    "smc|sfc|swc|fig",
+			needFullPath: false,
+			wantExtract:  true,
+		},
+		{
+			name:         "GBA console ROM should be extracted",
+			blockExtract: false,
+			corePath:     "/data/cores/mgba_libretro.so",
+			system:       "gba",
+			romPath:      "/media/Roms/gba/pokemon.zip",
+			validExts:    "gba",
+			needFullPath: false,
+			wantExtract:  true,
+		},
+		{
+			name:         "Neo Geo ROM with FBNeo must NOT be extracted",
+			blockExtract: true,
+			corePath:     "/data/cores/fbneo_libretro.so",
+			system:       "neogeo",
+			romPath:      "/media/Roms/neogeo/mslug.zip",
+			validExts:    "zip|7z",
+			needFullPath: true,
+			wantExtract:  false,
+		},
+		{
+			name:         "Arcade ROM with FBNeo must NOT be extracted even if block_extract was false",
+			blockExtract: false,
+			corePath:     "/data/cores/fbneo_libretro.so",
+			system:       "arcade",
+			romPath:      "/media/Roms/arcade/aerofgt.zip",
+			validExts:    "zip|7z",
+			needFullPath: true,
+			wantExtract:  false,
+		},
+		{
+			name:         "MAME core must NOT extract zip files",
+			blockExtract: false,
+			corePath:     "/data/cores/mame2003_plus_libretro.so",
+			system:       "mame",
+			romPath:      "/media/Roms/mame/pacman.zip",
+			validExts:    "zip|7z",
+			needFullPath: true,
+			wantExtract:  false,
+		},
+		{
+			name:         "Core with block_extract flag true must NOT extract",
+			blockExtract: true,
+			corePath:     "/data/cores/custom_core_libretro.so",
+			system:       "generic",
+			romPath:      "/media/Roms/custom/game.zip",
+			validExts:    "bin",
+			needFullPath: false,
+			wantExtract:  false,
+		},
+		{
+			name:         "Core declaring zip in valid_extensions and need_fullpath must NOT extract",
+			blockExtract: false,
+			corePath:     "/data/cores/some_archive_core_libretro.so",
+			system:       "other",
+			romPath:      "/media/Roms/other/archive.zip",
+			validExts:    "zip|7z",
+			needFullPath: true,
+			wantExtract:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ShouldExtractZippedRom(tt.blockExtract, tt.corePath, tt.system, tt.romPath, tt.validExts, tt.needFullPath)
+			if got != tt.wantExtract {
+				t.Errorf("ShouldExtractZippedRom() = %v, want %v", got, tt.wantExtract)
+			}
+		})
+	}
+}

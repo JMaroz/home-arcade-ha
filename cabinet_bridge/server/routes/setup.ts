@@ -95,6 +95,23 @@ export async function checkSetupStatus() {
             }
           } catch {}
         }
+        // Fallback check for arcade if mame2003_plus is missing but fbneo is installed
+        if (c.system === "arcade" && c.id === "mame2003_plus") {
+          const altPath = path.join(CORES_DIR, "fbneo_libretro.so");
+          try {
+            const stat = await fs.stat(altPath);
+            if (stat.isFile() && stat.size > 0) {
+              return {
+                id: c.id,
+                name: "fbneo_libretro.so",
+                label: c.label,
+                system: c.system,
+                installed: true,
+                size: stat.size,
+              };
+            }
+          } catch {}
+        }
         return {
           id: c.id,
           name: c.name,

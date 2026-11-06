@@ -631,7 +631,7 @@ func runMediaStreamLoop() {
 	ticker := time.NewTicker(time.Second / time.Duration(fps))
 	defer ticker.Stop()
 
-	emuSession := emulator.CreateActiveSession(config.Width, config.Height, fps, 44100, config.RomPath, config.CorePath)
+	emuSession := emulator.CreateActiveSession(config.Width, config.Height, fps, 44100, config.RomPath, config.CorePath, config.System)
 	emuSessionMu.Lock()
 	activeEmuSession = emuSession
 	emuSessionMu.Unlock()

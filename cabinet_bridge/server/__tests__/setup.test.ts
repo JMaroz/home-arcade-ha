@@ -122,6 +122,7 @@ describe("Stream Player Page & Ingress Handling", () => {
       system: "n64",
       profileId: 1,
       ingressBase: "/api/hassio_ingress/token123",
+      wasmMode: "fallback",
     });
 
     expect(html).toContain("Super Mario 64");
@@ -139,6 +140,7 @@ describe("Stream Player Page & Ingress Handling", () => {
       returnTo: "/",
       romId: 10,
       system: "genesis",
+      wasmMode: "fallback",
     });
 
     expect(html).toContain("Sonic the Hedgehog");

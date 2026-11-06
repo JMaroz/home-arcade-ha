@@ -43,4 +43,5 @@ type EmulatorSession interface {
 	Unserialize(data []byte) error
 	Close() error
 	GetGeometry() RetroGeometry
+	SetSystem(system string)
 }

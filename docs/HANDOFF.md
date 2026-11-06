@@ -1,27 +1,30 @@
-# Handoff Sessione — 2026-10-29
+# Handoff Sessione — 2026-11-06
 
 ## Stato Corrente
-- Risolto alla radice il problema del mancato avvio dei giochi e completata la disattivazione di EmulatorJS in favore dello Streaming Nativo WebRTC (Go + Libretro cgo a 60 FPS):
-  - **Streaming Nativo WebRTC Predefinito:** `wasmMode` impostato di default su `"disabled"` nello schema Zod (`shared/schema.ts`), in `integration.tsx` e nel dialog di lancio (`GameDetailDialog.tsx`).
-  - **Disattivazione Completa EmulatorJS:** Reindirizzamento trasparente HTTP 302 in `/api/roms/:id/player` verso `/api/roms/:id/stream-player` quando `wasmMode === "disabled"`, eliminando l'uso di EmulatorJS.
-  - **Fix Root-Cause 403 Forbidden su Drive Esterni:** Inclusa `settings.defaultRomDirectory` nella lista `safeRoots` di `server/routes/roms.ts:970`, consentendo l'accesso legittimo alle ROM situate su drive USB (`/media/...`) o cartelle Samba.
-  - **Hardening Stream Player & Rimozione Watchdog Prematuro:** Eliminato il timer da 4.0 secondi che uccideva la sessione e tentava il fallback forzato; sostituito con tolleranza estesa a 15 secondi non distruttiva e soppressione di tutti i banner/link a EmulatorJS quando disattivato.
-  - **UX Impostazioni Aggiornata:** `DisplaySettings.tsx` riflette chiaramente lo Streaming Nativo come opzione primaria consigliata a 60 FPS con EmulatorJS disattivato.
+- Risolto alla radice l'errore `FBNeo Error: Romset is unknown` per Arcade e Neo Geo nel Native Runner WebRTC:
+  - **Preservazione ZIP per Core Arcade & Neo Geo:** In `cgo_session.go`, introdotta la funzione `ShouldExtractZippedRom` che rispetta `sysInfo.block_extract`, le estensioni dichiarate dal core e il tipo di sistema (`arcade`, `neogeo`, `mame`). Gli archivi `.zip` non vengono più estratti a singoli chip in `/tmp`, passando l'archivio intatto al core per il corretto lookup del driver hardware.
+  - **Isolamento Console Tradizionali:** I giochi per console domestiche/portatili (NES, SNES, N64, GBA, ecc.) continuano a essere estratti in `/tmp` come in precedenza se il core non accetta direttamente `.zip`.
+  - **Sincronizzazione BIOS Neo Geo:** In `runner-manager.ts`, se il gioco è Neo Geo e `neogeo.zip` è presente nella cartella della ROM (es. su chiavetta USB), viene sincronizzato automaticamente in `/data/bios/neogeo.zip` prima del boot. `neogeo.zip` aggiunto anche a `REQUIRED_BIOS`.
+  - **Supporto MAME 2003-Plus:** Aggiunto `mame2003_plus_libretro.so` a `ESSENTIAL_NATIVE_CORES` e scaricabile da `setup.ts`, con priorità o fallback per il romset `Arcade - Mame 2003 Plus` scaricato da Internet Archive.
 
 ## File Rilevanti
-- `cabinet_bridge/shared/schema.ts` & `shared/__tests__/schema.test.ts`: Default `wasmMode: "disabled"`.
-- `cabinet_bridge/client/src/lib/integration.tsx` & `GameDetailDialog.tsx`: Default lancio su Streaming Nativo (`fallback=0`).
-- `cabinet_bridge/client/src/pages/settings/DisplaySettings.tsx`: Opzioni interfaccia con Streaming Nativo primario e disattivazione EmulatorJS.
-- `cabinet_bridge/server/routes/roms.ts`: Aggiunta `defaultRomDirectory` a `safeRoots` (fix 403) e redirect 302 a `stream-player`.
-- `cabinet_bridge/server/routes/streamPlayer.ts`: Default `wasmMode: "disabled"`, rimozione banner e watchdog 15s non distruttivo.
-- `cabinet_bridge/server/__tests__/core-health.test.ts` & `stream.test.ts`: Test allineati alle nuove opzioni di fallback.
-- `docs/plans/2026-10-29_fix_stream_player_and_deactivate_emulatorjs.md`: Piano operativo completato.
+- `cabinet_bridge/server/native-runner/pkg/emulator/cgo_session.go`: Controllo `block_extract`, valid extensions e sistema; bypass di `extractZippedRom` per archivi arcade/neogeo.
+- `cabinet_bridge/server/native-runner/pkg/emulator/types.go` & `session.go`: Aggiunto `SetSystem` all'interfaccia `EmulatorSession` e propagazione del sistema in sessione.
+- `cabinet_bridge/server/native-runner/main.go`: Propagazione del flag `--system` alla creazione della sessione emulatore.
+- `cabinet_bridge/server/native-runner/pkg/emulator/zip_test.go`: Suite di unit test table-driven per `ShouldExtractZippedRom` (console vs arcade).
+- `cabinet_bridge/server/stream/runner-manager.ts`: Priorità core `mame2003_plus`/`fbneo` per `arcade` e auto-sync di `neogeo.zip` verso la directory BIOS.
+- `cabinet_bridge/shared/core-metadata.ts`: Registrazione `mame2003_plus` nei core nativi essenziali.
+- `cabinet_bridge/shared/bios-metadata.ts`: Registrazione `neogeo.zip` in `REQUIRED_BIOS` e tier performance per `mame2003_plus`.
+- `cabinet_bridge/server/routes/setup.ts`: Supporto download e verifica di `mame2003_plus_libretro.so`.
+- `cabinet_bridge/server/__tests__/setup.test.ts`: Allineamento test fixture player con `wasmMode: "fallback"`.
+- `docs/plans/2026-11-06_fix_arcade_neogeo_romset_and_unzip.md`: Piano di lavoro completato e verificato.
 
 ## Prossimi Passi (Next Steps)
-- Eseguire commit atomico e push: `fix(stream): prioritize native runner, fix 403 on external drives and deactivate emulatorjs`.
-- Verificare sul campo l'avvio immediato dei titoli PS1 e GBA su Raspberry Pi.
+- Eseguire commit atomico: `fix(arcade): prevent zip extraction for arcade/neogeo and sync neogeo bios`.
+- Eseguire test congiunto su Home Assistant avviando sia Metal Slug (Neo Geo) che un titolo Arcade (MAME 2003-Plus).
 
 ## Comandi Utili
-- Type-check TypeScript: `cd cabinet_bridge && pnpm check`
-- Unit test mirati: `cd cabinet_bridge && npx vitest run shared/__tests__/schema.test.ts server/__tests__/core-health.test.ts`
-- Build produzione: `cd cabinet_bridge && pnpm build`
+- Test Unitari Go Native Runner: `cd cabinet_bridge/server/native-runner && go test -v ./pkg/emulator/...`
+- Typecheck TypeScript: `cd cabinet_bridge && ./node_modules/.bin/tsc --noEmit`
+- Unit Test Vitest Mirati: `cd cabinet_bridge && ./node_modules/.bin/vitest run server/__tests__/core-health.test.ts server/__tests__/setup.test.ts`
+- Build Produzione: `cd cabinet_bridge && ./node_modules/.bin/tsx script/build.ts`

@@ -50,6 +50,7 @@ type CgoLibretroSession struct {
 	dlib          *dynamicLib
 	romPath       string
 	corePath      string
+	system        string
 	isRunning     bool
 	geometry      RetroGeometry
 	frameBuffer   []byte
@@ -87,6 +88,59 @@ func NewCgoLibretroSession(width, height, fps, sampleRate int) EmulatorSession {
 		frameBuffer: make([]byte, width*height*4),
 		audioBuffer: make([]int16, 0, (sampleRate/fps)*4),
 	}
+}
+
+func (s *CgoLibretroSession) SetSystem(system string) {
+	s.system = system
+}
+
+// CoreAcceptsZipExtension reports whether validExts contains zip or 7z.
+func CoreAcceptsZipExtension(validExts string) bool {
+	if validExts == "" {
+		return false
+	}
+	for _, ext := range strings.Split(validExts, "|") {
+		ext = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(ext), "."))
+		if ext == "zip" || ext == "7z" {
+			return true
+		}
+	}
+	return false
+}
+
+// IsArcadeOrArchiveCore reports whether system, corePath or romPath indicates an arcade/neo-geo title
+// where games are packaged as multiple ROM chips inside an intact archive container.
+func IsArcadeOrArchiveCore(corePath, system, romPath string) bool {
+	sys := strings.ToLower(strings.TrimSpace(system))
+	if sys == "arcade" || sys == "neogeo" || sys == "mame" || sys == "fba" || sys == "fbneo" || strings.HasPrefix(sys, "cps") {
+		return true
+	}
+	cLower := strings.ToLower(filepath.Base(corePath))
+	if strings.Contains(cLower, "fbneo") || strings.Contains(cLower, "mame") || strings.Contains(cLower, "fba") {
+		return true
+	}
+	rLower := strings.ToLower(filepath.ToSlash(romPath))
+	if strings.Contains(rLower, "/arcade/") || strings.Contains(rLower, "/neogeo/") || strings.Contains(rLower, "/mame/") {
+		return true
+	}
+	return false
+}
+
+// ShouldExtractZippedRom determines whether a .zip archive should be uncompressed into a temporary directory
+// or kept intact and passed directly to the Libretro core.
+// Cores declaring block_extract, arcade cores, or cores with native zip/7z extensions requiring fullpath
+// must NEVER be extracted.
+func ShouldExtractZippedRom(blockExtract bool, corePath, system, romPath, validExts string, needFullPath bool) bool {
+	if blockExtract {
+		return false
+	}
+	if IsArcadeOrArchiveCore(corePath, system, romPath) {
+		return false
+	}
+	if needFullPath && CoreAcceptsZipExtension(validExts) {
+		return false
+	}
+	return true
 }
 
 // extractZippedRom extracts a .zip archive into a temporary directory and identifies the primary ROM file.
@@ -417,18 +471,22 @@ func (s *CgoLibretroSession) Load(romPath, corePath string) error {
 
 	// Query system info
 	var needFullPath bool
+	var blockExtract bool
 	var validExts string
 	if fnGetSysInfo, err := dlib.load("retro_get_system_info"); err == nil {
 		var sysInfo C.struct_retro_system_info
 		C.bridge_retro_get_system_info(fnGetSysInfo, &sysInfo)
 		needFullPath = bool(sysInfo.need_fullpath)
+		blockExtract = bool(sysInfo.block_extract)
 		if sysInfo.valid_extensions != nil {
 			validExts = C.GoString(sysInfo.valid_extensions)
 		}
 	}
 
+	shouldExtractZip := ShouldExtractZippedRom(blockExtract, corePath, s.system, romPath, validExts, needFullPath)
+
 	actualRomPath := romPath
-	if strings.ToLower(filepath.Ext(romPath)) == ".zip" {
+	if shouldExtractZip && strings.ToLower(filepath.Ext(romPath)) == ".zip" {
 		extractedPath, tempDir, err := extractZippedRom(romPath, validExts)
 		if err != nil {
 			return fmt.Errorf("failed to extract zipped ROM '%s': %w", romPath, err)
@@ -437,6 +495,11 @@ func (s *CgoLibretroSession) Load(romPath, corePath string) error {
 		s.cleanup = func() {
 			_ = os.RemoveAll(tempDir)
 		}
+	} else if !shouldExtractZip && strings.ToLower(filepath.Ext(romPath)) == ".zip" {
+		// Cores that do not extract archives (e.g. FBNeo, MAME) require full path loading directly
+		log.Printf("[runner] Arcade/Direct-archive ROM '%s' retained as .zip archive for core '%s' (block_extract: %v)\n",
+			filepath.Base(romPath), filepath.Base(corePath), blockExtract)
+		needFullPath = true
 	}
 
 	if strings.ToLower(filepath.Ext(actualRomPath)) == ".m3u" {
