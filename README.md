@@ -4,177 +4,237 @@
 
 # HomeArcade
 
-> The premium retro gaming frontend for Home Assistant.
+<p align="center">
+  <strong>The Ultimate Cloud & In-Browser Retro Gaming Console for Home Assistant</strong><br />
+  <em>Turn any screen, TV, browser, or DIY arcade cabinet into a high-performance retro gaming center.</em>
+</p>
 
-HomeArcade is a powerful Home Assistant Add-on that turns your sidebar into a full retro gaming hub. Manage ROMs, browse systems with rich metadata, launch games in a high-performance in-browser emulator, and sync with your local PC via RetroBat integration.
+<p align="center">
+  <a href="https://github.com/JMaroz/HomeArcade-HA/releases"><img src="https://img.shields.io/badge/version-2.66.5-6366f1?style=for-the-badge&logo=github" alt="Version 2.66.5" /></a>
+  <a href="https://www.home-assistant.io"><img src="https://img.shields.io/badge/Home%20Assistant-Add--on-41bdf5?style=for-the-badge&logo=home-assistant&logoColor=white" alt="Home Assistant Add-on" /></a>
+  <img src="https://img.shields.io/badge/Architecture-amd64%20%7C%20aarch64-f59e0b?style=for-the-badge&logo=docker&logoColor=white" alt="Architectures amd64 and aarch64" />
+  <img src="https://img.shields.io/badge/Engine-Native%20WebRTC%20%2B%20WASM-ef4444?style=for-the-badge&logo=webrtc&logoColor=white" alt="Native WebRTC and WASM" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge" alt="MIT License" /></a>
+</p>
 
-**Current version: 2.51.0** · [Report a bug](https://github.com/JMaroz/HomeArcade-HA/issues/new) · [View source](https://github.com/JMaroz/HomeArcade-HA)
-
-[![Venmo](https://img.shields.io/badge/Venmo-@vincusmalincus-3D95CE?style=for-the-badge&logo=venmo&logoColor=white)](https://venmo.com/vincusmalincus)
-
-![HomeArcade library view showing Browse Systems, Favorites shelf, and the HA sidebar panel](docs/screenshots/homearcade-library.png)
-
----
-
-## Quick start
-
-**1. Add the repository**
-
- In Home Assistant: **Settings → Apps → Add-ons → ⋮ → Repositories**, paste:
- ```
- https://github.com/JMaroz/HomeArcade-HA
- ```
-
-**2. Install and start**
-
- Find **HomeArcade** in the store, click **Install**, wait for the build to finish (2–5 minutes), then click **Start**. Enable **Show in sidebar**.
-
-**3. Upload a ROM and play**
-
- Open HomeArcade from the sidebar, click a system (e.g. NES), drop a ROM file onto the upload zone, then click the game card → **Play**.
-
- That's it. No port forwarding, no reverse proxy, no extra software.
+<p align="center">
+  <a href="https://my.home-assistant.io/redirect/supervisor_add_repo/?repository_url=https%3A%2F%2Fgithub.com%2FJMaroz%2FHomeArcade-HA" target="_blank">
+    <img src="https://my.home-assistant.io/badges/supervisor_add_repo.svg" alt="Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled." />
+  </a>
+</p>
 
 ---
 
-## Remote Access & Playing with Friends
+## 🌟 Why HomeArcade?
 
-HomeArcade is a self-hosted retro game server. You can host your games and allow friends to play them with you from anywhere in the world.
+**HomeArcade** is not just another ROM launcher—it is an all-in-one retro gaming ecosystem engineered specifically for **Home Assistant**. It combines the nostalgia of classic consoles with the modern superpower of your smart home.
 
-### How to host for friends:
-1. **Enable External Access:** Your Home Assistant instance must be accessible from the internet. The easiest way is using [Home Assistant Cloud (Nabu Casa)](https://www.nabucasa.com/), but you can also use a Cloudflare Tunnel or a Reverse Proxy.
-2. **Create User Accounts:** Create a separate user account in Home Assistant for each friend you want to invite.
-3. **Share the Link:** Send your friends your Home Assistant URL. Once they log in, they can open HomeArcade from the sidebar.
+Play instantly with zero client installation, sync live game telemetry to Home Assistant to trigger immersive room lighting, challenge friends across the world with peer-to-peer Netplay, or build the DIY arcade cabinet of your dreams with full gamepad-driven navigation and Kiosk mode.
 
-### Multiplayer (Netplay):
-You can play multiplayer games together in real-time using the **Netplay Lobby**:
-* **Host a Room:** Open a game, tap the **Wifi** icon in the details dialog, and click **Host a room**. You'll get a 6-character code.
-* **Join a Room:** Your friend goes to the same game, taps the **Wifi** icon, and enters your code (or clicks your room in the **Lobby Browser**).
-* **Sync:** HomeArcade will automatically synchronize your game states. Both players will see the same screen and play together!
-
-*Note: For the best experience, ensure both players have identical ROM versions (e.g. both using the "USA" version).*
+```
+       ┌────────────────────────────────────────────────────────┐
+       │             🏠 HOME ASSISTANT ECOSYSTEM                │
+       └───────────────────────────┬────────────────────────────┘
+                                   │
+              ┌────────────────────┴───────────────────┐
+              ▼                                        ▼
+   ⚡ Dual-Engine Emulation                🏠 Smart Home Synergy
+   ├─ Native Go/CGO Libretro (WebRTC 60FPS)├─ Live Entities & Telemetry
+   └─ Universal WebAssembly Fallback       └─ Lovelace Dashboard Card
+              │                                        │
+              ▼                                        ▼
+   🎮 10-Foot Arcade & Couch UI            📦 Intelligent ROM Vault
+   ├─ Full Gamepad / Stick Navigation      ├─ In-App Internet Archive Downloader
+   ├─ Instant Warp Link (QR Handoff)       ├─ Auto-Detection & M3U Multi-Disc
+   └─ Netplay 6-Char P2P Lobbies           └─ Cloud Save Sync (GDrive/OneDrive/WebDAV)
+```
 
 ---
 
-## Supported systems
+## ✨ Features You'll Love
 
-Systems are listed in release-date order.
+### ⚡ Dual-Engine Streaming: Native WebRTC + WASM Fallback
+- **Host-Accelerated Native Runner**: Runs official Libretro cores directly on your server host via Go & CGO, streaming crisp 60 FPS video and low-latency audio via **WebRTC**. Experience demanding systems (PS1, N64, Dreamcast, PS2, PSP, Arcade) without taxing your client device.
+- **Universal WebAssembly Fallback**: Integrated client-side WASM engine (EmulatorJS) ensures you can play anywhere, on any browser, behind any proxy—even on zero-privilege restricted corporate networks.
 
-| System | Core | Accepted formats |
+### 🏠 Deep Smart Home Automation
+- **Native Home Assistant Sensors**: Automatically exposes `sensor.homearcade_game`, `sensor.homearcade_system`, `sensor.homearcade_player`, and `binary_sensor.homearcade_active` directly in your entity registry.
+- **Dynamic Automations**: Dim the living room lights when a game starts, turn on marquee LED backlights matching console colors, pause background music, or broadcast achievements via TTS speakers!
+- **Lovelace Custom Card**: Drop the included `homearcade-card.js` onto any Home Assistant dashboard to display what's currently playing and browse your recently played shelf.
+
+### 🎮 Built for Cabinets, TVs, and Living Rooms (10-Foot UI)
+- **Full Gamepad Navigation**: Navigate your entire game collection, menus, and dialogs using your controller's D-pad or analog stick (`useGridNav`). No mouse or keyboard required.
+- **Interactive Button Remapping**: Visually configure button mappings for retro pads, arcade encoders, and modern gamepads with live visual feedback.
+- **Kiosk Mode**: One-click lockdown mode that hides settings and history—perfect for family gatherings, kids, or public arcade machines.
+- **"Surprise Me" Wheel**: Can't decide what to play? Spin the interactive arcade wheel and let fate choose your next adventure.
+
+### 🌐 Instant Multiplayer Netplay
+- **One-Click Rooms**: Host a multiplayer session and get an instant 6-character room code.
+- **Remote Play with Friends**: Works seamlessly over the internet via Home Assistant Cloud (Nabu Casa) or Cloudflare tunnels—no complicated router port forwarding needed.
+
+### 📱 Seamless Mobile Handoff (Warp Link)
+- **QR Code Game Handoff**: Playing on the big screen and need to leave the couch? Scan the **Warp Link QR code** with your phone or tablet to resume your session instantly in the palm of your hand, complete with a haptic on-screen touch controller.
+
+### 📦 Automated ROM Vault & Library Curation
+- **Built-in Internet Archive Downloader**: Browse, search, and download games straight into your storage directories directly from the UI.
+- **Binary Header Inspection**: Automatically identifies the correct console and system from file magic bytes—no strict folder hierarchies or filename renames needed.
+- **Multi-Disc M3U Synthesis**: Automatically identifies multi-disc games (e.g. *Final Fantasy VII*, *Metal Gear Solid*), generates virtual M3U playlists, and enables on-the-fly virtual disc swapping.
+- **Zero-Auth Box Art Scraper**: Instantly pulls high-res covers from the Libretro CDN and SteamGridDB without requiring paid API accounts.
+- **Multi-Cloud Save Sync**: Backup and sync your save states and memory cards with Google Drive, Microsoft OneDrive, or any WebDAV provider.
+- **Storage Health & Mover**: Monitor disk health, detect duplicate ROMs, clean up dead files, and relocate your entire library between drives in one click.
+
+### 🏆 RetroAchievements & HowLongToBeat
+- **RetroAchievements Integration**: Log in with your RetroAchievements credentials to earn trophies and track hardcore badges in real-time.
+- **HLTB Estimates**: See HowLongToBeat completion times right on each game card before diving into a 60-hour RPG.
+
+---
+
+## 🕹️ Supported Systems (24+ Consoles & Arcades)
+
+HomeArcade supports over two dozen legendary systems, powered by industry-standard Libretro cores:
+
+| Category | Systems & Consoles | Cores | Supported Formats |
+|---|---|---|---|
+| **Arcade & Neo Geo** | Arcade (MAME), Neo Geo AES/MVS | `mame2003_plus`, `fbneo` | `.zip` |
+| **8-Bit Era** | NES / Famicom, Sega Master System, Atari 2600, Atari 7800 | `fceumm`, `smsgg`, `stella2014`, `prosystem` | `.nes`, `.sms`, `.a26`, `.a78`, `.bin`, `.zip` |
+| **16-Bit Era** | SNES / Super Famicom, Sega Genesis / Mega Drive, TurboGrafx-16 / PC Engine | `snes9x`, `genesis_plus_gx`, `pce` | `.smc`, `.sfc`, `.md`, `.smd`, `.pce`, `.bin`, `.zip` |
+| **CD & Add-on Era** | Sega CD, Sega 32X, Atari Lynx | `genesis_plus_gx`, `picodrive`, `mednafen_lynx` | `.cue+.bin`, `.chd`, `.iso`, `.32x`, `.lnx`, `.zip` |
+| **32-Bit / 64-Bit** | PlayStation (PS1), Nintendo 64, Sega Saturn, Virtual Boy | `pcsx_rearmed`, `mupen64plus_next`, `yabause`, `beetle_vb` | `.chd`, `.pbp`, `.cue`, `.iso`, `.n64`, `.z64`, `.v64`, `.zip` |
+| **6th Gen & Handhelds** | PlayStation 2 (PS2), Dreamcast, PSP, Nintendo DS, GBA, GBC, GB, Game Gear | `pcsx2`, `reicast`, `ppsspp`, `melonds`, `mgba`, `gambatte`, `smsgg` | `.iso`, `.cso`, `.chd`, `.gdi`, `.cdi`, `.nds`, `.gba`, `.gbc`, `.gb`, `.gg`, `.zip` |
+
+---
+
+## 🚀 Quick Start Guide
+
+### 1. Add Repository
+Click the **My Home Assistant** button below to add this repository directly to your Home Assistant instance:
+
+[![Add Repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_repo.svg)](https://my.home-assistant.io/redirect/supervisor_add_repo/?repository_url=https%3A%2F%2Fgithub.com%2FJMaroz%2FHomeArcade-HA)
+
+*Or manually in Home Assistant:*
+1. Navigate to **Settings → Apps → Add-ons → Add-on Store**.
+2. Click the three-dots menu (**⋮**) in the top right corner → **Repositories**.
+3. Add: `https://github.com/JMaroz/HomeArcade-HA`
+
+### 2. Install & Start
+1. Search for **HomeArcade** in the store.
+2. Click **Install** (compilation/download takes ~2–4 minutes).
+3. Toggle **Show in sidebar**, then click **Start**.
+
+### 3. Add ROMs & Play
+1. Open **HomeArcade** from your Home Assistant sidebar.
+2. Drop ROMs directly into the upload area or browse the built-in **Internet Archive** downloader.
+3. Plug in any USB or Bluetooth gamepad, click on a game card, and hit **Play**!
+
+---
+
+## 💡 Smart Home Integration
+
+HomeArcade automatically synchronizes with Home Assistant using the Supervisor API.
+
+### Published Entities
+| Entity ID | Type | Description |
 |---|---|---|
-| Arcade (MAME) | mame2003 | `.zip` |
-| Atari 2600 | stella2014 | `.a26` `.bin` `.zip` |
-| NES | fceumm | `.nes` `.zip` |
-| Atari 7800 | prosystem | `.a78` `.bin` `.zip` |
-| Sega Master System | smsgg | `.sms` `.zip` |
-| TurboGrafx-16 / PC Engine | pce | `.pce` `.zip` |
-| Genesis / Mega Drive | genesis_plus_gx | `.md` `.bin` `.smd` `.zip` |
-| Game Boy | gambatte | `.gb` `.zip` |
-| Atari Lynx | mednafen_lynx | `.lnx` `.zip` |
-| Game Gear | smsgg | `.gg` `.zip` |
-| Neo Geo | fbneo | `.zip` |
-| SNES | snes9x | `.smc` `.sfc` `.zip` |
-| Sega CD | segaCD | `.cue+.bin` `.iso` `.chd` `.zip` |
-| Sega 32X | picodrive | `.32x` `.bin` `.zip` |
-| Saturn | yabause | `.iso` `.bin` `.zip` |
-| PlayStation 1 | pcsx_rearmed | `.cue+.bin` `.iso` `.pbp` `.chd` `.zip` |
-| Virtual Boy | beetle_vb | `.vb` `.zip` |
-| Nintendo 64 | mupen64plus_next | `.n64` `.z64` `.v64` `.zip` |
-| Game Boy Color | gambatte | `.gbc` `.zip` |
-| Dreamcast | reicast | `.cdi` `.gdi` `.chd` `.zip` |
-| PlayStation 2 | pcsx2 | `.iso` `.bin` `.zip` |
-| Game Boy Advance | mgba | `.gba` `.zip` |
-| Nintendo DS | melonds | `.nds` `.zip` |
-| PSP | ppsspp | `.iso` `.cso` `.pbp` `.zip` |
+| `sensor.homearcade_game` | Sensor | Title of the currently running game (`idle` when none) |
+| `sensor.homearcade_system` | Sensor | Active system identifier (e.g. `snes`, `ps1`, `arcade`) |
+| `sensor.homearcade_player` | Sensor | Active player profile name |
+| `sensor.homearcade_session_start` | Sensor | ISO timestamp when the current session began |
+| `sensor.homearcade_play_count` | Sensor | Total play count for the active title |
+| `binary_sensor.homearcade_active` | Binary Sensor | `on` while any game session is actively running |
+
+### Example Automation: Cinematic Gaming Lights
+Drop this YAML into your Home Assistant automations (`automations.yaml`):
+
+```yaml
+alias: "HomeArcade: Game Mode Ambiance"
+description: "Dim lights and set arcade colors when a game begins"
+trigger:
+  - platform: state
+    entity_id: binary_sensor.homearcade_active
+    to: "on"
+action:
+  - action: light.turn_on
+    target:
+      entity_id: light.living_room_lights
+    data:
+      brightness_pct: 20
+      rgb_color: [255, 0, 128] # Synthwave neon pink
+```
 
 ---
 
-## Changelog
+## 🛠️ Architecture & Tech Stack
 
-### v2.48.0
-- **Move All ROMs** — Bulk relocate all ROMs to a user-selected directory, organized by system subfolder. M3U playlists and disc-group siblings are handled automatically. Button in Library Health → Maintenance Tools.
+HomeArcade is built by engineers who care about speed, modularity, and low-latency interaction:
 
-### v2.47.0
-- **Upload Destination Picker** — Choose custom directories for uploaded ROMs. Scanner watch paths shown as suggested roots.
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                          CLIENT (BROWSER / TV)                         │
+│  React 19.3 • Tailwind CSS v4.3 • Vite 8.3 • TanStack Query • Wouter   │
+│  Framer Motion • Radix UI • WebRTC MediaStream & DataChannel Client    │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ WebRTC / REST / WebSocket
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                    NODE.JS SERVICE (EXPRESS 5)                         │
+│  better-sqlite3 • Drizzle ORM • HA Supervisor Ingress & Telemetry      │
+│  ROM Header Classifier • Internet Archive Engine • Cloud Sync Hub      │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ IPC / Signaling
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                NATIVE RUNNER DAEMON (GO + CGO)                         │
+│  Pion WebRTC • Libretro Native Cores (.so) • AV Encoder Pipeline       │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
-### v2.46.0
-- **Upload System Overhaul** — Auto-detect console system from file content, real-time speed/ETA, per-file status, duplicate dialog, folder upload with CUE/BIN grouping.
-- **Libretro-Only Art Matcher** — Replaced ScreenScraper with zero-auth art matching from Libretro CDN.
-- **BIOS MD5 Fix** — Corrected 5 incorrect checksums that were deleting downloaded BIOS files.
-
-### v2.42.0
-- **Foundation Stabilization** — Finalized the transition to the new repository and solidified the stable engine foundation. 
-- **Production-Ready Verification** — All core systems verified for successful builds and optimized for Home Assistant Ingress compatibility.
-
-### v2.41.3
-- **Definitive Fix: Engine Load Restoration** — Completely resolved the syntax and pathing errors that were causing 404s and crashes.
-- **CDN Engine Fallback** — Implemented high-performance loading directly from the official EmulatorJS CDN. This ensures the player launches successfully even if local server assets are blocked or missing.
-- **Improved Initialization** — Optimized the boot sequence to wait for full page readiness before mounting the WASM engine, resolving the "appendChild" crash on mobile.
-
-### v2.41.0
-- **Stable Engine Restoration** — Performed a controlled rollback from the Pure Libretro engine back to the highly-compatible EmulatorJS foundation. This resolves the persistent 404 errors caused by Home Assistant proxy limitations while maintaining 100% of the premium Lemuroid UI upgrades.
-- **Unified Lemuroid UI** — The High-Gloss SNES controller, centered Action Tile menu, and "Pick Up and Play" Auto-Resume logic have all been successfully preserved and re-integrated with the stable engine.
-- **Client-Side Asset Resolution** — Implemented definitive dynamic `<base>` tag injection to guarantee that all emulator assets (WASM cores, CSS, scripts) load perfectly regardless of the user's network or Ingress setup.
-
-### v2.40.0
-- **Pure Libretro Foundation Finalized** — Resolved the conflicting security headers that were preventing the RetroArch Web engine from initializing. This ensures that `SharedArrayBuffer` and multi-threaded cores work reliably across all platforms.
-- **Definitive CDN Integration** — Migrated the engine assets to the official Libretro Buildbot CDN, ensuring a high-performance and stable source for all player components.
-- **Resilient Path Detection** — Refined the Ingress base path logic to be more defensive against proxy interference, guaranteeing that assets like system logos and game art load perfectly.
-
-### v2.39.3
-- **CDN-First RetroArch Restoration** — Switched the player engine to load directly from the official Libretro CDN. This bypasses all local pathing and 404 issues, ensuring a 100% successful boot regardless of environment.
-- **Strict Asset Routing** — Updated the server to explicitly prevent SPA fallbacks for static asset extensions (`.js`, `.wasm`, etc.). This eliminates the `Unexpected token '<'` error caused by missing files being served as HTML.
-- **Enhanced Boot Reliability** — Rebuilt the initialization sequence to force absolute CDN paths for all WebAssembly and data dependencies.
-
-### v2.39.2
-- **Changelog Synchronization** — Updated the official Home Assistant add-on changelog (`CHANGELOG.md`) to include all recent development history. This ensures that users can see the full list of improvements, including the RetroArch migration and performance optimizations, directly within the Home Assistant UI.
-
-### v2.39.1
-- **RetroArch CDN Fallback** — Implemented a fallback mechanism that automatically loads engine assets from the official Libretro CDN if local assets are missing. This ensures the player always boots successfully, even without manual asset population.
-- **Mandatory Cross-Origin Isolation** — Enforced strict `COOP` and `COEP` headers on the server. This is a critical requirement for WebAssembly-based emulators, resolving the MIME type and script execution errors seen in modern browsers.
-- **Improved Engine Boot Sequence** — Refined the `Module` initialization to correctly handle asynchronous WebAssembly loading and virtual filesystem mounting.
-
-### v2.39.0
-- **Pure Libretro Migration** — Transitioned from the EmulatorJS wrapper to the official RetroArch Web (WASM) engine. This provides a professional-grade, highly stable emulation foundation with native support for advanced features like Shaders, Cheats, and Rewind.
-- **Official RetroArch Menu** — Re-enabled the classic RGUI interface, giving users full control over core-specific settings and advanced Libretro features directly within the browser.
-- **Improved Performance** — Ditched the heavy UI layers to prioritize raw WASM execution speed and lower input latency.
+- **Frontend**: React 19.3, Tailwind CSS v4.3 with CSS-first design tokens (`@theme inline`), Vite 8.3, TanStack Query v5, Framer Motion, and accessible Radix UI primitives.
+- **Server**: Express 5 on Node.js 22, `better-sqlite3` embedded relational engine with Drizzle ORM for robust migrations and sub-millisecond queries.
+- **Native WebRTC Runner**: Pure Go runtime utilizing CGO to interface directly with headless Libretro cores, encoding audio and video frames with sub-frame input latency over Pion WebRTC.
+- **HA Ingress Shielding**: Dynamic `<base>` tag injection and reverse proxy path normalization, ensuring seamless operation inside HA sandboxed iframes and remote URLs.
+- **Multi-Arch Docker**: Native OCI containers compiled for `linux/amd64` (Intel/AMD Mini PCs) and `linux/arm64` (Raspberry Pi 4/5, Home Assistant Green/Yellow).
 
 ---
 
-## Troubleshooting & FAQ
+## ❓ FAQ & Troubleshooting
 
-**Box art isn't showing for my games.**
-Open the game's detail card and tap **Refresh Art**, or use **Scrape All ROMs** in Library Settings to batch-update your library. Art is fetched from the Libretro Thumbnail CDN — no account required.
+<details>
+<summary><strong>Do I need to upload BIOS files?</strong></summary>
+Most 8-bit and 16-bit systems (NES, SNES, Genesis, GB) do not require BIOS files. Disc-based systems (PS1, PS2, Sega CD, Saturn) and systems like GBA or Neo Geo run best with their official BIOS. You can upload and verify them in <strong>Settings → Firmware & BIOS</strong> (MD5 checksums are verified automatically).
+</details>
 
-**The emulator shows a blank screen or "Blocked by response" error.**
-This is a browser security header conflict common in some Home Assistant setups. HomeArcade explicitly disables COOP/COEP headers to prevent this. If you still see it, try opening HomeArcade in a standalone browser tab instead of the HA sidebar panel.
+<details>
+<summary><strong>How do I play with friends outside my local network?</strong></summary>
+If you use <a href="https://www.nabucasa.com/">Home Assistant Cloud (Nabu Casa)</a>, Cloudflare Tunnel, or a secure reverse proxy, simply give your friend a Home Assistant user login and your public URL. Once they open HomeArcade, tap the <strong>Netplay icon</strong> on any game, host a room, and share the 6-character room code!
+</details>
 
-**My ROM won't launch — I see a red error message.**
-Check that the HomeArcade add-on is running in Home Assistant. If it restarted recently, wait 10–15 seconds and try again. For PS1/PS2/GBA/SegaCD games, ensure you have uploaded the correct BIOS file in **Settings → Health**.
+<details>
+<summary><strong>How does Kiosk Mode work on an arcade cabinet?</strong></summary>
+Toggle Kiosk Mode in <strong>Settings → Library</strong>. This locks the interface to game browsing and playing, hiding administrative settings, download tools, and history. To exit Kiosk Mode, navigate directly to <code>/#/settings</code> in your browser address bar.
+</details>
 
-**Warp Link QR code fails or says "Warp Failed".**
-Make sure you are logged into Home Assistant in your phone's browser before scanning. The warp link contains your HA session — if you're not logged in, it will return a 401 error. Scan the code from within the HA Companion App for best results.
+<details>
+<summary><strong>Where are ROMs and saves stored?</strong></summary>
+Files are safely stored in your Home Assistant persistent storage directory (<code>/data</code>, mapped to <code>media/</code> or <code>share/</code> depending on configuration). You can also configure external USB drives and network shares using the built-in storage manager.
+</details>
 
-**I uploaded a ROM but it doesn't appear in the library.**
-Try pulling down to refresh the page. If it still doesn't appear, check the add-on logs in Home Assistant for upload errors. Very large files (PS2 ISOs) may take a minute to process.
-
-**How do I enable Kiosk Mode?**
-Kiosk Mode hides the Settings, History, and Achievements navigation links — ideal for a shared TV or arcade cabinet. Enable it in **Settings → Library** by toggling the Kiosk Mode switch. To exit kiosk mode, navigate directly to `/#/settings` in the browser.
-
-**The sidebar doesn't appear on mobile.**
-On mobile, the sidebar is a slide-out panel. Tap the hamburger menu button (☰) at the top of any secondary page (Settings, History, Achievements) to open it.
+<details>
+<summary><strong>How do I report bugs or request features?</strong></summary>
+Please open an issue on our official <a href="https://github.com/JMaroz/HomeArcade-HA/issues">GitHub Issues</a> tracker. Include your hardware platform (RPi 4/5, x86_64), browser, and add-on logs.
+</details>
 
 ---
 
-## Links
+## 🤝 Community & Support
 
-- [Report a bug](https://github.com/JMaroz/HomeArcade-HA)
-- [EmulatorJS](https://emulatorjs.org)
-- [RetroAchievements](https://retroachievements.org)
-- [Libretro Thumbnails](https://thumbnails.libretro.com)
+HomeArcade is free, open-source software built for the retro gaming and Home Assistant communities.
 
-## Support
+- 🐛 **Found a bug?** [Open an issue on GitHub](https://github.com/JMaroz/HomeArcade-HA/issues)
+- 📝 **Full Version History:** See [CHANGELOG.md](CHANGELOG.md) for detailed release logs.
+- ❤️ **Love HomeArcade?** Star the repository on GitHub and share your arcade setups with the community!
 
-If HomeArcade has been useful to you, a small tip is always appreciated but never expected!
+[![Venmo](https://img.shields.io/badge/Support-Venmo-3D95CE?style=for-the-badge&logo=venmo&logoColor=white)](https://venmo.com/vincusmalincus)
 
-[![Venmo](https://img.shields.io/badge/Venmo-@vincusmalincus-3D95CE?style=for-the-badge&logo=venmo&logoColor=white)](https://venmo.com/vincusmalincus)
+---
+
+<p align="center">
+  <sub>Built with ❤️ for retrogaming enthusiasts, smart home builders, and arcade cabinet makers everywhere.</sub>
+</p>
