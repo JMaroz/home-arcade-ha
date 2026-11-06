@@ -2,6 +2,13 @@
 
 All notable changes to HomeArcade are documented here.
 
+## [2.66.5](https://github.com/JMaroz/home-arcade-ha/compare/v2.66.4...v2.66.5) (2026-11-06)
+
+
+### Bug Fixes
+
+* **arcade:** preserve ROM ZIPs for native cores ([0882bf4](https://github.com/JMaroz/home-arcade-ha/commit/0882bf4d10e353870bce0a0c2794e052204aed61))
+
 ## [2.66.4](https://github.com/JMaroz/home-arcade-ha/compare/v2.66.3...v2.66.4) (2026-10-29)
 
 
